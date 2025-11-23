@@ -56,14 +56,26 @@ jobs:
 
       - name: Prepare addon folder
         run: |
+          set +e
+          shopt -s nullglob
           NAME="${{ steps.read_release.outputs.name }}"
           mkdir -p "$NAME"
           for f in *.toc *.lua *.xml *.md; do
-            [ -e "$f" ] && cp "$f" "$NAME"/
+            if [ -e "$f" ]; then
+              cp "$f" "$NAME"/
+            fi
           done
           for d in Libs Wrath Textures Media locales; do
-            [ -d "$d" ] && cp -r "$d" "$NAME"/
+            if [ -d "$d" ]; then
+              cp -r "$d" "$NAME"/
+            fi
           done
+
+      - name: Verify addon folder
+        run: |
+          NAME="${{ steps.read_release.outputs.name }}"
+          echo "Listing $NAME contents:"
+          ls -al "$NAME" || true
 
       - name: Create zip artifact
         run: |
