@@ -50,11 +50,18 @@ jobs:
           VERSION=$(jq -r '.releases[0].version' release.json)
           FILENAME=$(jq -r '.releases[0].filename' release.json)
           NAME=$(jq -r '.releases[0].name' release.json)
-          FILENAME_TITAN=${FILENAME%.zip}-titan.zip
+          FLAVOR=$(jq -r '.releases[0].metadata[0].flavor // ""' release.json)
+          BASENAME=${FILENAME%.zip}
+          if [ -n "$FLAVOR" ]; then
+            FILENAME_FLAVOR="${BASENAME}-${FLAVOR}.zip"
+          else
+            FILENAME_FLAVOR="$FILENAME"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "filename=$FILENAME" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "filename_titan=$FILENAME_TITAN" >> "$GITHUB_OUTPUT"
+          echo "flavor=$FLAVOR" >> "$GITHUB_OUTPUT"
+          echo "filename_flavor=$FILENAME_FLAVOR" >> "$GITHUB_OUTPUT"
 
       - name: Prepare addon folder
         run: |
@@ -81,8 +88,8 @@ jobs:
 
       - name: Create zip artifact
         run: |
-          echo "Packaging ${{ steps.read_release.outputs.filename_titan }}"
-          zip -r "${{ steps.read_release.outputs.filename_titan }}" "${{ steps.read_release.outputs.name }}"
+          echo "Packaging ${{ steps.read_release.outputs.filename_flavor }}"
+          zip -r "${{ steps.read_release.outputs.filename_flavor }}" "${{ steps.read_release.outputs.name }}"
 
       - name: Ensure tag exists
         run: |
@@ -113,7 +120,7 @@ jobs:
         with:
           tag_name: ${{ steps.read_release.outputs.version }}
           name: ${{ steps.read_release.outputs.version }}
-          files: ${{ steps.read_release.outputs.filename_titan }}
+          files: ${{ steps.read_release.outputs.filename_flavor }}
           fail_on_unmatched_files: false
           generate_release_notes: true
           make_latest: true
