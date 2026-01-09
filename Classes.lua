@@ -310,10 +310,10 @@ local HekiliSpecMixin = {
 
                     a.desc = GetSpellDescription( a.id )
 
-                    local texture = a.texture or GetSpellTexture( a.id )
+                    local texture = a.texture or GetSpellTexture( a.id ) or ""
 
                     if self.id > 0 then
-                        class.auraList[ a.key ] = "|T" .. texture .. ":0|t " .. a.name
+                        class.auraList[ a.key ] = "|T" .. ( texture or "" ) .. ":0|t " .. a.name
                     end
 
                     self.auras[ a.name ] = a
@@ -618,8 +618,9 @@ local HekiliSpecMixin = {
                 Hekili.OptionsReady = false
 
                 if not a.unlisted then
-                    class.abilityList[ ability ] = "|T" .. ( a.texture or texture ) .. ":0|t " .. a.link
-                    class.itemList[ a.id ] = "|T" .. a.texture .. ":0|t " .. a.link
+                    local displayLink = a.link or a.name or ability
+                    class.abilityList[ ability ] = "|T" .. ( a.texture or "" ) .. ":0|t " .. displayLink
+                    class.itemList[ a.id ] = "|T" .. ( a.texture or "" ) .. ":0|t " .. displayLink
 
                     class.abilityByName[ a.name ] = a
                 end
@@ -653,7 +654,7 @@ local HekiliSpecMixin = {
 
                             local name = a.name or actionItem:GetItemName()
                             local link = a.link or actionItem:GetItemLink()
-                            local texture = a.texture or actionItem:GetItemIcon()
+                            local texture = a.texture or actionItem:GetItemIcon() or ""
 
                             if name then
                                 if not a.name or a.name == a.key then a.name = name end
@@ -709,8 +710,8 @@ local HekiliSpecMixin = {
                                 end
 
                                 if not a.unlisted then
-                                    class.abilityList[ ability ] = "|T" .. ( a.texture or texture ) .. ":0|t " .. link
-                                    class.itemList[ item ] = "|T" .. a.texture .. ":0|t " .. link
+                                    class.abilityList[ ability ] = "|T" .. ( a.texture or texture or "" ) .. ":0|t " .. link
+                                    class.itemList[ item ] = "|T" .. ( a.texture or "" ) .. ":0|t " .. link
 
                                     class.abilityByName[ a.name ] = a
                                 end
@@ -742,7 +743,7 @@ local HekiliSpecMixin = {
                                                     self.abilities[ name ]  = a
 
                                                     if not class.itemList[ id ] then
-                                                        class.itemList[ id ] = "|T" .. ( a.texture or texture ) .. ":0|t " .. link
+                                                        class.itemList[ id ] = "|T" .. ( a.texture or "" ) .. ":0|t " .. link
                                                         addedToItemList = true
                                                     end
                                                 end
@@ -800,13 +801,13 @@ local HekiliSpecMixin = {
                     a.name = a.name .. " " .. a.suffix
                 end
 
-                local texture = a.texture or GetSpellTexture( a.id )
+                local texture = a.texture or GetSpellTexture( a.id ) or ""
 
                 self.abilities[ a.name ] = self.abilities[ a.name ] or a
                 class.abilities[ a.name ] = class.abilities[ a.name ] or a
 
                 if not a.unlisted then
-                    class.abilityList[ ability ] = a.listName or ( "|T" .. texture .. ":0|t " .. a.name )
+                    class.abilityList[ ability ] = a.listName or ( "|T" .. ( texture or "" ) .. ":0|t " .. a.name )
                     class.abilityByName[ a.name ] = class.abilities[ a.name ] or a
                 end
 
@@ -7160,7 +7161,7 @@ function Hekili:SpecializationChanged()
                     class.abilityList[ k ] = "|T" .. tex .. ":0|t " .. ability.name
                 end
             else
-                class.abilityList[ k ] = "|T" .. ability.texture .. ":0|t " .. ability.name
+                class.abilityList[ k ] = "|T" .. ( ability.texture or "" ) .. ":0|t " .. ability.name
             end
         end
     end

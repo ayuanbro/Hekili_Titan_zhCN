@@ -1,19 +1,35 @@
+## Hunter: Beast Mastery - 兽王猎人优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 杀戮命令 > 奥术射击 > 稳固射击
+
+## 战前准备
 actions.precombat+=/aspect_of_the_dragonhawk
-actions.precombat+=/hunters_mark,if=down
+actions.precombat+=/hunters_mark,if=debuff.hunters_mark.down
+
+## 默认动作
 actions+=/silencing_shot
 actions+=/intimidation,if=debuff.casting.up
-actions+=/hunters_mark,if=down
+actions+=/hunters_mark,if=debuff.hunters_mark.down
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 爆发期
 actions+=/rapid_fire
 actions+=/call_of_the_wild
 actions+=/bestial_wrath
 actions+=/kill_command
 actions+=/potion
 actions+=/use_items
+## 斩杀
 actions+=/kill_shot
+## 毒蛇钉刺维护
 actions+=/serpent_sting,if=debuff.stings.down
+## AOE
 actions+=/explosive_trap,if=target.within10&active_enemies>1
 actions+=/multishot,if=active_enemies>1
 actions+=/volley,if=active_enemies>2
+## 猛禽一击 - 近战范围核心技能
+actions+=/raptor_strike
+## 奥术射击 - 核心技能
 actions+=/arcane_shot
+## 稳固射击填充
 actions+=/steady_shot

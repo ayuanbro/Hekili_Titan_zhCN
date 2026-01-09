@@ -41,7 +41,7 @@ actions+=/chain_lightning,if=buff.maelstrom_weapon.stack=5&active_enemies>1
 actions+=/lightning_bolt,if=buff.maelstrom_weapon.stack=5
 actions+=/fire_nova,if=active_enemies>1
 actions+=/stormstrike
-actions+=/flame_shock,cycle_targets=1,max_cycle_targets=2,if=!ticking&target.time_to_die>=9
+actions+=/flame_shock,cycle_targets=1,max_cycle_targets=2,if=!debuff.flame_shock.ticking&target.time_to_die>=9
 actions+=/earth_shock
 actions+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.down
 actions+=/fire_nova
@@ -55,5 +55,5 @@ actions+=/shamanistic_rage,if=target.within10&mana.pct<settings.shaman_rage_thre
 
 ## 后备技能 - 低等级时使用
 actions+=/earth_shock
-actions+=/lightning_bolt
+actions+=/lightning_bolt,if=buff.maelstrom_weapon.stack=5
 actions+=/auto_attack

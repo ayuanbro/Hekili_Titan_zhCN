@@ -1,3 +1,8 @@
+## Warlock: Demonology - 恶魔术士优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 献祭 > 痛苦 > 灵魂之火(斩杀) > 焚烧(熔火之心) > 暗影箭
+
+## 战前准备
 actions.precombat+=/fel_armor,if=buff.armor.down
 actions.precombat+=/summon_felguard,if=!pet.active
 actions.precombat+=/summon_voidwalker,if=!pet.active
@@ -5,26 +10,46 @@ actions.precombat+=/summon_imp,if=!pet.active
 actions.precombat+=/life_tap,if=glyph.life_tap.enabled&buff.life_tap.down
 actions.precombat+=/potion
 actions.precombat+=/soul_fire,if=talent.improved_shadow_bolt.enabled
+
+## 默认动作
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 恶魔增效 - 维护宠物BUFF
 actions+=/demonic_empowerment
 actions+=/potion
+## 献祭维护
 actions+=/immolate,if=!ticking&target.time_to_die>dot.immolate.duration
+## 诅咒
 actions+=/group_curse,if=debuff.my_curse.down&curse_grouped
 actions+=/solo_curse,if=debuff.my_curse.down
+## 痛苦维护
 actions+=/corruption,if=!ticking&target.time_to_die>dot.corruption.duration
+## 恶魔变形 - 长战斗或斩杀阶段
 actions+=/metamorphosis,if=fight_remains>210|boss&fight_remains<40
 actions+=/use_items
+## 恶魔冲锋
 actions+=/demon_charge,if=buff.metamorphosis.up&target.distance>8
-actions+=/immolation_aura,if=!up
+## 献祭光环
+actions+=/immolation_aura,if=!buff.immolation_aura.up
+## AOE处理
 actions+=/call_action_list,name=aoe,strict=1,if=active_enemies>1
+## 暗影箭 - 维护暗影精通
 actions+=/shadow_bolt,if=talent.improved_shadow_bolt.enabled&debuff.shadow_mastery.remains<cast_time+2
-actions+=/life_tap,if=glyph.life_tap.enabled&buff.life_tap.down
+## 生命分流 - 法力不足或维护雕文BUFF
+actions+=/life_tap,if=mana.pct<50|glyph.life_tap.enabled&buff.life_tap.remains<5
+## 恶魔变形
 actions+=/metamorphosis
+## 灵魂之火 - 斩杀触发
 actions+=/soul_fire,if=buff.decimation.up&target.time_to_die>cast_time
+## 焚烧 - 熔火之心触发
 actions+=/incinerate,if=buff.molten_core.up
+## 暗影箭填充
 actions+=/shadow_bolt
+
+## AOE 循环
+actions.aoe+=/life_tap,if=mana.pct<30|glyph.life_tap.enabled&buff.life_tap.remains<5
 actions.aoe+=/metamorphosis,if=active_enemies>3
-actions.aoe+=/immolation_aura,if=!up
+actions.aoe+=/immolation_aura,if=!buff.immolation_aura.up
 actions.aoe+=/shadowflame,if=active_enemies>3
 actions.aoe+=/seed_of_corruption,if=active_enemies>3
 actions.aoe+=/corruption,cycle_targets=1,if=!ticking&active_enemies<4

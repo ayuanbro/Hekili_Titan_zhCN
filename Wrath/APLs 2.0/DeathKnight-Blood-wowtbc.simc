@@ -1,10 +1,22 @@
-﻿actions.precombat+=/frost_presence,if=change_presence
+## Death Knight: Blood Tank - 血DK坦克优化版
+## 泰坦时空特别版 - 智能符文优化系统 20251227
+## 核心循环: 冰触 > 死亡打击 > 心脏打击 > 符文打击
+## 智能优化: 符文浪费检测 + 符能溢出保护
+
+## ==================== 战前准备 ====================
+actions.precombat+=/frost_presence,if=change_presence
 actions.precombat+=/death_and_decay,precombat_seconds=10
 actions.precombat+=/army_of_the_dead,precombat_seconds=6
 actions.precombat+=/horn_of_winter
 actions.precombat+=/indestructible_potion
+
+## ==================== 主循环 ====================
 actions+=/best_healing_potion,if=health.pct<35
-actions+=/rune_strike,if=runic_power.deficit<20
+
+## 符能溢出保护
+actions+=/rune_strike,if=runic_power_overflow
+
+## ==================== 开怪序列 ====================
 actions+=/icy_touch,if=use_count=0
 actions+=/icy_touch,if=use_count=1
 actions+=/blood_tap,if=use_count=0
@@ -15,21 +27,66 @@ actions+=/icy_touch,if=use_count=4
 actions+=/icy_touch,if=use_count=5
 actions+=/plague_strike,if=use_count=0
 actions+=/blood_strike,if=use_count=0
+
+## ==================== AOE处理 ====================
 actions+=/run_action_list,name=aoe,if=active_enemies>1
+
+## ==================== 常规循环 ====================
+## 冰霜灵气
 actions+=/frost_presence,if=change_presence
+
+## 号角维护
 actions+=/horn_of_winter,if=refreshable
-actions+=/blood_tap
-actions+=/empower_rune_weapon
+
+## 符文恢复
+actions+=/blood_tap,if=runes_available=0
+actions+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## 狂乱
 actions+=/hysteria
-actions+=/rune_strike,if=runic_power.deficit<20
-actions+=/pestilence,if=dot.blood_plague.ticking&dot.blood_plague.refreshable&dot.frost_fever.ticking&dot.frost_fever.refreshable
+
+## 符能溢出保护
+actions+=/rune_strike,if=runic_power_overflow
+
+## 符文浪费保护
+actions+=/icy_touch,if=frost_rune_wasting
+actions+=/blood_strike,if=blood_rune_wasting
+
+## 疫病维护
+## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+actions+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## 冰触 - 最高威胁技能
 actions+=/icy_touch
+
+## 死亡打击 - 自愈
 actions+=/death_strike,if=health.pct<death_strike_threshold
+
+## 鲜血打击 - 维护刀锋屏障
 actions+=/blood_strike,if=talent.blade_barrier.enabled&blood_runes.time_to_1<gcd
+
+## ==================== AOE循环 ====================
 actions.aoe+=/death_and_decay
-actions.aoe+=/pestilence,if=dot.frost_fever.ticking&dot.blood_plague.ticking&(active_dot.frost_fever+active_dot.blood_plague<true_active_enemies*2)
+
+## 疾病维护
 actions.aoe+=/icy_touch,cycle_targets=1,if=!dot.frost_fever.ticking
 actions.aoe+=/plague_strike,cycle_targets=1,if=!dot.blood_plague.ticking
-actions.aoe+=/blood_boil,if=health.pct>60&(active_enemies>2|!talent.heart_strike)
+
+## ========== 传染扩散 - 最高优先级 ==========
+## 传染必须在所有鲜血符文技能之前！
+## 只要有疾病、多目标、有鲜血符文，就优先传染
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## ========== 鲜血符文技能 - 传染之后 ==========
+## 符文浪费保护 - 传染后使用
+actions.aoe+=/blood_boil,if=blood_rune_wasting&has_diseases&health.pct>60&(active_enemies>2|!talent.heart_strike)
+actions.aoe+=/heart_strike,if=blood_rune_wasting&active_enemies<3
+
+## 核心输出 - 传染后使用
+actions.aoe+=/blood_boil,if=health.pct>60&(active_enemies>2|!talent.heart_strike)&has_diseases
 actions.aoe+=/heart_strike,if=active_enemies<3
-actions.aoe+=/death_coil,if=runic_power.deficit<20
+
+## 符能消耗 - 没有符文时泄能
+actions.aoe+=/rune_strike,if=runic_power>=20&runes_available=0
+actions.aoe+=/death_coil,if=runic_power>=40&runes_available=0
+actions.aoe+=/death_coil,if=runic_power_overflow

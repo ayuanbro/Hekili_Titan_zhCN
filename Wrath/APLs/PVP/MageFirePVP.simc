@@ -1,0 +1,100 @@
+## Mage: Fire PVP - 火焰法师 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 爆发 > 控制 > 持续压制
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/arcane_intellect
+actions.precombat+=/molten_armor
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/best_healing_potion,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=hot_streak,value=buff.hot_streak.up
+actions.init+=/variable,name=heating_up,value=buff.heating_up.up
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/ice_block,if=health.pct<20&enemy_burst_active
+actions.pvp_defensive+=/mana_shield,if=health.pct<40&enemy_burst_active
+actions.pvp_defensive+=/blink,if=target.distance<8
+actions.pvp_defensive+=/invisibility,if=health.pct<30&!enemy_burst_active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/counterspell,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/counterspell,if=target_cast_priority>=80
+actions.pvp_interrupt+=/counterspell,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/polymorph,if=target_is_healer&target_dr_incapacitate<3
+actions.pvp_cc+=/dragon_breath,if=target.distance<10&target_dr_disorient<3
+actions.pvp_cc+=/blast_wave,if=target.distance<10
+actions.pvp_cc+=/frost_nova,if=target.distance<10&target_dr_root<3
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/counterspell,use_off_gcd=1
+## 爆发窗口
+actions.pvp_st+=/combustion,if=variable.pvp_burst_window&debuff.living_bomb.up
+actions.pvp_st+=/icy_veins,if=variable.pvp_burst_window
+## 热力连击消�?
+actions.pvp_st+=/pyroblast,if=variable.hot_streak
+## 活体炸弹维护
+actions.pvp_st+=/living_bomb,if=!debuff.living_bomb.up|debuff.living_bomb.remains<3
+## 火焰冲击
+actions.pvp_st+=/fire_blast,if=variable.heating_up
+## 灼烧
+actions.pvp_st+=/scorch,if=debuff.improved_scorch.stack<5
+## 火球�?
+actions.pvp_st+=/fireball
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/combustion,if=debuff.living_bomb.up
+actions.st+=/icy_veins
+actions.st+=/pyroblast,if=buff.hot_streak.up
+actions.st+=/living_bomb,if=!debuff.living_bomb.up|debuff.living_bomb.remains<3
+actions.st+=/fire_blast,if=buff.heating_up.up
+actions.st+=/scorch,if=debuff.improved_scorch.stack<5
+actions.st+=/fireball

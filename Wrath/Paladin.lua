@@ -219,6 +219,59 @@ spec:RegisterAuras( {
         aliasMode = "first",
         aliasType = "buff",
     },
+    -- 王者祝福
+    blessing_of_kings = {
+        id = 20217,
+        duration = 600,
+        max_stack = 1,
+    },
+    -- 力量祝福
+    blessing_of_might = {
+        id = 48932,
+        duration = 600,
+        max_stack = 1,
+        copy = { 19740, 19834, 19835, 19836, 19837, 19838, 25291, 27140, 48931, 48932 },
+    },
+    -- 庇护祝福
+    blessing_of_sanctuary = {
+        id = 20911,
+        duration = 600,
+        max_stack = 1,
+        copy = { 20911, 25899 },
+    },
+    -- 智慧祝福
+    blessing_of_wisdom = {
+        id = 48936,
+        duration = 600,
+        max_stack = 1,
+        copy = { 19742, 19850, 19852, 19853, 19854, 25290, 27142, 48935, 48936 },
+    },
+    -- 强效王者祝福
+    greater_blessing_of_kings = {
+        id = 25898,
+        duration = 1800,
+        max_stack = 1,
+    },
+    -- 强效力量祝福
+    greater_blessing_of_might = {
+        id = 48934,
+        duration = 1800,
+        max_stack = 1,
+        copy = { 25782, 25916, 27141, 48933, 48934 },
+    },
+    -- 强效庇护祝福
+    greater_blessing_of_sanctuary = {
+        id = 25899,
+        duration = 1800,
+        max_stack = 1,
+    },
+    -- 强效智慧祝福
+    greater_blessing_of_wisdom = {
+        id = 48938,
+        duration = 1800,
+        max_stack = 1,
+        copy = { 25894, 25918, 27143, 48937, 48938 },
+    },
     -- Increases speed by $s2%.
     charger = {
         id = 23214,
@@ -584,6 +637,12 @@ spec:RegisterAuras( {
         duration = 3600,
         max_stack = 1,
     },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 
@@ -752,6 +811,11 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 135995,
 
+        -- 如果已有强效王者祝福，则不需要普通王者祝福
+        usable = function()
+            return not buff.greater_blessing_of_kings.up, "已有强效王者祝福"
+        end,
+
         handler = function ()
             removeBuff( "blessing" )
             applyBuff( "blessing_of_kings" )
@@ -771,6 +835,11 @@ spec:RegisterAbilities( {
 
         startsCombat = false,
         texture = 135906,
+
+        -- 如果已有强效力量祝福，则不需要普通力量祝福
+        usable = function()
+            return not buff.greater_blessing_of_might.up, "已有强效力量祝福"
+        end,
 
         handler = function ()
             removeBuff( "blessing" )
@@ -795,6 +864,11 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 136051,
 
+        -- 如果已有强效庇护祝福，则不需要普通庇护祝福
+        usable = function()
+            return not buff.greater_blessing_of_sanctuary.up, "已有强效庇护祝福"
+        end,
+
         handler = function ()
             removeBuff( "blessing" )
             applyBuff( "blessing_of_sanctuary" )
@@ -814,6 +888,11 @@ spec:RegisterAbilities( {
 
         startsCombat = false,
         texture = 135970,
+
+        -- 如果已有强效智慧祝福，则不需要普通智慧祝福
+        usable = function()
+            return not buff.greater_blessing_of_wisdom.up, "已有强效智慧祝福"
+        end,
 
         handler = function ()
             removeBuff( "blessing" )
@@ -1109,6 +1188,8 @@ spec:RegisterAbilities( {
         texture = 236250,
 
         handler = function ()
+            -- 神圣风暴，AOE 攻击并治疗队友
+            -- 消耗神圣能量（如果有）
         end,
     },
 
@@ -1261,10 +1342,34 @@ spec:RegisterAbilities( {
 
         handler = function ()
             removeBuff( "my_greater_blessing" )
-            applyBuff( "greater_blesisng_of_wisdom" )
+            applyBuff( "greater_blessing_of_wisdom" )
         end,
 
         copy = { 25918, 27143, 48937, 48938 },
+    },
+
+
+    -- Gives all members of the raid or group that share the same class with the target the Greater Blessing of Sanctuary, reducing damage taken from all sources by 3% for 30 min and increasing strength and stamina by 10%.  Players may only have one Blessing on them per Paladin at any one time.
+    greater_blessing_of_sanctuary = {
+        id = 25899,
+        cast = 0,
+        cooldown = 0,
+        gcd = "spell",
+
+        spend = function() return mod_benediction( mod_divine_illumination( 0.14 ) ) end,
+        spendType = "mana",
+
+        talent = "blessing_of_sanctuary",
+        startsCombat = false,
+        texture = 136051,
+
+        item = 21177,
+        bagItem = true,
+
+        handler = function ()
+            removeBuff( "my_greater_blessing" )
+            applyBuff( "greater_blessing_of_sanctuary" )
+        end,
     },
 
 
@@ -1307,6 +1412,7 @@ spec:RegisterAbilities( {
         clash = 0.4,
 
         handler = function ()
+            -- 正义之锤，AOE 攻击
         end,
     },
 
@@ -1327,6 +1433,7 @@ spec:RegisterAbilities( {
         usable = function() return target.health.pct < 20 end,
 
         handler = function ()
+            -- 愤怒之锤，对低血量目标造成高伤害
         end,
 
         copy = { 24274, 24239, 27180, 48805, 48806 },
@@ -1662,6 +1769,7 @@ spec:RegisterAbilities( {
         texture = 135955,
 
         handler = function ()
+            -- 救赎，复活死亡玩家，非战斗技能
         end,
 
         copy = { 10322, 10324, 20772, 20773, 48949, 48950 },
@@ -1723,6 +1831,7 @@ spec:RegisterAbilities( {
         texture = 135068,
 
         handler = function ()
+            -- 正义防御，嘲讽敌人攻击自己
         end,
     },
 
@@ -1957,6 +2066,7 @@ spec:RegisterAbilities( {
         equipped = "shield",
 
         handler = function ()
+            -- 正义盾击，基于格挡值造成伤害
         end,
 
         copy = { 61411 },
@@ -1983,7 +2093,7 @@ spec:RegisterAbilities( {
         end,
     },
 
-    -- 自动攻击 - 后备技能
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
     auto_attack = {
         id = 6603,
         cast = 0,
@@ -1991,10 +2101,33 @@ spec:RegisterAbilities( {
         gcd = "off",
 
         startsCombat = true,
-        texture = 135641,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
 
         handler = function()
         end
+    },
+
+    -- 狮心 - 人类种族技能
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
     },
 } )
 
@@ -2342,7 +2475,7 @@ spec:RegisterOptions( {
 } )
 
 spec:RegisterPack( "守护(黑科研)", 20251226, [[Hekili:fJv3UnXru4NfUPIOQUyN4esQkuPEvlxGqYvQ3T7oE3X2tz3DCNz2eCfAfQOwLeqvG6pGu)ncOQfuHQIufbrPpmnRn5TONzg71Z6S7ANFQqcsCM5mNZ3CMZ5B(gBx3(dTB6Jey7lUyTfxU(IlUIvn5hoRDtr)Ey7M9qExg1b(qeke(5snKd1pGI8LlLtJzEWW2nBftceFqKDRI8xJ61bB7H9GHTB2L47J1wI5E2nVeka5tIE7e3lXOcSNGqJsCFRe39V7Foy77V)dVD69E0EV4UP38BhU1MjxyWt)J0F4xgCN)A4V98HBTB6MpsoSCbAJgS1ng80VbS7NFw6)C90x(WHF5taNV2kRP)CI7Ph873BVD3AVDVXWV7LNj7p2)RVFI75tCtFWwdV5JpZWh8JPF)9gzu6J3jDZ7VGDZacxWv7DYvGFDrvkehHAfG9TFp7MEmIaZii7MiyNSo2bhHdjyUYZ1tCFJexpknWNUrKfVlbh47qB7WiD6kW0yEeMZTy4qejcwY7CUexowiirD4wHKihiOo(4au)e330Ck0vC2areoTPmPn6GtJGKnkmeZKHq0fpjm2c5rrzipdGLS6tsawsoqcWLMnaFTMbfqxbjcxDvWPsCBf3UT1OQbpAeh7XqsFBf3tvpuqHYstIV5kQ(yd1PdJM4E1RM46JvbvWGSaS)C8Jdd7dXZyBrd67OtFvNRhVb8jRdBwNEby0yGF6e3ob971n3CJCIghGfHOiKvpmWtejGZdJCUXQGCldZbmbRBb4FtWPHrsC2yM48WLORxEIE5dvN9e)Gwhh1bZ4gz3vQc1JoR(4y)o4qijL7ykBuzb4geUpnu6WZwQd1hitHHXhkvcYvpoPwHWxLhAO(R8N5NxvhKDSxWwY84)mkNSq5NlRvkoHOiqSoyHfHdn5HY7rKvHtgmoYhJ01y66xtGX)Kym(tXVp0z8rq46o2Mm2MCB8mkgy7TI1QlRlC1b8afiMSqQoVnKbixv)uTMkdKB361kD)wERvL54zwDvxrNvOrbs(pt4inVckjDIWNkS4ipg2Fu9wIlKrQzClG5KkFwoHKQuKJrbwYdfdFadv09icPqJ2O4ar1m1597CqymoGE0q4KWVAY55W7NRqVRAurrGmRkPP7cMl6A1ZtxjS0Yt8ulmx4iNxEtqp64(OgMhYk(a5866U8hWlBAzmh7abnKpLrRyA0OOK3cfPLC502TD645lpmMu0dYnzGgrOka55HdWJA4Z7IY5Og1JNlnaj0fRnUlwhOsvmiiHy4IFipdl8DZmVmfqMMVq(EVCQmkshrwRDLmzVEWRshDPQIu5YtLNuSSio6IHzkvtANb5hloYr)zhPuBTGBh9RpuQTkIsCEwSuu3jk32HLhAeNwwhxSG6Gec4bw5JjaHEmmqQ0cndglbkqQxGe2JrxhACYIOt7yw)dEPF(5RMVA8D(mSGrAfRYPOywM2pJAesKa(VAwnVgNt6ejBKL2pTdmGZ0Zmx6qHlHL33PPhoAq6GUiNAJPNBUKD6XI5iFOr4OHiZvBaMCdxPM0mz641Ph9mtUvpbh5hEwcAv4OnHbSbyo0akV86ObNICYeuv4SvkoodCmkWlCSrxrEXaEfo9Cj0M3fbCkhBawSBmyQkE(kVzAmeHzGybcgaMUlRqtPOBSP5r44rpONmuUCGPQwqCrGlus6DIaUq99dfbo9uzxVm3GJdzDrmI1)ebGzERyqoz6QVyRiGQFCWjckh9oJcHOXBqMNham5R5bu8UsTziEUE5S4AxA(iK8Ffsv(uLCYJn)EvMskXSvixVCQR)3ER3Qhg9qk1jBGyr6(0bBER0T)P0N8I0p)b798VOXEp7Hd2(AV66)D6M35v78R)71(SKlOu60LYSBM(v3o9w7iv3qBtcKFTXs3z)F]] )
-spec:RegisterPack( "惩戒(黑科研)", 20251226, [[Hekili:vN1Bpsrrt8pl8gdyIJ7FU7amaM47KxqmU(6zMENP3DhVzMEt39Chxczccr8oejGefJYZJsqmYru0OXOi6ZhMhM98(wy198)5MEUD3BVtmbn71)P6Fv1vv)QUg926VJEpBehRFHoT6SC7oDwrRvRoDxQREp(gJX69gJSwfne(HpYd()Dxsm0gUeKTyRmsa1cgwVx)ahx(B6R3Vw51UnS2Xylyy9EJCSTXXReZS079wixKTJ)RfA(2yo1PFa3H4hA(kHMtU6JMS5hV723o6bp(5p7ZIUXNUZwBgE(j)0pe9F(Mj39x25rpDNT(TOnFSyyXgIx0KT(Wj)0NaR7R(1O)3vJ(ZT35MpbKE0h9ErF3DJU2xmzR7e9b)EO55cn35H)3O79GDFWnN85)SCGOV)(rB(1X)8HBTZn(E5p39r)4Uxz7j37j69CDyCMu3D8h6IHFDbPve7J67IT1Fd9EwuhoM6GewLbd0yyKRMnzDF9EilHUb7fgYGmWynS)qmYhmHCHPrLyoEOj8V1qWFatQXD8WgCIHTdo08LdnBPDAP23PvO5jK4n(C0qc5dW0yDkIpsZIqCf4qUQxskZJfAMHXsaslyCO5LUuOPnHRnI4UrHPyCWPqEolbIkxRkFCcvQRsvYd5J0gJbVhFEO5zcnzyoh2lt7DdShI9GHf4zDhMnXZGpIIzakSZpSAwM4exsCI1UgxNHJ4frdS6LvIpaog9j(bmnxN(uKNqccuagEAaFetAaLMUbeQNJT8IXIeKOnlNdclAadzJPgmW5Ev5n9ktXXYDW02TOWF3zSvO5zdnBlpZm70iqFOex38tY2znhFmCoaIehZjlAlQcJYgItvCPLKt51D654cnrCJDXO6UilmT4eA3QPWaoIoeZ1Cyg2yprwcHlA(Gb(2yKDQ)T86HpcBGOXEjiQ0TgMYhFrUXyQJhIUHbIlDMZaC64mxPFoS8Yk35KHotNdBO5RwnmbFrc1YHjVIARo3rAOPyBRHnSi(mSfeyjcS)hrl6wslkIhPMOo91lm3dD1ww9nH6CvZQF3rRs1wRS7LmzDwg42l1uUM4ZyabY97BGiRppHn7vHs9ClezNkGukiTutVgf7HC8zsrTsUwmWfXgLN2wOjlptP2BRoj7(XktfIdtcy(ygtxC4qLkdqbU86y7ZciqUUgX)HHOiH4sfmIRBYX3H3mh)i4Wbo6XwXzp7wGbPpgKJyEb36ysAex3I2Jag2aeLhRIzOeFyYERHduSDYGbgdTSfAyUZeueifQCdBdQMf2fNeWxweQn1hRiHfHA4HSOKyYZHUBmEeC9BTkXhMxlz)PvMyJJ9dPG3HqVTd882iRQeqUOHdPKYE(iFB59xQm3JELskQ2TOaBEIlB1HZCyHBPonsZFkLhvsoDSp2Zbh77xWOtd8v6izbbtRHBMkUQ0ZQDiRcs8fXwbCi0CeIHNUdozl1srpn7pPC5moVPpqEFiwMHa5KK8PldfafrJ4IQzlFMaegdoreV(OAd53ljnn)LlgOaAw(UmNFHpdh(p5SYPqmMZqFrGLy9vfqbJA1zAmnskGa6zbFsC468bP9kIsS)vNRXY9ZGvAuY8HOI7UMqVuCOMZlJAcVgz(TmL2DHkzlnCJpVifhdCOyiFfdItepTA(GtDcPatADZUFjTJbhKQMFWrxDsPa8QD6gtuN9O1riiU)adW6ftHSj1pFJj4tHimdtK5tKnAvjAuIU0LwgHPJUxjvO(G9mvJ0d1HnprMYfc28ItHxh28YkLt9B8QdCmWOZdGAmxiamtA1dY8PNUNNvCVX1NVqqzshnQfI5D7yQ4glwWs3vATxAYsDHQH3bTGEIppVyIJOMN9VTUCjFxxhTLvuLuLUDv7j3uJKALvdDdntAeYZdOufhxQEQMoBo1Z9v)wzMQuunJXcTTAL6vwZTvtDs4grK6ZUHmNhiDSMB7Pi3xYdnQR1u13SArWuPIiRPfs1Q6vEsWmeXD89lnvCWwPq8QTKuDywd9k5410UKZ86fAbsfBEEE6t0qhJYbzPMxnpHMkSghbqVQ9vDPOZAR3oCqUu0hMTPJN0HOA4djJLH25BmnYs8l3aS0gPUzjaW72k(7cvWUviOukWK3OxC4A4u3FOKi(k9YQtRIhs5Epi19KMACGQgaEToCdzVV1cK9VM)CANy2)IAc7BU)AjBWzZe1lGF5TzZpU8xbyHwxsd8En(sApYAPfvpfmtjtvS3BDuZjTY0t2FYPK9Qu9dvjEN26hMz1(aM(APM)4pQll5a6U1zAC3AOuLdL6bAmbZmXxvNZ4I46QT2PA6JcPo7qZf0KrJwjsOWBmls2wmi4OKP9KQ)kFQZmDy9gMf33TAglLtT)R6hknR(Vl4RQkffb2gW)turdtV3KnVv01)YON8SO3)Hp)PxBLN)RBp56x(VU6FeT5D)R7)T))lFLWZRl6P)icvVx0DUD0TUVOp(KboIkuKIt)Vd]] )
+spec:RegisterPack( "惩戒(黑科研)", 20251232, [[Hekili:vR16psrXw8)w8lMftSDESpadGj(n5dKBC8ZD310Dnt3s)ysvvplBcPdc5I7YfjSxUkgfviixLLCH7nymCbu)Jr6zy)VWtv90p3Q7DMzNDftgiZupoNFNtDEvNAvBQ(rQDmrmS6zB1O1knB1UPsZ1AUsZvv7W2yawTZaKX5q9HV4HCH)F0LFWOn)NlT7Z3E8pS9478VogFfB44Jm5uI6hqmGvP2PBGTd7d8u7wM8WIgGnGFR2XY20ehVem1qTZFd5GmT9E3q9peZi2Ddy2(EH6VDOEmx3DNTJU3dF5l(YOR9fJ3AZWZm6j)3OV5Fp6w)84h8SXB9)J28H8H5BiErJ26Fm6jFoSU780OF7Yr)6oJV(JbQh9zFs0)5wrx5RhT1nJ(0NhQF6q9X3)BJU9929ExF0x9tIbIE0DJ287J)693A81EK4R7(G)3UxANr3(XQDCSPmQqOT967GHVDwH2e7H66GnvFF1ogeBgMyJ4QJE9uOyKJIP)6EQDqgCzd2lmKMFpTHyV(yKhO7yCvtvKzPqD4Zqe8dysfMTlwJ5RzAJd1FRq9gkNqi9TAeQFmbEJ5JcItFaMARtqmlfdFFhooeR6nf08nc1tXybaPemiu)cxiu30NPy57SrUPOmW4qWNLbsLjvfzhxKAxPi5I8qkdWGzJhlu)KH6umJb7LQ8XbM9XUWWC8SUn103vJzrWuafMzmtYY4CC5KdewbgNSllKNjFdeSX589a(P2jGIHr6P13WKVtGgRWrTu(4y33QaHHvVALYiisAD99cOko2Djixof4scC4rcywuXHGq93ZN4ABkoCn8dMOrwjdegKakYet0OGdY5ewlRnfSLzJjnBqGF3AGrO(Pc1Bk4zQU2cKhIVJtgNmThA7Hb(aiIZMJNxxuggfveNi)slqNIRRzJ5WQyc9g4GrYSgYnTGfv7scg9mePpMPyt1mXU8qnC78Sbd8mXiZeNeX5dZcRHiXMAiIW3aMYdFEM2aITlISHgIj8isbCY4uhHZcS8Ic3Pf(FtNvFO(7u2xdFEFIHnvCg1S6ihj(38TneRz47rXgG3jp6WFksr7csrE8iKKQdy8AZ5qBLvQ(Ky5fMD3rRq1uPO5LiIFAy8MRuxWMyE0ZhsG4PH8xFECB2RaLy5MZZoHaj5Xusu9keSlY2Jki1Qzsrphe1klUnxswDMIT3S6OS7xQDcNCy)aQhMsv5mhk3PhkWHjRKHuhcKJJw8p04vAexVHwCry2E2S6luWcyoKOFGrC0Z25sH0fd0Hpppb9a)epU251h8uHaPCPLudlNFrt2BXvimqkLjnZycQOKaL)HnbrZa7GN4WljpAzsmDPWleVll5MprZfzq8Jt023zJbwkP7szcPtQeYehBYsadjUkYmW1DJ0QGa6I63N4ZDsQn5B505tmzlpCQblCk1Q288hVclfsGxrdLmmmjyp2d7AJJDkAwWqYaCMgItZzFWOEAvfP1NIpp2iGb(SwikUaJNmJ0QaQK152)KAUtZWp9oYv7ZmRoYtssLSmuaujoIXljUipbimaS28D7IK6YV3K0KSR)OHciPX7sTO52mm4FIzftHOu7(EChl(6ltGCk1YZuByKeabPN55tIDxNpiTxsui7F55Q9odPWkXlz(qu(DlX1lbhvNkpn1eEO)8RzkS7CvYwy4KqR1IJE2emeoKc(j87NnFWrgrYLjv2S1E5NuWbXFzhC0jJk5GN0PRnqD6nFTqGF)bgGYjtUOjYNxsaEWFWJYxiVuHoYGmSskpsip605eORs0MS0Iioz09sPC1lSNPKKUOES5YJCUqWMBCiDzyZnT0UQVwPmWrHdbwauZ5cbGPutoiZMU(lNkdOX1RVqq5K2KifIzTqzQYvMVaM2R2yVPnl0ARAUx3c6k)SSIloI6i3F1ADM4EETuwPIQMoeAHMu0xx3PAKwSDnDOYc56cPP5qorxvDwO5uxTV6O1MPQplhIF60gZCV6k0aU67vxnblRfsvZ8AIQDGesjh3hS(DjVn6CpYcvMkPVusf9s61QRACpMIlTFX6I9yleNOCFoR2pRMgWSKKEWCY3lxFvkPZZc2FSAAdvgil0rS5X3ScTXra0lRFRU(XzTFEhoixq6dZE)XV6FC3cQPRvjPaHl7cyXSU8Tfsv0yFtYM(P(h)6yZ(7FXpRYodl04StLsQxdFNSz7STy72RjH)Ce5U6Cb1ELvx)HjvRofrRNmv(Ez1Q640Ro9zaxBkJOx4bWkNmQ4spXcOWP6VfZSP7oGXfwU(NQP689hqB2wtJnBn1aCOKOTAp0znrGml6fXXvtLJx3t4uTtE9vkKMFQK7uUBaMplwEpPJYuyRv9BYvD0OdRBhS4ELPzSgPQTFR(kiZQ97c(OQC1gIh5ssTg(dePJY2ysfb8V5eGfcs1pIda82nAKM5FIWLRycbbN8md5hwsfk7puKvvbVOI8mP4RKWIL(HycLtYC)DtbUJCzHQ2z0M3i6QFx0JFr0F)(V8zxz1x(0DgD1l(Ql)lrBERxD3F83V4Lcpd)rh87z7i(RXcfWS8jQDIU52r34UcoO(hp]] )
 
 
 spec:RegisterPackSelector( "retribution", "惩戒(黑科研)", "|T135873:0|t 惩戒",

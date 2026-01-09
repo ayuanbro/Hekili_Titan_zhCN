@@ -1,0 +1,102 @@
+## Hunter: Survival PVP - 生存猎人 PVP
+## 泰坦时空特别版 - PVP 优化手法
+## 核心策略: 控制 > 持续伤害 > 爆发
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/call_pet
+actions.precombat+=/aspect_of_the_dragonhawk
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/best_healing_potion,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目标
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变量
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=lock_and_load,value=buff.lock_and_load.up
+
+## ============================================================================
+## PVP 防守优先级
+## ============================================================================
+
+actions.pvp_defensive+=/deterrence,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/feign_death,if=health.pct<40&enemy_burst_active
+actions.pvp_defensive+=/disengage,if=target.distance<8
+actions.pvp_defensive+=/masters_call
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先级
+## ============================================================================
+
+actions.pvp_interrupt+=/silencing_shot,if=target_is_healer
+actions.pvp_interrupt+=/scatter_shot,if=target_is_healer&cooldown.silencing_shot.remains>0
+actions.pvp_interrupt+=/silencing_shot
+
+## ============================================================================
+## PVP 控制优先级
+## ============================================================================
+
+actions.pvp_cc+=/scatter_shot,if=target_is_healer&target_dr_disorient<3
+actions.pvp_cc+=/freezing_trap,if=target_dr_incapacitate<3
+actions.pvp_cc+=/wyvern_sting,if=target_is_healer&target_dr_disorient<3
+actions.pvp_cc+=/concussive_shot,if=!target.debuff.concussive_shot.up
+
+## ============================================================================
+## PVP 单目标循环
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/silencing_shot,use_off_gcd=1
+## 召唤宠物
+actions.pvp_st+=/call_pet,if=!pet.exists
+## 爆发窗口
+actions.pvp_st+=/rapid_fire,if=variable.pvp_burst_window
+## 锁定装填消耗
+actions.pvp_st+=/explosive_shot,if=variable.lock_and_load
+## 毒蛇钉刺维护
+actions.pvp_st+=/serpent_sting,if=!debuff.serpent_sting.up|debuff.serpent_sting.remains<3
+## 黑箭
+actions.pvp_st+=/black_arrow,if=!debuff.black_arrow.up
+## 爆炸射击
+actions.pvp_st+=/explosive_shot
+## 瞄准射击
+actions.pvp_st+=/aimed_shot
+## 稳固射击
+actions.pvp_st+=/steady_shot
+
+## ============================================================================
+## PVE 单目标循环(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/rapid_fire
+actions.st+=/explosive_shot,if=buff.lock_and_load.up
+actions.st+=/serpent_sting,if=!debuff.serpent_sting.up|debuff.serpent_sting.remains<3
+actions.st+=/black_arrow,if=!debuff.black_arrow.up
+actions.st+=/explosive_shot
+actions.st+=/aimed_shot
+actions.st+=/steady_shot

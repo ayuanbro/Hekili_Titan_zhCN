@@ -2003,7 +2003,7 @@ do
             elseif k == "mounted" or k == "is_mounted" then t[k] = IsMounted()
             elseif k == "moving" then t[k] = ( GetUnitSpeed("player") > 0 )
             elseif k == "raid" then t[k] = IsInRaid() and t.group_members > 5
-            elseif k == "solo" then t[k] = t.group_members == 1 --原为0，修改by风雪20251129
+            elseif k == "solo" then t[k] = t.group_members == 0
             elseif k == "tanking" then t[k] = t.role.tank and t.aggro
 
             -- Enemy counting.
@@ -3084,7 +3084,12 @@ do
                 -- Revisit this if I add base_cooldown to the ability tables.
                 if not raw then
                     if not state:IsKnown( t.key ) then return 0
-                    elseif ( state:IsDisabled( t.key ) or ability.disabled ) then return ability.cooldown end
+                    elseif ( state:IsDisabled( t.key ) or ability.disabled ) then
+                        --即使技能被禁用，也返回实时冷却时间，而不是固定值(来自玩家圆圆bro的调整)
+                        local bonus_cdr = 0
+                        bonus_cdr = ns.callHook( "cooldown_recovery", bonus_cdr ) or bonus_cdr
+                        return max( 0, t.expires - state.query_time - bonus_cdr )
+                    end
                 end
 
                 local bonus_cdr = 0
@@ -6310,8 +6315,6 @@ do
 
         state.swings.mh_pseudo = nil
         state.swings.oh_pseudo = nil
-        state.swings.mh_pseudo_speed = nil
-        state.swings.oh_pseudo_speed = nil
 
 
         local p = Hekili.DB.profile
@@ -7271,12 +7274,9 @@ function state:TimeToReady( action, pool )
     end
 
     -- Okay, so we don't have enough of the resource.
-    -- 跳过法力/能量等资源检测，即使没有足够资源也显示技能
-    -- z = resource and self[ resource ]
-    -- z = z and z[ "time_to_" .. spend ]
-    z = nil
+    z = resource and self[ resource ]
+    z = z and z[ "time_to_" .. spend ]
 
-    --[[
     for i = 2, 3 do
         local addlSpend, addlResource = ability[ "spend" .. i ]
 
@@ -7299,7 +7299,6 @@ function state:TimeToReady( action, pool )
             end
         end
     end
-    ]]
 
     if spend and z then
         wait = max( wait, ceil( z * 100 ) / 100 )

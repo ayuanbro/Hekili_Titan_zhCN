@@ -1,31 +1,60 @@
-actions.precombat+=/mark_of_the_wild,if=!up&!buff.gift_of_the_wild.up
-actions.precombat+=/thorns,if=!up
-actions.precombat+=/dire_bear_form,if=!up
+## Druid: Guardian - 守护德鲁伊优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 撕裂 > 裂伤 > 挥击
+
+## 战前准备
+actions.precombat+=/mark_of_the_wild,if=!buff.mark_of_the_wild.up&!buff.gift_of_the_wild.up
+actions.precombat+=/thorns,if=!buff.thorns.up
+actions.precombat+=/dire_bear_form,if=!buff.dire_bear_form.up
 actions.precombat+=/potion
+
+## 默认动作
 actions+=/call_action_list,name=init
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
 actions+=/use_items
 actions+=/potion
 actions+=/hyperspeed_acceleration,use_off_gcd=1
 actions+=/run_action_list,name=bear_aoe,if=buff.dire_bear_form.up&active_enemies>4
 actions+=/run_action_list,name=bear,if=buff.dire_bear_form.up
-actions+=/dire_bear_form,if=!up
+actions+=/dire_bear_form,if=!buff.dire_bear_form.up
+## 后备技能 - 低等级时使用
+actions+=/maul
+actions+=/auto_attack
+
+## 初始化变量
 actions.init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
 actions.init+=/variable,name=build_lacerate,value=!debuff.lacerate.up|debuff.lacerate.stack<5
 actions.init+=/variable,name=build_lacerate_cost,op=setif,if=variable.build_lacerate,value=action.lacerate.spend*(5-debuff.lacerate.stack),value_else=0
 actions.init+=/variable,name=maintain_lacerate,value=!variable.build_lacerate&debuff.lacerate.remains<8&debuff.lacerate.remains<variable.time_to_die
 actions.init+=/variable,name=maintain_lacerate_cost,op=setif,if=variable.maintain_lacerate,value=action.lacerate.spend,value_else=0
 actions.init+=/variable,name=emergency_lacerate,value=debuff.lacerate.up&debuff.lacerate.remains<4.5&debuff.lacerate.remains<variable.time_to_die
+
+## 熊形态单目标
 actions.bear+=/faerie_fire_feral,if=ff_procs_ooc&!buff.clearcasting.up
 actions.bear+=/enrage,use_off_gcd=1,if=time<10
 actions.bear+=/berserk
+## 槌击泄怒
 actions.bear+=/maul,use_off_gcd=1,if=rage.current>action.maul.spend+variable.build_lacerate_cost+variable.maintain_lacerate_cost+action.mangle_bear.spend
+## 裂伤紧急刷新
 actions.bear+=/lacerate,if=variable.emergency_lacerate
+## 撕裂 - 最高优先级
 actions.bear+=/mangle_bear
+## 精灵之火
 actions.bear+=/faerie_fire_feral
+## 裂伤叠层/维护
 actions.bear+=/lacerate,if=variable.build_lacerate|variable.maintain_lacerate
+## 挥击填充
 actions.bear+=/swipe_bear,if=rage.current>60
+## 后备技能
+actions.bear+=/maul
+actions.bear+=/swipe_bear
+
+## 熊形态AOE
 actions.bear_aoe+=/enrage,use_off_gcd=1,if=time<10
 actions.bear_aoe+=/berserk
 actions.bear_aoe+=/maul,cycle_targets=1,use_off_gcd=1,if=rage.current>60
 actions.bear_aoe+=/swipe_bear,cycle_targets=1
+## 后备技能
+actions.bear_aoe+=/maul
+actions.bear_aoe+=/swipe_bear

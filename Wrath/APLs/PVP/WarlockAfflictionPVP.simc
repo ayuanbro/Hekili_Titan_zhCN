@@ -1,0 +1,101 @@
+## Warlock: Affliction PVP - 痛苦术士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 持续压制 > 控制 > 生存
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/fel_armor
+actions.precombat+=/summon_felhunter
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/best_healing_potion,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=dots_up,value=debuff.corruption.up&debuff.curse_of_agony.up&debuff.unstable_affliction.up
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/demonic_circle_teleport,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/death_coil,if=health.pct<40&enemy_burst_active
+actions.pvp_defensive+=/drain_life,if=health.pct<50&!enemy_burst_active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/spell_lock,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/spell_lock,if=target_cast_priority>=80
+actions.pvp_interrupt+=/spell_lock,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/fear,if=target_is_healer&target_dr_fear<3
+actions.pvp_cc+=/death_coil,if=target_is_healer&target_dr_fear>=3
+actions.pvp_cc+=/howl_of_terror,if=active_enemies>=2&target_dr_fear<3
+actions.pvp_cc+=/curse_of_exhaustion,if=!target.debuff.curse_of_exhaustion.up
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/spell_lock,use_off_gcd=1
+## 召唤宠物
+actions.pvp_st+=/summon_felhunter,if=!pet.felhunter.active
+## DOT 维护
+actions.pvp_st+=/unstable_affliction,if=!debuff.unstable_affliction.up|debuff.unstable_affliction.remains<3
+actions.pvp_st+=/corruption,if=!debuff.corruption.up|debuff.corruption.remains<3
+actions.pvp_st+=/curse_of_agony,if=!debuff.curse_of_agony.up|debuff.curse_of_agony.remains<3
+## 爆发窗口
+actions.pvp_st+=/haunt,if=variable.pvp_burst_window
+## 鬼影缠身
+actions.pvp_st+=/haunt,if=!debuff.haunt.up
+## 暗影�?
+actions.pvp_st+=/shadow_bolt,if=variable.dots_up
+## 生命吸取填充
+actions.pvp_st+=/drain_life,if=health.pct<80
+## 灵魂吸取
+actions.pvp_st+=/drain_soul,if=target.health.pct<25
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/summon_felhunter,if=!pet.felhunter.active
+actions.st+=/unstable_affliction,if=!debuff.unstable_affliction.up|debuff.unstable_affliction.remains<3
+actions.st+=/corruption,if=!debuff.corruption.up|debuff.corruption.remains<3
+actions.st+=/curse_of_agony,if=!debuff.curse_of_agony.up|debuff.curse_of_agony.remains<3
+actions.st+=/haunt
+actions.st+=/shadow_bolt
+actions.st+=/drain_soul,if=target.health.pct<25

@@ -1,0 +1,78 @@
+## Shaman: Elemental - 元素萨满优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 熔岩爆裂 > 闪电箭 > 闪电链(AOE)
+
+## ==================== 战前准备 ====================
+actions.precombat+=/lightning_shield
+actions.precombat+=/water_shield,if=mana.pct<50
+actions.precombat+=/flametongue_totem,if=!totem.fire.active
+actions.precombat+=/potion
+
+## ==================== 主循环 ====================
+## 治疗药水 - 低血量时使用
+actions+=/best_healing_potion,if=health.pct<35
+
+## 打断
+actions+=/wind_shear
+
+## 盾牌管理
+actions+=/lightning_shield,if=buff.lightning_shield.down&mana.pct>30
+actions+=/water_shield,if=buff.water_shield.down&mana.pct<30
+
+## AOE 切换
+actions+=/run_action_list,name=aoe,strict=1,if=active_enemies>=3
+
+## 单体循环
+actions+=/run_action_list,name=st
+
+## ==================== 单体循环 ====================
+## 爆发技能
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+
+## 图腾维护
+actions.st+=/totem_of_wrath,if=!totem.fire.active
+actions.st+=/strength_of_earth_totem,if=!totem.earth.active
+actions.st+=/wrath_of_air_totem,if=!totem.air.active
+actions.st+=/mana_spring_totem,if=!totem.water.active
+
+## 元素掌握 - 爆发
+actions.st+=/elemental_mastery
+
+## 火元素图腾 - 爆发期使用
+actions.st+=/fire_elemental_totem,if=!totem.fire_elemental_totem.active&target.time_to_die>120
+
+## 烈焰震击维护 - 熔岩爆裂前必须有
+actions.st+=/flame_shock,if=!debuff.flame_shock.up|debuff.flame_shock.remains<3
+
+## 熔岩爆裂 - 核心技能，必须有烈焰震击
+actions.st+=/lava_burst,if=debuff.flame_shock.up
+
+## 闪电箭 - 主要填充技能
+actions.st+=/lightning_bolt
+
+## ==================== AOE 循环 ====================
+## 图腾维护
+actions.aoe+=/totem_of_wrath,if=!totem.fire.active
+actions.aoe+=/magma_totem,if=!totem.magma_totem.active&target.within10
+
+## 元素掌握
+actions.aoe+=/elemental_mastery
+
+## 火元素图腾
+actions.aoe+=/fire_elemental_totem,if=!totem.fire_elemental_totem.active
+
+## 烈焰震击维护
+actions.aoe+=/flame_shock,if=!debuff.flame_shock.up
+
+## 熔岩爆裂
+actions.aoe+=/lava_burst,if=debuff.flame_shock.up
+
+## 闪电链 - AOE核心技能
+actions.aoe+=/chain_lightning
+
+## 火焰新星 - 近战范围AOE
+actions.aoe+=/fire_nova,if=totem.fire.active&target.within10
+
+## 闪电箭填充
+actions.aoe+=/lightning_bolt

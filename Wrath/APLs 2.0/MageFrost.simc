@@ -1,29 +1,46 @@
-﻿actions.precombat+=/arcane_brilliance,if=raid&buff.arcane_brilliance.down
+## Mage: Frost - 冰霜法师优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 深度冻结(冰指) > 霜火箭(脑冻结) > 寒冰箭
+
+## 战前准备
+actions.precombat+=/arcane_brilliance,if=raid&buff.arcane_brilliance.down
 actions.precombat+=/arcane_intellect,if=!raid&buff.arcane_brilliance.down&buff.arcane_intellect.down
 actions.precombat+=/conjure_mana_gem,if=mana_gem_charges<2
 actions.precombat+=/molten_armor,if=buff.unique_armor.down
 actions.precombat+=/summon_water_elemental,if=!pet.active&glyph.eternal_water.enabled
 actions.precombat+=/focus_magic,if=group&active_dot.focus_magic=0
 actions.precombat+=/pyroblast,if=boss
+
+## 默认动作
 actions+=/counterspell
 actions+=/spellsteal,line_cd=spellsteal_cooldown
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 爆发期
 actions+=/mirror_image
 actions+=/summon_water_elemental,if=!glyph.eternal_water.enabled
 actions+=/icy_veins
 actions+=/arcane_power
 actions+=/flame_cap
 actions+=/potion,use_off_gcd=1
+## 急速冷却 - 重置冰冷血脉
 actions+=/cold_snap,if=use_cold_snap&buff.icy_veins.down&cooldown.icy_veins.remains>60
 actions+=/use_items
+## 深度冻结 - 配合冰指最后一层使用，同时有寒冰箭/霜火箭飞行中
 actions+=/deep_freeze,if=(debuff.frozen.up|buff.fingers_of_frost.stack=1)&(action.frostfire_bolt.in_flight|action.frostbolt.in_flight)
+## 冰指触发时优先寒冰箭，确保深度冻结CD
 actions+=/frostbolt,if=buff.fingers_of_frost.up&talent.deep_freeze&cooldown.deep_freeze.remains<cast_time*buff.fingers_of_frost.stack
+## 脑冻结触发霜火箭
 actions+=/frostfire_bolt,if=buff.brain_freeze.react
+## AOE
 actions+=/blizzard,if=active_enemies>2&!moving
 actions+=/cone_of_cold,if=active_enemies>2&target.within10&moving
 actions+=/arcane_explosion,if=active_enemies>2&target.within10&moving
+## 移动时使用火焰冲击
 actions+=/fire_blast,if=moving&target.within20
+## 蓝量管理
 actions+=/best_mana_potion,use_off_gcd=1
 actions+=/use_mana_gem,use_off_gcd=1,if=mana.pct<70
 actions+=/evocation,if=mana.pct<30
+## 寒冰箭 - 核心技能
 actions+=/frostbolt

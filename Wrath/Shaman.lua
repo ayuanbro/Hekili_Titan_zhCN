@@ -809,6 +809,12 @@ spec:RegisterAuras( {
         aliasMode = "first",
         aliasType = "buff",
     },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 
@@ -1041,6 +1047,7 @@ spec:RegisterAbilities( {
         texture = 136077,
 
         handler = function ()
+            -- 复活目标，无需状态变化
         end,
 
         copy = { 20609, 20610, 20776, 20777, 25590, 49277 },
@@ -1063,6 +1070,7 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 传送回炉石位置，无需状态变化
         end,
     },
 
@@ -1123,9 +1131,19 @@ spec:RegisterAbilities( {
         texture = 310731,
 
         handler = function ()
+            -- 使用 APIWrapper 获取法术信息
+            local APIWrapper = ns.APIWrapper or (Hekili and Hekili.APIWrapper)
             for i = 138, 141 do
                 local _, totemSpell = GetActionInfo( i )
-                local spellName = totemSpell and GetSpellInfo( totemSpell )
+                local spellName = nil
+                if totemSpell then
+                    if APIWrapper and APIWrapper.GetSpellInfo then
+                        local spellInfo = APIWrapper.GetSpellInfo( totemSpell )
+                        spellName = spellInfo and spellInfo.name
+                    elseif GetSpellInfo then
+                        spellName = GetSpellInfo( totemSpell )
+                    end
+                end
                 local ability = spellName and class.abilities[ spellName ]
                 if ability then
                     ability.handler()
@@ -1146,9 +1164,19 @@ spec:RegisterAbilities( {
         texture = 310730,
 
         handler = function ()
+            -- 使用 APIWrapper 获取法术信息
+            local APIWrapper = ns.APIWrapper or (Hekili and Hekili.APIWrapper)
             for i = 134, 137 do
                 local _, totemSpell = GetActionInfo( i )
-                local spellName = totemSpell and GetSpellInfo( totemSpell )
+                local spellName = nil
+                if totemSpell then
+                    if APIWrapper and APIWrapper.GetSpellInfo then
+                        local spellInfo = APIWrapper.GetSpellInfo( totemSpell )
+                        spellName = spellInfo and spellInfo.name
+                    elseif GetSpellInfo then
+                        spellName = GetSpellInfo( totemSpell )
+                    end
+                end
                 local ability = spellName and class.abilities[ spellName ]
                 if ability then
                     ability.handler()
@@ -1169,9 +1197,19 @@ spec:RegisterAbilities( {
         texture = 310732,
 
         handler = function ()
+            -- 使用 APIWrapper 获取法术信息
+            local APIWrapper = ns.APIWrapper or (Hekili and Hekili.APIWrapper)
             for i = 142, 145 do
                 local _, totemSpell = GetActionInfo( i )
-                local spellName = totemSpell and GetSpellInfo( totemSpell )
+                local spellName = nil
+                if totemSpell then
+                    if APIWrapper and APIWrapper.GetSpellInfo then
+                        local spellInfo = APIWrapper.GetSpellInfo( totemSpell )
+                        spellName = spellInfo and spellInfo.name
+                    elseif GetSpellInfo then
+                        spellName = GetSpellInfo( totemSpell )
+                    end
+                end
                 local ability = spellName and class.abilities[ spellName ]
                 if ability then
                     ability.handler()
@@ -1528,6 +1566,7 @@ spec:RegisterAbilities( {
         buff = "fire_totem",
 
         handler = function ()
+            -- 火焰新星造成AOE伤害，无需额外状态变化
         end,
 
         copy = { 8498, 8499, 11314, 11315, 25546, 25547, 61649, 61657 },
@@ -1888,6 +1927,7 @@ spec:RegisterAbilities( {
         end,
 
         handler = function ()
+            -- 熔岩猛击，副手武器攻击
         end,
     },
 
@@ -1910,6 +1950,7 @@ spec:RegisterAbilities( {
         end,
 
         handler = function ()
+            -- 熔岩强击，双手武器攻击
         end,
     },
 
@@ -2624,6 +2665,43 @@ spec:RegisterAbilities( {
             applyBuff( "wrath_of_air_totem" )
         end,
     },
+
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
+    auto_attack = {
+        id = 6603,
+        cast = 0,
+        cooldown = 0,
+        gcd = "off",
+
+        startsCombat = true,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
+
+        handler = function()
+        end
+    },
+
+    -- 狮心 - 人类种族技能
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
+    },
 } )
 
 
@@ -2690,11 +2768,9 @@ spec:RegisterOptions( {
 spec:RegisterPack( "增强(黑科研)", 20251221, [[Hekili:nJvwtTTvu4FlzYmSKM4ylhsA6GZdDANPnpK8GYBDQKUw(ASg0IhjzOmdJgiByiqAOqwH0eA2GSqsBAziS08JPwsMN6FHEUx5fTAdnDsQFaSp3Z(57EohjUmCxGJTaYeZDoM0mdKHHjtQ0mzg4ez4ynhRmMJTmsCy0qWxurkWFT)LF2ENT6BVTN39zZ7(Wf73sOpM(jSnMSgQarDgAv0fbw94XEMLa2CxBdNPNGJnFfjzZVvLlFCwnlZj5yrvmlPPdgAH5TVXkCSLKkua7ja2qKJT(7VBTnFUZmtu)s7wBN7yFLQUB9S9UYCU7UU9d2Q2wx)BWdljl58RtBp7TCNUQD1nQT7Y)1ex06SwNL49Z8WABDv7FCwNPVMZREQ9Dx1(NM19QlA)BRbbM9uB7EVl7S4RDMDYgYenm(opF77HOwxROKmeRh(WwcSLqki1VWs4RvlHufXkyvtlHJzj4LZQFJvD2EfIlt9lRZsKX5TVX((p152B4U2wUt)o7QVGCeripgjo5BVPhV52NF84gIq3jFXX37rxh(h8Z5UzTDxaCoNDwZzJv8IClHZyjS3TFU7I)H76VY7xp66o373DMEbitqj4EPQUx(n7T8uaH((QZFHAV)(qUPF6z2p(z2l34mF6Q27UM7s)PN0t(cqANB9gN78apc0mT7SlrejohL5yzDxADNhovY(6ElKGY)ihBDluAei12(j12CMVy)7VnJVp1Ht3aAn)0k4b0QpKMFf2N)By93vVTHOvVA9hDX)vPI9r46VyCadxKOPKMQrQY6yrnL8iZpl3XhvsTqXk6JXpkgvwt9OsfZDifKePvqbEjL8vWf6PnHsidEJYyz5YAJI1JxJfLHoUMAQdvb3uP6i1HZ5XBQOhNsb9d8ewowMyn)hQ1j6uRyrFQmErLLgQKPQK6q8gLKWYficMVsXIP8(zQcAJQgVKIizzETI8MLW8yzAhuJwsJr6ML4n1mXkuvm(4uYfL0XrPokmDrpkzKKFIX7eL1i0ADwJAlelGd4NAESHjpquMePEcr8vcfZsPklAoy2bcRLpyeYNcCXbgnacyqhgkzykjcMEimHDdSjFEn1kgPmLW6zsJBpNKNPSyUm(vqfdmVeuOm8tmAPHw9BavqYE12aNJ1bYgLL0LmJiNQ2iiIJripcOgvSIe24m5Y6NtXsq6HVfMUfCubHLnm11uAMLnmHvLYnqpH0wGOQ9vJ8AYMDvx7xpoGnmm10vaTjnmosjeqXAIdFuXXeLHlni9HWMg5YCucajingA9fQEddoBpEuHYMc5QgFbj8zYDA)k37Ujv5XhUT7eaLjOwrIqc2GkskSkkVmGetSlH)4pGbqJG4LrgLIqmAcOJnxc1fPNinr0XKRjgdYK2VovqdPG84iov1uOCYGMufhRN2mecZgjCJtZ(OLQs5EIqRP5Y(FvnGcdh0pfcsHs9iPtLnB3UX3a3mQKzjj1mPHonQiANrOvGj4sgP8KIkauy0XGVixGJDeSUbOxVNpi9NZKMJDuKojkmGhbawdy(z(7DUN9R3X(kpP3c4IOkYM9Ax921xz19wEI6pDYABorTTwQ(up3EMvR9(1Dw8D015DF5lzQVYSGS12CoV18j77VWCWZi4mlSQ2J7nM26924rbCQEd7zEGNvHhIGP1dI4zzkxCSYqoWG(CvE(f81ZrFolVCfejTgNWX2iRZ9LCMqWs4QnfwrOPfwxcXXEilHqDTTe6XsWp5GnVdAnFJDi2jBi70K1OD53h(qIoazIttD35PseF6eDk2doNPJomOQbsuvDzceSdOLqM2QpmKMO8t6Vs2AivOc5P8ZKhgkehFUFoIRHqi(pDa(9nuleFzsNyWhCMbSemeSzd5eK(Ru1Kjr10Hbw083auureJfiXgAMk1Ijd(7QfBR4GZxP6nmyVdjKa(yW8Xj8N)9nHnC6pm2las1Rtl4c(h1sAoWgzamhltO7anMftZUrNh7vopn1hcar9nzoSVEQeZmDy(a1(HNthxbW7yQHIc2P51qUtaiERb7HBrMocxXwiy6cao08(2rvmZ8Teg0sGmcQf8nMnjOgTly4OBgaQgkBn2oOTtK4gcT9bFZ9PMozyEmRo02sXS(anCZMSLsUt9bb20467GbP2A9clHJyjqwXOZqlMK71hA3JgZQ82)GA3UTdshMcysE1FnEIXwJ3)im4om(6)ddUtg4DGhCNmY6G1WjzqrSViblHXh3)fVypj8luW3rbFPcDVnXj722buawEKbUW5vJ5vUdqYYyrYwgeg5(N)]] )
 
 spec:RegisterPack( "增强双持(黑科研)", 20251224, [[Hekili:TJ1tpUnru8pl9svRqyf7DZsrc4qVbhwoyUHyShBpjEugpJ14XjSxSwbQWYEbwPvQiHulGecOx4eiuP8PHMnPFl4n2BITx)VW2fUuUefnZB(97nV59(9Ejit0hGSdWkc6qRrwJnTmpWW0A0493dzRokMGSJX(ZWtHVWXrWNl)(hT8zp9oV4poB1pE2QV987M5EhR7Qn7iMahOHlrKk9btlSz5PFdy2QF(3U4logz7LszQ3LJ8QY6O7znczJtvHcjYE9xF26V8Zx(GtwD(Jr2H0GasH9Ke)2a9dREGpc8ePycLb8JSNtKjubVkllWsoLpnbzFXjF1YtF8YF5zlFWp88N(zh88F)jxC6XR)0)C5jpC939t)1XFs27HSz0evI(wHfeDW6WTFOq2eo2Jrcq3VW7K0yLMo7x8WNS68FD9jpcoMFXs(Hyk3HrNgQ08dliPkIKIr23ksmhwkZ92zUAZNtCiCseLKK5(ozUM5B4LozIreMWsusrKZccowWnsuWRdy1BN5UxUzjlaKa7aUcX8adjr)9cGkCfJR4jg(4evM7RL5YGheU)rvWrmzY1ggi(COLoWvjivENVE3t4Ao(kH6UJWa)71(B1MteHNgHDucfjQQVL7ctOssXwLx(3kZ1k3jvy5uIYybvfs57RzA)(zkhnUyoUpEsJBpfaU1MAog3phjkHmcIA0zKQSuZxTkJXvm3iqSGRz4GbUfmqcWjju4pRw(RI6pBtc8L0POr6RLtaLuCdgRX)n6hFcwQcBIFGqzuH6AjJ5WEV(HDBkbCEkHf04nOy5TrH3Sf4869qBPAbK7l3qdaL5ObCn8CSddNe29lgCsvU6J1gO(xov26)Gu5bkmF1tS02h3O3r3YkBn(MssThn0)x15vxvNaYeCkt1MWZv8RIGyrXV25kFXROkuFJcVUTDW0gRhH5yJyFvrA9O2KUktIXmMJyIJkeQgyKichMGBZ0iTw6udPlrVKrqRmHOu6PgH4pg2Wrcted4ljqUH(PDB1q(2WiJu)CBQgY6w2R3A49krxMYDk(UJES0IHtDkMlpVbXWdI0aIDq)4QBaXJ9BmfwDxzxMxPSaXtWuDPXFZjLxNVRRs(aO0LqEhACvYghoSmSoE3IDxdL5wL47w37FSYCRc8DieE)DxzUvD9EefFjgwQ1PV0u1XVrSTrOktaQvqb1qVmZxz2XqC7s3KgnU041MYLxhDGgOrN5asu7C3PyjXxe5HB2FQQNr5btsLhDz5sT8uTipLRR0DOrEPKG8GA1LdXjojXeglwSGir9(tA7aUUWQE6VsWNMs26KsmF2glmAAaOc8XoABE9Ttt3PpbIzvCPEP9Y2h3ajm5VpE4esW7ZB5)mc0uIj(AXkTHO)o]] )
-spec:RegisterPack( "增强双手2(黑科研)", 20251224, [[Hekili:TJvxVTnvy4FlCdf4IOeNK2ojGl4kyx0BmxBNtSpj5O4V0Xh3qKMIYguwAjfA1Q4JrfJIGTQPXM2nOswR2pMzNKEf)f49CSz2jyhN11jHe9MilFE973VpVpNOus5tvK1rmSYgsfLQwssQsHIfLwVYAkYSUoyfzhKwBut4blKj8BWV8tbNoA6Ehh8ndhV9xj1R27C(Z2FYd2FYpFW7YLURHnsNRvxBpQg8fkY19igSpXsPEAMATQGOoynLnat2IORJdfe7QPip95)G)jpC8o9N(5N5F63hS1GjJEW5BT7KZECW9g5p6R)yCBIbz8t3oy43oz7bbd(d)Zo8f9VLISbXL5k8dIvtdm80gIGfPXi2wW5OnrQUmkPn4JyluDdSUYhPWaVlPyUmBQzQIvMlw8BK1OegMsqkYVvVAmIwBWU9Q92WZiAtmRaJyIvz2Q6eCVAF4h0R21ITsddi5Q62YwRnx1vYu119A0OGjcBaUKTPAhmYX2QGldksHkT8CryDpQlJRZQxmDcQSAcvsA2IzbbMADBdHAxnt1QJfkorcSGNtSQWikRvCiVwYKEYZMnPVEMMJHmWwmUBd5(WVTqKGIQqOZ0IGn0lOB3XkTGk8yUDUws3PbHIvTS3enNZuQ4LI3eLPF)zFRj6ZuJo596vRyHYLxShxQ0IlWIGGzZWMIWp2l6aJK0OtOyteXYv4msfJnOgYWq1UHkRfwfBGnHyZvyuPL2OXQgAPmaBAP1n2jecgPzKrc)m2hmrnnrHNimD2ZFrdCDiSweRsffwXezHk4OXeHMlMXGSNlKRrWbQuaGdInkgkuq2mE4xCmaKa1qUmk8wEOXUbYd6(NhrPdXshkiqZBAakzHuWZkTqWxsmR7f1DW14Mq(WcBsWHvJYZANgE0UrtQ5IfTmwyoOdbEeZ2QPhoHvQKmA9CXQGrmDNlyRMuih7Ob6KsS6)A2AUc)CYpd0qdmfeZ1Har4sJna1BaWYYZfaHX0sfX88HMWMQsoAcuUslSShciKQYtlvUASYOEwQHpRYxjfUysnCzkYgNdosAkxA5uUMbgTjovOHL5ZJwBk64DOynBZ6O4E(xNETC7MFTNxwQU5SNzE1wvKZY6WDzjbEVXnsc6L6jjXKN7ieHMk8ygq0SWUS5XQYALM0YrrAH4n5S4pjJQ8tFlhVeTwqxH6lRoPX3zMMH)HBHwxykrnCFHlpfjZx7o7BLRCH42TqUr5sJRIsg04w7IPZ8OXTEY6E2CENHwu2S0UKigL)S3ci98QyOljgylpzOlrgy5aJ9MKbw2JUVHzGfTA7cELUSW((FfOw5Ra1Ucu7kqT)7aQbWADquE2hMoN(73py)D(RtVBWtonyRFBLORCUsWGVB6rhF(H9NE)B6FsF)r)40B)WGDo2)5pE8b)5l6FRExFYJEK00JgcFR)j7o(GNmE4nNC3Vy8D21)Sdhp82(p7xxPogy5d3t1GxQdVI2kIVT31hpyVGDUxOv9h9LvF5)(wOLfsbbIhRLnCl3G7SFWEhXVFGDdIb))6Jhhk)9p]] )
-spec:RegisterPack( "增强双手(黑科研)", 20251225, [[Hekili:fB1wZnTru4Fl9LgOZexB5gUKb4HoTZ0MhOpiEwYRLxhTt0fpsRtAMHrtsjqCcouOjCnHsdxd3c0sltWKa)yQUy)u)l0ZUsowsXYg4Hw)qI9z)2Z35(zLkiDgjXkikw60c5fgRGGWy5kC08fYFmjr6S1WsI1qktHMe(Ibsh(BbMKz1mrvy302SULcivsSCDIg97nKkFq1DKXekweWwdRiD6JkjQsQubhIeBRij2(930DNN4V8CTp3EU7EdVZ3iO1J6C(vc2BBV70YT1L(o8uenI)VVKxZRfSudVgV2DVn(75(jNjevr6iJXDk9TgQidfSo2G6uAuNsE39x92Tv7lVL)B3KPt(fDMW)vV072p0)6Vo4XTcw6nEnEktm7cHG8x6I(V6QotCYpWpot49ZndM)PFzN7Dj4FaVRCv39wfmi)DFS)R30)5p07MB5u6uoL6C9NeS2FfS9Zd)19UK)T(t)Lw1BX3YfeCUgbl8YoBSii4qFZpCg33FB)MZFy(zE3)rEBeDwmD5(MlgS(7cV98pfUT)1EP)nUtOGlSM3F84GMRZUsAJuy0IbRVT)VTy22zNvZqX)h7xdYnICc33(a3DwE8pCBTRV9)PRmScRUF4onRQKBLDU5cDE(AEnw0FL7oUZeJ2TE7qNikwC4XdT75(Li3IHj4D3NH5uNmgiiw1UrZUGgMv09d07BzwLOX74NbzzqmM0gAGb1CLL)NDVL3l2178pyKk4QO6A0r8AC92BUvNnMR9dN3DN5CBTE7fFI3YB5((T9x7n8g4GN9mH2B2eUR7oR4V2lGaAWTwWF1vGoC)MqU9(JugBtLvXinGm5AMuIPXi87cTZnUS3Y3jKv3wxqy)XiHmZrjjQrSP285CH2f81tZN7Huykd8eIrfzBGcljrSbQSgUI0xlrHzymu9KiQyrOylcss8ZCkXUv16wZkRJiSPpvCk95oLy6CASm2aRtW2oLobuNMKj(DMbJQbcaokoioQQbdDPMgtwhpyAo1jtWt871JQVktQSXu5YMg1TZrjyRc5X9gNklutXPeO(c9uVnFSlewjkYwSLdGYhlEeTUnwg0TUDQa6rIdkmxMcXrJJOkXc8rnUDG0KPMGktH)yjWJTay21iGJLc3XZ03hwOKzdgMtJyAPq(mvt56vRMthH1SPwM6rr9C2uy9jp8nw)ZBjIRkQqowwJmPkL1AXzSWNoJ9u8(QeYYqdatVzxBpyBmz8Oy8WVn10shmgYu4ur)cPl9suOc9EMktbMWSkAyzkYAsm0Wc9OI6OFuoPurHuTiqn4uGJXJUHGGAyqNut5keCy684CBirfk0Stv7sCsB9izgzGIqOsKfIzv(8lNlciNFEgXwLG1QKRI5mg9lbeEmNOdwRZJRPmNev4AOPrYAiB10Oo(bq13eHWqkG5wbVpJ7a98QzGh1zfDIfMnlkC4gOWELVinnzZQYu197AT5KoKA4yK2t1qAtd40qz2Egr)MhKkqRJMuhfnPGrD2L5rTp7dpx9A9ykU84UBXSzk7b5FmLnrTVNiPuwFq0jFHtP85kwCWLwczpQpQhzgcvLyuip3aGH5OC1uOCEHDbu2E9CHt55d4HuQfgmCq7dCjGWhypMqIfbPMoLcAIUeuDOVgrzHIK4OS3MGvm1lJ6TGpR1QDxLkt0lxpkjexSkYg2IG10Qzod2AGRVh4te6hpdLK(S7w0czmvxe5oiaE9bdZOfg6tkmRwnMj9P)KHpUzDJny9ewPeFUZzpB8E((Es8rsPocrS670HSMqn03LWlWGIpvtit5T6v8U8MCzs)7]] )
-spec:RegisterPack( "元素(黑科研)", 20251225, [[Hekili:TAvZUTTrq4NLEPi9qf0VwnfPfOfihAo4CG5mxUICP4IqUuy3LsWabebXWgYUfb2iU19srTrr(ZfTPOjPWnjn9HPMI2VfD2LwMuYuYsf9Ij9oZ(nZ8nZ8jAwZ8oMgoyjXC16vR3Qw96RuPA1QTRw30qUwpIPrpS9DXDHxy4a4VjBSE6Ro4AN92DtF6UPhS3hP8yn)qSJcjrye3g8Y0Ote1x(vmZoLb)kTQb(2JyBUABtdpQJdjZtIW20WWdhGzFAS1n9jbeMe7hB9XXwzr(0DE2O3E4jV77t(MVlDRHX3A0l)TKF4jJ2)psF(Bs36ptg(ZQJvxiZPrB91JE53c(DWXj)96jV)O0h(ca70n3l53FE6Wnp9NEqS1NhBD2(hLU3Rt)1FPW)D2JE)1(IBFtOg9PcPqvH4qc8yvnVry4o(ehZV00WMtLeofBA8bXwYqjjOIlLtQGTL0(aHOEgYaovzcf6IgWXsptjWlxnsb4Ubyu27zagB9HGrmVlrwzav6rz1QMhKc(RIqdDEFUnYyoffGfqGwRyWbNBE1PJQWq54umVYJtzoPWV18W3H0jY1TIRpmQHeEH23TsuVcyMFUcQvMjuxbo(4(yuNiUqQGPDr6X2dtziFAxpjJY6of58jZmIxQLp)oKMDyH9XkuVEXe4IqJ6e6lNm(svL5IJGZN7iOhb7l9Q0ZwgBDJyRgTYHVdrirk7Qi0luF44HWX(mGYCawJG5tv(nMze10DEQl8OeFNkoHdyAEawNXzPdSA1OAzvB2vM)eOokda1e(CIWnMmcfDF(ZFz9neHrcOebKQFgGeitj5uBPIUVatEedL9osPlKPoGY0hv6dLmBUixvpok1ph3EJeeqSWf112zIm48o3KTN6Z7gQZHknqSW90LviBbuoGrkyUCAOagMW6k9uOP9ybvlox4HYVeI6CsbhymhSzRxCby6PLlbNA4cj6XvZPxGw7LrvD2chlIQArTejfK0KHihkrVnvR(0YkLi6E9Lw0n26E3RutCsaOqkY2ZMP0mO19)I2CTAlH2ypoXomOdoF9zMYmLS4uAYoHSsR5iR8FDnstdYqw3isE7QzXCVSvDD52NWfklJ)YQMQSIRQsyhF0WDs2(htEX7s24XN8MnBEYXhnA77F66)vYW9p9WN9p3)bX3sXyHUu)SVxdlio3Mv6h4HJKEHWpgK8ODt25qD0n)3d]] )
 
-
+spec:RegisterPack( "增强双手(黑科研)", 202601011, [[Hekili:TJ1stTXrq4Fl5IXovzfjXdBtb(qQKdHdohKpVRgTAe7wSpuT7iiuLRTGyhJalCmb8tWXg)aJFGTR4exyaB)Jj7dPt5Vq6zMvwR2SRKaJtoeRdGyME6(R7P7VUheYiCwHCfreSWzYMo7qPZKotQmdm4jtNrihz6YyHCLrstGgh(Iosd(P79(v392X9NR5n)LoAJDxY)rl5F3vogvUPvnqfP6ZYOIPeiRqUcvuujFNUqHOgbeQmws4mNqiNSsXIyUiyljHC5KrAi9HTZ)T6YiDjSgwNyN)4255MU(v20B31D27gU1UM)8vThZ7vV092B4D9x7)4D8N)nUvFkDz6b4cba17vx1ESr7Xp2JbEN)Sp9RAC)ld)cS7Ix15TldaYBVh796192Ad3BUPD(tBNVX1FI)k)H)Z3I)x3)YE3639MFz352LTG)5R6FHx2yT5Gfo6389N15932R2ShJTN7dEK7Ab7fsxoV5s(R(o(PN9PWP9U2l9UXD4lCXvC)Th7xBv6rIcYShVF)vFU3DNlzC2y5eu8)Y(vNCJaNWz3h6S9cd37yTPV9FPR0TeRMFyonnRKHYg38cn2Af3QZ5T49g2ESJ3mF7OJeelo2WCCpZVe4wuz8F3dOYC6rdjeeRQxTwtH6gkA(riNQIfXIv3QOpUkg(2zy0cijIIHoSpAsKOfXuzcOMgRJkOIlk81ceOAoSywedtTyfRFQyTwjNKPcbBQGeY9ffXfQuQuQsQa5IOLSH0ePikstaaXo)rSZtqMJJjWsWUedXIkyiUpQD(t1YSHok1wdKOTygsdHvbmAOjofgv2qpLfb434kT)iUCHkMweQoh8GPtqLdgsLkJlt0bhtSGHktTdLOAdIkHIOPQuULQWitIClx(eHVfcVx73cNmrZrqQahlf2qSp4wiqq2TahmYky1IPkAmLECofFBQDovy4usXelQBmjkcyYK(qbnbr6rAFvn0pigSZxANpDQ(7VZiotMoFbZCcIbbRXC)wOykONMzWoMynKIUfdmzt3YGsivvrJsIezSiwL1nZIz0S9SrBPAiLsfSPU00TabtWanJudHZwyqdnUgIVdZ0jxqguWnLcrwrptAMvGUXOuLLimxZctiq0ZcI1020IMWSbGVzIHlkiA2InGTnWSa3HuzeOP8qIDjufi7pkfZuk6fHlei5nogM4PoONPufZPfPbhysHIhHQTjHyHowtbBnYhGkQcWDOOvOcwmRSiYiwa)b1XlI7cVfJ1HyOpoOZeS)PhD)bGWQSfggiCyQIfweGGMvKO0GHfQSratqyjg6FuugjJjI8TXPucBcIzvwb8)9bPsBzshPzw0iFezqCULqMRPSMv0f5FxK2nlmoA)sHZ0peVPNiFKw4(iwkPdOYZ2MYLuXOjXXYYKO(dD8GwYSINYMyjdTcOwLpXNBsRy5zK8CooTzuOosBn8Ij7VdLE9MfI0tn(87KRX2FDD6sFFEBXWC4N7CH5pJDNW07r2cPygltBcS9eEwwuAVK6oMT3g)Qd8t257YmeHNwR7HVEBehjziRq8d3oXn6uBjdnhtrAAOkrKtyyrdr5ODWBF1Cd0JZn2XPg74uxDDaXbesyaXtCW0z3gq8KHtdsE862g4k55)oKg5Q7LIDyCQ9JHoKMTR3hZ6qC2UUWQ9PC2UKRK)epBxqNUd4RhtIk8)vCC93JCCD5TXFML7JM85ZSCFMLlowoGNBsSPfvGq)VSNczsVqGk46BTH7sl8x7Dl3xSN7p9W(cEWBFUvVE913SXAZuFJzD2EgNDwT(CpXDHnDE)Z9w5n)5m)O9y(p7zzRVEn4SoBVO3kVWR2S(36cElVOZBxZR2Co7(G(kGHhgaVswLE7ZFNxFSZApMx1R4UWD4w1zNloOZ2pXBHzQF(3YTmtk6timkPOY(xZdVjv2aEUT7Yl5EL1zUMWF)d]] )
+spec:RegisterPack( "元素(黑科研)", 20260101, [[Hekili:TAvZUTTrq4NLEPi9qf0VwnfPfOfihAo4CG5mxUICP4IqUuy3LsWabebXWgYUfb2iU19srTrr(ZfTPOjPWnjn9HPMI2VfD2LwMuYuYsf9Ij9oZ(nZ8nZ8jAwZ8oMgoyjXC16vR3Qw96RuPA1QTRw30qUwpIPrpS9DXDHxy4a4VjBSE6Ro4AN92DtF6UPhS3hP8yn)qSJcjrye3g8Y0Ote1x(vmZoLb)kTQb(2JyBUABtdpQJdjZtIW20WWdhGzFAS1n9jbeMe7hB9XXwzr(0DE2O3E4jV77t(MVlDRHX3A0l)TKF4jJ2)psF(Bs36ptg(ZQJvxiZPrB91JE53c(DWXj)96jV)O0h(ca70n3l53FE6Wnp9NEqS1NhBD2(hLU3Rt)1FPW)D2JE)1(IBFtOg9PcPqvH4qc8yvnVry4o(ehZV00WMtLeofBA8bXwYqjjOIlLtQGTL0(aHOEgYaovzcf6IgWXsptjWlxnsb4Ubyu27zagB9HGrmVlrwzav6rz1QMhKc(RIqdDEFUnYyoffGfqGwRyWbNBE1PJQWq54umVYJtzoPWV18W3H0jY1TIRpmQHeEH23TsuVcyMFUcQvMjuxbo(4(yuNiUqQGPDr6X2dtziFAxpjJY6of58jZmIxQLp)oKMDyH9XkuVEXe4IqJ6e6lNm(svL5IJGZN7iOhb7l9Q0ZwgBDJyRgTYHVdrirk7Qi0luF44HWX(mGYCawJG5tv(nMze10DEQl8OeFNkoHdyAEawNXzPdSA1OAzvB2vM)eOokda1e(CIWnMmcfDF(ZFz9neHrcOebKQFgGeitj5uBPIUVatEedL9osPlKPoGY0hv6dLmBUixvpok1ph3EJeeqSWf112zIm48o3KTN6Z7gQZHknqSW90LviBbuoGrkyUCAOagMW6k9uOP9ybvlox4HYVeI6CsbhymhSzRxCby6PLlbNA4cj6XvZPxGw7LrvD2chlIQArTejfK0KHihkrVnvR(0YkLi6E9Lw0n26E3RutCsaOqkY2ZMP0mO19)I2CTAlH2ypoXomOdoF9zMYmLS4uAYoHSsR5iR8FDnstdYqw3isE7QzXCVSvDD52NWfklJ)YQMQSIRQsyhF0WDs2(htEX7s24XN8MnBEYXhnA77F66)vYW9p9WN9p3)bX3sXyHUu)SVxdlio3Mv6h4HJKEHWpgK8ODt25qD0n)3d]] )
 
 
 spec:RegisterPackSelector( "elemental", "元素(黑科研)", "|T136048:0|t 元素",

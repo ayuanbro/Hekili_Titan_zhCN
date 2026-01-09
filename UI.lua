@@ -1531,9 +1531,8 @@ do
                         if a.item then
                             rStart, rDuration = _G.C_Container.GetItemCooldown( a.item )
                         else
-                            if a.cooldown > 0 or a.spendType ~= "runes" then
-                                rStart, rDuration = GetSpellCooldown( a.id )
-                            end
+                            ---对于所有技能，无论消耗类型如何，都获取实时冷却时间（来自玩家圆圆bro的修改）
+                            rStart, rDuration = GetSpellCooldown( a.id )
                         end
                         if rStart > 0 then moment = max( moment, rStart + rDuration - now ) end
                     end

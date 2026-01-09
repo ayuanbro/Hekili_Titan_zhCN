@@ -1,54 +1,102 @@
+## Warrior: Protection - 防护战优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 盾牌猛击 > 复仇 > 震荡波 > 毁灭打击 > 雷霆一击
+## T10 4件套: 盾牌格挡触发盾牌猛击重置
+
+## 战前准备
 actions.precombat+=/vigilance,if=group&active_dot.vigilance=0 
 actions.precombat+=/bloodrage,use_off_gcd=1,if=rage.current<action.commanding_shout.spend&buff.shout.remains<=60
 actions.precombat+=/commanding_shout,if=assigned_shout.commanding_shout&buff.shout.remains<=60
 actions.precombat+=/battle_shout,if=assigned_shout.battle_shout&buff.shout.remains<=60
+## 开怪前切狂暴姿态放鲁莽
 actions.precombat+=/berserker_stance,use_off_gcd=1,if=cooldown.recklessness.up
 actions.precombat+=/recklessness
 actions.precombat+=/defensive_stance,use_off_gcd=1,if=buff.defensive_stance.down&!cooldown.recklessness.up
 actions.precombat+=/bloodrage,use_off_gcd=1,if=rage.deficit>30&!set_bonus.tier10prot_4pc
 actions.precombat+=/charge
+
+## 默认动作
 actions+=/call_action_list,name=init
 actions+=/charge
 actions+=/shield_bash
 actions+=/spell_reflection
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 生存技能 - 低血量时使用
 actions+=/last_stand,if=health.pct<30
+## 狂怒回复 - 低血量时使用
 actions+=/enraged_regeneration,if=health.pct<40&buff.enrage.up
 actions+=/bloodrage,use_off_gcd=1,if=rage.deficit>30&!set_bonus.tier10prot_4pc
 actions+=/use_items
 actions+=/devastate,if=variable.emergency_sunder
 actions+=/run_action_list,name=aoe,if=active_enemies>1
 actions+=/run_action_list,name=single
+## 后备技能 - 低等级时使用
+actions+=/heroic_strike
+actions+=/auto_attack
+
+## 初始化变量
 actions.init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
 actions.init+=/variable,name=should_sunder,value=settings.debuff_sunder_enabled&variable.time_to_die>((5-debuff.sunder_armor.stack)*(1.5+latency))+3
 actions.init+=/variable,name=build_sunder,value=should_sunder&!debuff.major_armor_reduction.up|(debuff.sunder_armor.up&debuff.sunder_armor.stack<5)
 actions.init+=/variable,name=maintain_sunder,value=should_sunder&!variable.build_sunder&debuff.sunder_armor.stack=5&debuff.sunder_armor.remains<5
 actions.init+=/variable,name=emergency_sunder,value=should_sunder&debuff.sunder_armor.up&debuff.sunder_armor.remains<2
 actions.init+=/variable,name=build_sunder_cost,op=setif,if=variable.build_sunder,value=action.devastate.spend*(5-debuff.sunder_armor.stack),value_else=0
+## 盾牌猛击免费条件（剑盾合璧触发）
 actions.init+=/variable,name=free_shield_slam,value=buff.sword_and_board.up
+
+## 单目标循环
 actions.single+=/shattering_throw,if=buff.bloodlust.up&debuff.shattering_throw.down
 actions.single+=/defensive_stance,use_off_gcd=1,if=buff.defensive_stance.down
+## 英勇打击泄怒 - 确保有足够怒气使用核心技能
 actions.single+=/heroic_strike,use_off_gcd=1,if=rage.current>=settings.queueing_threshold&rage.current>action.heroic_strike.spend+variable.build_sunder_cost+(variable.maintain_sunder*action.devastate.spend)+((cooldown.shield_slam.remains<2)*action.shield_slam.spend)
+## 盾牌格挡 - 配合盾牌猛击使用
 actions.single+=/shield_block,if=(aggro|debuff.training_dummy.up)&cooldown.shield_slam.up&rage.current>=action.shield_slam.spend
+## 盾牌猛击 - 最高优先级
 actions.single+=/shield_slam
+## 复仇 - 第二优先级，伤害极高
 actions.single+=/revenge
+## 呐喊维护
 actions.single+=/commanding_shout,if=assigned_shout.commanding_shout&buff.shout.remains<=4&buff.commanding_shout.remains<=4
 actions.single+=/battle_shout,if=assigned_shout.battle_shout&buff.shout.remains<=4&buff.battle_shout.remains<=4
+## 毁灭打击 - 叠/维护破甲
 actions.single+=/devastate,if=variable.build_sunder|variable.maintain_sunder
+## 挫志怒吼
 actions.single+=/demoralizing_shout,if=settings.debuff_demoshout_enabled&(!debuff.ap_reduction.up|(debuff.demoralizing_shout.up&debuff.demoralizing_shout.remains<3))
+## 雷霆一击 - 维护攻速降低debuff
 actions.single+=/thunder_clap,if=!debuff.attack_speed_reduction.up|(debuff.thunder_clap.up&debuff.attack_speed_reduction.remains<3)
+## 震荡波 - 伤害填充
 actions.single+=/shockwave
+## 毁灭打击填充 - 等待核心技能CD
 actions.single+=/devastate,if=cooldown.shield_slam.remains&!buff.revenge_usable.up&(action.shield_slam.spend<=rage.current-action.devastate.spend+rage_gain*gcd)
+## 后备技能
+actions.single+=/heroic_strike
+actions.single+=/devastate
+
+## AOE循环 - 多目标优化
 actions.aoe+=/shattering_throw,if=boss&buff.bloodlust.up&debuff.shattering_throw.down
 actions.aoe+=/defensive_stance,use_off_gcd=1,if=buff.defensive_stance.down
+## 顺劈泄怒
 actions.aoe+=/cleave,use_off_gcd=1,if=rage.current>=settings.queueing_threshold&rage.current>action.cleave.spend+(variable.maintain_sunder*action.devastate.spend)+((cooldown.shield_slam.remains<2)*action.shield_slam.spend)
+## 雷霆一击 - AOE最高优先级
 actions.aoe+=/thunder_clap
+## 震荡波 - 3目标以上优先
 actions.aoe+=/shockwave,if=active_enemies>3
+## 复仇 - 仍然高优先级
 actions.aoe+=/revenge
+## 震荡波 - 常规使用
 actions.aoe+=/shockwave
+## 盾牌格挡
 actions.aoe+=/shield_block,use_off_gcd=1,if=(aggro|debuff.training_dummy.up)&cooldown.thunder_clap.remains&!buff.revenge_usable.up&cooldown.thunder_clap.remains&cooldown.shield_slam.up&rage>=action.shield_slam.spend
+## 盾牌猛击
 actions.aoe+=/shield_slam
+## 呐喊维护
 actions.aoe+=/commanding_shout,if=assigned_shout.commanding_shout&buff.shout.remains<=4&buff.commanding_shout.remains<=4
 actions.aoe+=/battle_shout,if=assigned_shout.battle_shout&buff.shout.remains<=4&buff.battle_shout.remains<=4
+## 挫志怒吼
 actions.aoe+=/demoralizing_shout,if=settings.debuff_demoshout_enabled&(!debuff.major_ap_reduction.up|(debuff.demoralizing_shout.up&debuff.demoralizing_shout.remains<3))
+## 毁灭打击填充
 actions.aoe+=/devastate,if=cooldown.shield_slam.remains&!buff.revenge_usable.up&(action.shield_slam.spend<=rage.current-action.devastate.spend+rage_gain*gcd)
+## 后备技能
+actions.aoe+=/heroic_strike
+actions.aoe+=/devastate

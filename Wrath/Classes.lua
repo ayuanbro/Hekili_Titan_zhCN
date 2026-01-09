@@ -26,7 +26,15 @@ function ns.updateTalents()
 
             if ability then
                 -- This is a talent, but it could also be an ability with multiple ranks.
-                local spellID = select( 7, GetSpellInfo( ability.name ) ) or spell
+                -- 使用 APIWrapper 获取法术信息
+                local APIWrapper = ns.APIWrapper or (Hekili and Hekili.APIWrapper)
+                local spellID = spell
+                if APIWrapper and APIWrapper.GetSpellInfo then
+                    local spellInfo = APIWrapper.GetSpellInfo( ability.name )
+                    spellID = spellInfo and spellInfo.spellID or spell
+                elseif GetSpellInfo then
+                    spellID = select( 7, GetSpellInfo( ability.name ) ) or spell
+                end
                 if IsPlayerSpell( spellID ) then
                     talent.enabled = true
                     talent.rank = i - 2
@@ -1042,42 +1050,56 @@ all:RegisterAbilities( {
     -- 治疗药水 - 通用技能，用于低血量时使用治疗药水
     -- WotLK 最佳治疗药水: 无尽治疗药水 (Endless Healing Potion) 或 符文治疗药水 (Runic Healing Potion)
     best_healing_potion = {
-        name = "治疗药水",
+        name = "|cff00ccff[治疗药水]|r",
         cast = 0,
-        cooldown = 60,  -- 药水共享 CD
+        cooldown = function () return time > 0 and 3600 or 60 end,
         gcd = "off",
 
-        -- 符文治疗药水 ID: 33447, 无尽治疗药水 ID: 43569
-        items = { 33447, 43569, 22829, 13446 },
         item = function()
-            -- 按优先级检查背包中的治疗药水
             if GetItemCount( 33447 ) > 0 then return 33447 end  -- 符文治疗药水
             if GetItemCount( 43569 ) > 0 then return 43569 end  -- 无尽治疗药水
             if GetItemCount( 22829 ) > 0 then return 22829 end  -- 超强治疗药水
             if GetItemCount( 13446 ) > 0 then return 13446 end  -- 强效治疗药水
-            return 33447  -- 默认返回符文治疗药水
+            return 33447
         end,
+        bagItem = true,
+
+        startsCombat = false,
 
         toggle = "potions",
 
-        usable = function()
-            -- 只在低血量时可用
-            return health.pct < 50, "health must be below 50%"
+        usable = function ()
+            local hasPotion = GetItemCount( 33447 ) > 0 or GetItemCount( 43569 ) > 0 or 
+                             GetItemCount( 22829 ) > 0 or GetItemCount( 13446 ) > 0
+            if not hasPotion then return false, "需要背包中有治疗药水" end
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 13446
+            if not IsUsableItem( itemID ) then return false, "治疗药水CD中" end
+            if health.current >= health.max then return false, "必须已受到伤害" end
+            return true
         end,
 
-        handler = function()
-            -- 治疗效果由游戏处理
+        readyTime = function ()
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 13446
+            local start, duration = GetItemCooldown( itemID )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            gain( 0.25 * health.max, "health" )
         end,
     },
 
     -- 治疗药水别名 - 与 best_healing_potion 相同
     health_potion = {
-        name = "治疗药水",
+        name = "|cff00ccff[治疗药水]|r",
         cast = 0,
-        cooldown = 60,
+        cooldown = function () return time > 0 and 3600 or 60 end,
         gcd = "off",
 
-        items = { 33447, 43569, 22829, 13446 },
         item = function()
             if GetItemCount( 33447 ) > 0 then return 33447 end
             if GetItemCount( 43569 ) > 0 then return 43569 end
@@ -1085,26 +1107,45 @@ all:RegisterAbilities( {
             if GetItemCount( 13446 ) > 0 then return 13446 end
             return 33447
         end,
+        bagItem = true,
+
+        startsCombat = false,
 
         toggle = "potions",
 
-        usable = function()
-            return health.pct < 50, "health must be below 50%"
+        usable = function ()
+            local hasPotion = GetItemCount( 33447 ) > 0 or GetItemCount( 43569 ) > 0 or 
+                             GetItemCount( 22829 ) > 0 or GetItemCount( 13446 ) > 0
+            if not hasPotion then return false, "需要背包中有治疗药水" end
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 13446
+            if not IsUsableItem( itemID ) then return false, "治疗药水CD中" end
+            if health.current >= health.max then return false, "必须已受到伤害" end
+            return true
         end,
 
-        handler = function()
+        readyTime = function ()
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 13446
+            local start, duration = GetItemCooldown( itemID )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            gain( 0.25 * health.max, "health" )
         end,
     },
 
     -- 治疗石 - 术士制造的治疗物品，所有职业可用
     -- WotLK 治疗石 ID: 36892 (大师治疗石), 36891 (高级治疗石), 36890 (治疗石)
     healthstone = {
-        name = "治疗石",
+        name = "|cff00ccff[治疗石]|r",
         cast = 0,
-        cooldown = 120,  -- 治疗石有独立 CD
+        cooldown = function () return time > 0 and 3600 or 60 end,
         gcd = "off",
 
-        items = { 36892, 36891, 36890, 36889, 5512 },
         item = function()
             -- 按优先级检查背包中的治疗石
             if GetItemCount( 36892 ) > 0 then return 36892 end  -- 大师治疗石
@@ -1112,36 +1153,83 @@ all:RegisterAbilities( {
             if GetItemCount( 36890 ) > 0 then return 36890 end  -- 治疗石
             if GetItemCount( 36889 ) > 0 then return 36889 end  -- 次级治疗石
             if GetItemCount( 5512 ) > 0 then return 5512 end    -- 初级治疗石
-            return 36892  -- 默认返回大师治疗石
+            return 36892
         end,
+        bagItem = true,
+
+        startsCombat = false,
+        texture = 538745,
 
         toggle = "defensives",
 
-        usable = function()
-            -- 检查是否有治疗石
+        usable = function ()
             local hasStone = GetItemCount( 36892 ) > 0 or GetItemCount( 36891 ) > 0 or 
                             GetItemCount( 36890 ) > 0 or GetItemCount( 36889 ) > 0 or 
                             GetItemCount( 5512 ) > 0
-            if not hasStone then return false, "no healthstone in bags" end
-            return health.pct < 50, "health must be below 50%"
+            if not hasStone then return false, "需要背包中有治疗石" end
+            local itemID = GetItemCount( 36892 ) > 0 and 36892 or 
+                          GetItemCount( 36891 ) > 0 and 36891 or 
+                          GetItemCount( 36890 ) > 0 and 36890 or 
+                          GetItemCount( 36889 ) > 0 and 36889 or 5512
+            if not IsUsableItem( itemID ) then return false, "治疗石CD中" end
+            if health.current >= health.max then return false, "必须已受到伤害" end
+            return true
         end,
 
-        handler = function()
-            -- 治疗效果由游戏处理
+        readyTime = function ()
+            local itemID = GetItemCount( 36892 ) > 0 and 36892 or 
+                          GetItemCount( 36891 ) > 0 and 36891 or 
+                          GetItemCount( 36890 ) > 0 and 36890 or 
+                          GetItemCount( 36889 ) > 0 and 36889 or 5512
+            local start, duration = GetItemCooldown( itemID )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            gain( 0.25 * health.max, "health" )
+        end,
+    },
+
+    -- 邪能治疗石 - 术士制造的治疗物品（WotLK 版本），所有职业可用
+    fel_healthstone = {
+        name = "|cff00ccff[邪能治疗石]|r",
+        cast = 0,
+        cooldown = function () return time > 0 and 3600 or 60 end,
+        gcd = "off",
+
+        item = 36892,
+        bagItem = true,
+
+        startsCombat = false,
+        texture = 135230,
+
+        toggle = "defensives",
+
+        usable = function ()
+            if GetItemCount( 36892 ) == 0 then return false, "需要背包中有邪能治疗石"
+            elseif not IsUsableItem( 36892 ) then return false, "邪能治疗石CD中"
+            elseif health.current >= health.max then return false, "必须已受到伤害" end
+            return true
+        end,
+
+        readyTime = function ()
+            local start, duration = GetItemCooldown( 36892 )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            gain( 0.25 * health.max, "health" )
         end,
     },
 
     -- 通用药水 - 根据职业自动选择最佳药水
     potion = {
-        name = "药水",
+        name = "|cff00ccff[药水]|r",
         cast = 0,
-        cooldown = 60,
+        cooldown = function () return time > 0 and 3600 or 60 end,
         gcd = "off",
 
-        items = { 33447, 43569, 22829, 13446, 40211, 40212 },
         item = function()
-            -- 对于物理职业，优先使用治疗药水
-            -- 对于法系职业，可能需要法力药水
             if GetItemCount( 33447 ) > 0 then return 33447 end  -- 符文治疗药水
             if GetItemCount( 43569 ) > 0 then return 43569 end  -- 无尽治疗药水
             if GetItemCount( 22829 ) > 0 then return 22829 end  -- 超强治疗药水
@@ -1149,61 +1237,100 @@ all:RegisterAbilities( {
             if GetItemCount( 40212 ) > 0 then return 40212 end  -- 药剂 (野性)
             return 33447
         end,
+        bagItem = true,
+
+        startsCombat = false,
 
         toggle = "potions",
 
-        handler = function()
+        usable = function ()
+            local hasPotion = GetItemCount( 33447 ) > 0 or GetItemCount( 43569 ) > 0 or 
+                             GetItemCount( 22829 ) > 0 or GetItemCount( 40211 ) > 0 or 
+                             GetItemCount( 40212 ) > 0
+            if not hasPotion then return false, "需要背包中有药水" end
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 
+                          GetItemCount( 40211 ) > 0 and 40211 or 40212
+            if not IsUsableItem( itemID ) then return false, "药水CD中" end
+            return true
+        end,
+
+        readyTime = function ()
+            local itemID = GetItemCount( 33447 ) > 0 and 33447 or 
+                          GetItemCount( 43569 ) > 0 and 43569 or 
+                          GetItemCount( 22829 ) > 0 and 22829 or 
+                          GetItemCount( 40211 ) > 0 and 40211 or 40212
+            local start, duration = GetItemCooldown( itemID )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            -- 药水效果由游戏处理
         end,
     },
 
     -- 使用物品 - 通用物品使用（饰品等）
     -- 这是一个占位符，实际使用时会根据装备的饰品来触发
     use_items = {
-        name = "使用物品",
+        name = "|cff00ccff[使用道具]|r",
         cast = 0,
         cooldown = 0,
         gcd = "off",
 
+        startsCombat = false,
+
         usable = function()
-            -- 检查是否有可用的饰品
             return false, "use specific trinket abilities instead"
         end,
 
         handler = function()
-            -- 由具体饰品技能处理
         end,
     },
 
     -- 法力药水 - 通用技能，用于低蓝量时使用法力药水
     -- WotLK 最佳法力药水: 符文法力药水 (Runic Mana Potion)
     best_mana_potion = {
-        name = "法力药水",
-        link = "|cff00ccff[法力药水]|r",
-        texture = 136243,  -- 法力药水图标
+        name = "|cff00ccff[法力药水]|r",
         cast = 0,
-        cooldown = 60,  -- 药水共享 CD
+        cooldown = function () return time > 0 and 3600 or 60 end,
         gcd = "off",
 
-        -- 符文法力药水 ID: 33448, 超强法力药水 ID: 22832
-        items = { 33448, 22832, 13444, 13443 },
         item = function()
-            -- 按优先级检查背包中的法力药水
             if GetItemCount( 33448 ) > 0 then return 33448 end  -- 符文法力药水
             if GetItemCount( 22832 ) > 0 then return 22832 end  -- 超强法力药水
             if GetItemCount( 13444 ) > 0 then return 13444 end  -- 强效法力药水
             if GetItemCount( 13443 ) > 0 then return 13443 end  -- 高级法力药水
-            return 33448  -- 默认返回符文法力药水
+            return 33448
         end,
+        bagItem = true,
+
+        startsCombat = false,
 
         toggle = "potions",
 
-        usable = function()
-            -- 只在低蓝量时可用
-            return mana.pct < 50, "mana must be below 50%"
+        usable = function ()
+            local hasPotion = GetItemCount( 33448 ) > 0 or GetItemCount( 22832 ) > 0 or 
+                             GetItemCount( 13444 ) > 0 or GetItemCount( 13443 ) > 0
+            if not hasPotion then return false, "需要背包中有法力药水" end
+            local itemID = GetItemCount( 33448 ) > 0 and 33448 or 
+                          GetItemCount( 22832 ) > 0 and 22832 or 
+                          GetItemCount( 13444 ) > 0 and 13444 or 13443
+            if not IsUsableItem( itemID ) then return false, "法力药水CD中" end
+            if mana.current >= mana.max then return false, "法力已满" end
+            return true
         end,
 
-        handler = function()
-            -- 法力恢复效果由游戏处理
+        readyTime = function ()
+            local itemID = GetItemCount( 33448 ) > 0 and 33448 or 
+                          GetItemCount( 22832 ) > 0 and 22832 or 
+                          GetItemCount( 13444 ) > 0 and 13444 or 13443
+            local start, duration = GetItemCooldown( itemID )
+            return max( 0, start + duration - query_time )
+        end,
+
+        handler = function ()
+            gain( 0.25 * mana.max, "mana" )
         end,
     },
 

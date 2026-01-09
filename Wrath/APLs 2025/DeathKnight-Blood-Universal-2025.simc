@@ -1,0 +1,239 @@
+## ========================================
+## Death Knight: Blood Universal - 鲜血DK全流派通用版
+## 泰坦时空特别版 2025 - 智能天赋/武器检测系统
+## 更新日期: 20260101
+## ========================================
+## 智能检测系统:
+## - talent.vampiric_blood.enabled → 吸血鬼之血天赋（坦克核心）
+## - talent.dancing_rune_weapon.enabled → 舞动符文武器天赋（爆发）
+## - talent.heart_strike.enabled → 心脏打击天赋
+## - glyph.disease.enabled → 疾病雕文（传染刷新疾病）
+## ========================================
+## 单体起手:
+## 冰触 → 走上去暗打 → 血沸 → 凋零 → 心打 → 分流 → 灵打
+## → 爆发 → 符文剑 → 武器增效 → 心打x3
+## 然后看情况补双病、灵打、血沸、凋零
+## ========================================
+## 群体起手:
+## 冰触 → 走上去暗打 → 传染 → 血沸 → 凋零
+## 4目标以下：心打，下一轮冰邪用灵打
+## 5目标以上：血沸，下一轮冰邪用灵打
+## ========================================
+## 平稳期:
+## - 正常补好病
+## - 血沸凋零不用过于卡CD，但尽量补好
+## - 死亡符文用来打心打
+## - 灵打用来转冰邪变成死亡符文
+## ========================================
+## 支持的流派:
+## 1. 血DK坦克 (BloodTank)
+## 2. 血DK输出 (BloodDPS)
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/frost_presence,if=talent.vampiric_blood.enabled&buff.presence.down
+actions.precombat+=/blood_presence,if=!talent.vampiric_blood.enabled&buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/bone_shield,if=buff.bone_shield.down&talent.bone_shield.enabled
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## ==================== 坦克紧急自保 ====================
+actions+=/rune_tap,if=talent.vampiric_blood.enabled&health.pct<=40
+actions+=/icebound_fortitude,if=talent.vampiric_blood.enabled&health.pct<=30
+actions+=/vampiric_blood,if=talent.vampiric_blood.enabled&health.pct<=35
+actions+=/bone_shield,if=buff.bone_shield.down&talent.bone_shield.enabled
+
+## ==================== 拉怪（坦克）====================
+actions+=/death_grip,if=talent.vampiric_blood.enabled&time<2
+
+## ==================== AOE切换 ====================
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+
+## ==================== 起手序列（DPS）====================
+actions+=/call_action_list,name=opener,if=!talent.vampiric_blood.enabled&time<15
+
+## ==================== 单体循环 ====================
+actions+=/call_action_list,name=single
+
+## ==================== 起手序列（单体）====================
+## 冰触 → 暗打 → 血沸 → 凋零 → 心打 → 分流 → 灵打 → 爆发 → 符文剑 → 武器增效 → 心打x3
+actions.opener+=/icy_touch,if=!dot.frost_fever.ticking
+actions.opener+=/plague_strike,if=!dot.blood_plague.ticking
+actions.opener+=/blood_boil,if=has_diseases&blood_runes.current>=1
+actions.opener+=/death_and_decay,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.opener+=/heart_strike,if=talent.heart_strike.enabled&blood_runes.current>=1
+actions.opener+=/blood_strike,if=!talent.heart_strike.enabled&blood_runes.current>=1
+actions.opener+=/hysteria,if=cooldown.dancing_rune_weapon.ready
+actions.opener+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+## 爆发CD
+actions.opener+=/use_items,if=cooldown.dancing_rune_weapon.ready
+actions.opener+=/potion,if=cooldown.dancing_rune_weapon.ready
+actions.opener+=/berserking,if=cooldown.dancing_rune_weapon.ready
+actions.opener+=/blood_fury,if=cooldown.dancing_rune_weapon.ready
+## 符文剑
+actions.opener+=/dancing_rune_weapon,if=runic_power>=60
+## 武器增效
+actions.opener+=/empower_rune_weapon,if=buff.dancing_rune_weapon.up&runes_available<=2
+## 符文剑期间心打x3
+actions.opener+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&blood_runes.current>=1
+actions.opener+=/blood_strike,if=!talent.heart_strike.enabled&buff.dancing_rune_weapon.up&blood_runes.current>=1
+actions.opener+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&death_runes>=1
+actions.opener+=/blood_strike,if=!talent.heart_strike.enabled&buff.dancing_rune_weapon.up&death_runes>=1
+## 符能泄放
+actions.opener+=/death_coil,if=runic_power_overflow
+actions.opener+=/death_coil,if=buff.dancing_rune_weapon.up&runic_power>=40
+
+## ==================== 单体循环（平稳期）====================
+
+## === 疾病维护 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+## 有疾病雕文：用传染刷新疾病（只在疾病快掉时使用，避免重复使用）
+actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&dot.frost_fever.remains<3&dot.blood_plague.remains<3&(blood_runes.current>=1|death_runes>=1)
+## 没有疾病雕文：用冰触和瘟疫打击刷新疾病
+actions.single+=/icy_touch,if=!glyph.disease.enabled&dot.frost_fever.remains<4&dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!glyph.disease.enabled&dot.blood_plague.remains<4&dot.blood_plague.ticking
+
+## === 符能溢出保护 ===
+actions.single+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power_overflow
+actions.single+=/death_coil,if=runic_power_overflow
+
+## === 坦克紧急灵界打击 ===
+actions.single+=/death_strike,if=talent.vampiric_blood.enabled&health.pct<=50
+
+## === 爆发CD（DPS模式）===
+actions.single+=/use_items,if=!talent.vampiric_blood.enabled&cooldown.dancing_rune_weapon.ready
+actions.single+=/hysteria,if=!talent.vampiric_blood.enabled&cooldown.dancing_rune_weapon.ready
+actions.single+=/berserking,if=!talent.vampiric_blood.enabled&buff.dancing_rune_weapon.up
+actions.single+=/blood_fury,if=!talent.vampiric_blood.enabled&buff.dancing_rune_weapon.up
+actions.single+=/dancing_rune_weapon,if=!talent.vampiric_blood.enabled&runic_power>=60
+
+## === 坦克爆发CD ===
+actions.single+=/use_items,if=talent.vampiric_blood.enabled&burst_window
+actions.single+=/dancing_rune_weapon,if=talent.vampiric_blood.enabled&runic_power>=60&burst_window
+
+## === 符文剑期间优先心打 ===
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&blood_runes.current>=1
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&buff.dancing_rune_weapon.up&blood_runes.current>=1
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&death_runes>=1
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&buff.dancing_rune_weapon.up&death_runes>=1
+
+## === 死亡凋零 - 尽量补好但不用过于卡CD ===
+actions.single+=/death_and_decay,if=cooldown.death_and_decay.ready&frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/death_and_decay,if=cooldown.death_and_decay.ready&death_runes>=1
+
+## === 血沸 - 尽量补好但不用过于卡CD ===
+actions.single+=/blood_boil,if=has_diseases&blood_runes.current>=2
+actions.single+=/blood_boil,if=has_diseases&blood_rune_wasting
+
+## === 核心输出 - 心脏打击（死亡符文优先用心打）===
+## 有疾病雕文：心脏打击要保留符文给传染刷新疾病（疾病剩余>6秒才使用）
+## 没有疾病雕文：心脏打击不需要保留
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&death_runes>=1
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&death_runes>=1
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&blood_rune_wasting&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&blood_rune_wasting&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.single+=/heart_strike,if=talent.heart_strike.enabled&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.single+=/blood_strike,if=!talent.heart_strike.enabled&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 灵界打击（用来转冰邪变成死亡符文）===
+## 没有疾病雕文时，要保留冰霜符文给冰触、邪恶符文给瘟疫打击刷新疾病
+actions.single+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1&(glyph.disease.enabled|dot.frost_fever.remains>4)
+actions.single+=/death_strike,if=death_runes>=2
+
+## === 符能消耗 ===
+actions.single+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=30
+actions.single+=/death_coil,if=runic_power>=80
+actions.single+=/death_coil,if=buff.dancing_rune_weapon.up&runic_power>=40
+actions.single+=/death_coil,if=runic_power>=60&runes_available=0
+
+## === 符文恢复 ===
+actions.single+=/empower_rune_weapon,if=buff.dancing_rune_weapon.up&runes_available=0
+actions.single+=/blood_tap,if=runes_available=0&runic_power<40
+actions.single+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<70&runes_available=0
+
+
+## ==================== AOE循环 ====================
+## 群体起手：冰触 → 暗打 → 传染 → 血沸 → 凋零
+## 4目标以下：心打，下一轮冰邪用灵打
+## 5目标以上：血沸，下一轮冰邪用灵打
+
+## === 疾病维护 ===
+actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 有疾病雕文：用传染刷新疾病（只在两个疾病都快掉时使用，避免重复使用）
+actions.aoe+=/pestilence,if=glyph.disease.enabled&has_diseases&dot.frost_fever.remains<3&dot.blood_plague.remains<3&(blood_runes.current>=1|death_runes>=1)
+## 没有疾病雕文：用冰触和瘟疫打击刷新疾病
+actions.aoe+=/icy_touch,if=!glyph.disease.enabled&dot.frost_fever.remains<4&dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!glyph.disease.enabled&dot.blood_plague.remains<4&dot.blood_plague.ticking
+
+## === 符能溢出保护 ===
+actions.aoe+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power_overflow
+actions.aoe+=/death_coil,if=runic_power_overflow
+
+## === 传染扩散 - AOE疾病维护 ===
+## 传染用于扩散疾病到其他目标，需要持续使用
+## 条件：有疾病、多目标、疾病快掉时才用（避免连续重复使用）
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(dot.frost_fever.remains<6|dot.blood_plague.remains<6)&(blood_runes.current>=1|death_runes>=1)
+
+## === 死亡凋零 - AOE核心 ===
+actions.aoe+=/death_and_decay,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_and_decay,if=death_runes>=1
+
+## === 坦克紧急灵界打击 ===
+actions.aoe+=/death_strike,if=talent.vampiric_blood.enabled&health.pct<=50
+
+## === 符文剑期间 ===
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&active_enemies<=4&blood_runes.current>=1
+actions.aoe+=/blood_boil,if=buff.dancing_rune_weapon.up&active_enemies>4&has_diseases&blood_runes.current>=1
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&buff.dancing_rune_weapon.up&active_enemies<=4&death_runes>=1
+actions.aoe+=/blood_boil,if=buff.dancing_rune_weapon.up&active_enemies>4&has_diseases&death_runes>=1
+
+## === 血沸 - 5目标以上用血沸 ===
+## 有疾病雕文：血沸要保留符文给传染刷新疾病（疾病剩余>6秒才使用）
+actions.aoe+=/blood_boil,if=active_enemies>4&has_diseases&death_runes>=1
+actions.aoe+=/blood_boil,if=active_enemies>4&has_diseases&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/blood_boil,if=active_enemies>4&has_diseases&blood_rune_wasting&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/blood_boil,if=active_enemies>4&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 心脏打击 - 4目标以下用心打（死亡符文优先）===
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&active_enemies<=4&death_runes>=1
+actions.aoe+=/blood_strike,if=!talent.heart_strike.enabled&death_runes>=1
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&active_enemies<=4&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/blood_strike,if=!talent.heart_strike.enabled&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&active_enemies<=4&blood_rune_wasting&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/blood_strike,if=!talent.heart_strike.enabled&blood_rune_wasting&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/heart_strike,if=talent.heart_strike.enabled&active_enemies<=4&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.aoe+=/blood_strike,if=!talent.heart_strike.enabled&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 灵界打击（用来转冰邪变成死亡符文）===
+actions.aoe+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1&(glyph.disease.enabled|dot.frost_fever.remains>4)
+actions.aoe+=/death_strike,if=death_runes>=2
+
+## === 符能消耗 ===
+actions.aoe+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=30
+actions.aoe+=/death_coil,if=runic_power>=80
+actions.aoe+=/death_coil,if=runic_power>=60&runes_available=0
+
+## === 符文恢复 ===
+actions.aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## === 宠物管理 ===
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 填充 ===
+actions.aoe+=/horn_of_winter,if=runic_power<70&runes_available=0

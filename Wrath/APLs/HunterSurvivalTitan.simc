@@ -1,0 +1,130 @@
+## Hunter: Survival - 泰坦重铸服生存猎人APL
+## 版本: 2025年12月 - 输出最大化手法
+## 天赋配置: 0/15/56 (射击15点 + 生存56点)
+##
+## ============================================
+## 核心机制说明
+## ============================================
+## 1. 黑箭和爆炸陷阱共享CD（陷阱发射器机制）
+##    - 单体: 优先黑箭（触发锁定装填）
+##    - AOE: 优先爆炸陷阱
+## 2. 锁定装填触发后爆炸射击无CD无消耗
+## 3. 狩猎派对: 暴击回复法力
+
+## ============================================
+## 战前准备 (precombat)
+## ============================================
+actions.precombat+=/aspect_of_the_dragonhawk
+actions.precombat+=/hunters_mark,if=debuff.hunters_mark.down
+
+## ============================================
+## 主循环 - 打断优先
+## ============================================
+actions+=/silencing_shot
+
+## ============================================
+## 智能回蓝机制
+## ============================================
+## 蝰蛇守护 - 法力过低时切换
+## 条件: 法力<30% 且 不在蝰蛇守护状态
+actions+=/aspect_of_the_viper,if=mana.pct<30&!buff.aspect_of_the_viper.up
+
+## 龙鹰守护 - 法力恢复后切回
+## 条件: 法力>90% 且 在蝰蛇守护状态
+actions+=/aspect_of_the_dragonhawk,if=mana.pct>90&buff.aspect_of_the_viper.up
+
+## ============================================
+## 紧急生存
+## ============================================
+actions+=/best_healing_potion,if=health.pct<35
+
+## ============================================
+## 爆发期技能
+## ============================================
+## 饰品使用 - 配合急速射击
+actions+=/use_items,if=buff.rapid_fire.up|buff.bloodlust.up
+
+## 急速射击 - 核心爆发
+actions+=/rapid_fire,if=!buff.rapid_fire.up
+
+## 药水 - 配合急速射击
+actions+=/potion,if=buff.rapid_fire.up
+
+## 野性呼唤 - 宠物爆发
+actions+=/call_of_the_wild,if=buff.rapid_fire.up
+
+## 杀戮命令
+actions+=/kill_command
+
+## ============================================
+## 锁定装填处理 - 最高输出优先级
+## ============================================
+## 爆炸射击 - 锁定装填触发时立即使用
+## 注意: 两发之间需要间隔避免DoT覆盖
+actions+=/explosive_shot,if=buff.lock_and_load.up
+
+## ============================================
+## 斩杀期 (目标血量<20%)
+## ============================================
+actions+=/kill_shot,if=target.health.pct<20
+
+## ============================================
+## 陷阱发射器选择 - 黑箭与爆炸陷阱共享CD
+## ============================================
+## 黑箭 - BOSS移动时使用
+## 条件: 单体 且 BOSS在移动 且 黑箭不在目标身上
+## 说明: BOSS移动会拉开爆炸陷阱，此时黑箭更稳定
+actions+=/black_arrow,if=active_enemies=1&target.moving&!debuff.black_arrow.up
+
+## 爆炸陷阱 - 单体BOSS不移动时使用（伤害更高）
+## 条件: 单体 且 BOSS不移动 且 目标在10码内
+## 说明: BOSS站桩时爆炸陷阱伤害高于黑箭
+actions+=/explosive_trap,if=active_enemies=1&!target.moving&target.within10
+
+## 爆炸陷阱 - AOE时使用
+## 条件: 2+目标 且 目标在10码内
+## 说明: AOE场景爆炸陷阱收益最高
+actions+=/explosive_trap,if=active_enemies>1&target.within10
+
+## 黑箭 - 兜底（无法放陷阱时）
+## 条件: 单体 且 目标不在10码内 且 黑箭不在目标身上
+## 说明: 远程战斗或无法放陷阱时使用黑箭
+actions+=/black_arrow,if=active_enemies=1&!target.within10&!debuff.black_arrow.up
+
+## 毒蛇钉刺 - 必须100%覆盖率
+actions+=/serpent_sting,if=!debuff.serpent_sting.up|debuff.serpent_sting.remains<3
+
+## ============================================
+## 核心输出循环
+## ============================================
+## 爆炸射击 - 常规使用
+actions+=/explosive_shot
+
+## 瞄准射击 - 有改进稳固射击buff时
+actions+=/aimed_shot,if=buff.improved_steady_shot.up
+
+## 奥术射击 - 有改进稳固射击buff时备选
+actions+=/arcane_shot,if=buff.improved_steady_shot.up&mana.pct>50
+
+## 稳固射击 - 填充技能
+actions+=/steady_shot
+
+## ============================================
+## AOE循环 (2+目标)
+## ============================================
+actions+=/call_action_list,name=aoe,if=active_enemies>1
+
+## AOE - 乱射
+actions.aoe+=/multishot,if=active_enemies>1
+
+## AOE - 齐射
+actions.aoe+=/volley,if=active_enemies>2
+
+## AOE - 爆炸射击（锁定装填）
+actions.aoe+=/explosive_shot,if=buff.lock_and_load.up
+
+## AOE - 爆炸射击常规
+actions.aoe+=/explosive_shot
+
+## AOE - 稳固射击填充
+actions.aoe+=/steady_shot

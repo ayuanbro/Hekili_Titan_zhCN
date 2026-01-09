@@ -510,7 +510,7 @@ spec:RegisterAuras( {
         duration = 12,
         tick_time = 3,
         max_stack = 1,
-        copy = { 44457, 55359, 55360 }, --修复技能id错误，by风雪 20250725
+        copy = { 44457, 55359 }, --移除重复的55360，by Kiro 20251230
     },
     -- Resistance to all magic schools increased by $s1 and allows $s2% of your mana regeneration to continue while casting.  Duration of all harmful Magic effects reduced by $s3%.
     mage_armor = {
@@ -627,7 +627,13 @@ spec:RegisterAuras( {
         alias = { "deep_freeze", "frost_nova", "frostbite", "shattered_barrier" },
         aliasMode = "first",
         aliasType = "debuff",
-    }
+    },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 
@@ -1005,7 +1011,14 @@ spec:RegisterAbilities( {
 
         startsCombat = true,
 
+        start = function()
+            -- 暴风雪是引导技能，在 start 中处理
+            removeBuff( "clearcasting" )
+        end,
+
         handler = function()
+            -- 暴风雪对区域内敌人造成冰霜伤害
+            removeBuff( "clearcasting" )
         end,
         copy = { 42208, 42209, 42210, 42211, 42212, 42213, 42198, 42939, 42940 },
     },
@@ -1076,6 +1089,8 @@ spec:RegisterAbilities( {
         startsCombat = false,
 
         handler = function()
+            -- 制造食物，无需状态变化
+            removeBuff( "presence_of_mind" )
         end,
         copy = { 587, 597, 990, 6129, 10144, 10145, 28612, 33717 },
     },
@@ -1119,6 +1134,8 @@ spec:RegisterAbilities( {
         startsCombat = false,
 
         handler = function()
+            -- 制造点心，无需状态变化
+            removeBuff( "presence_of_mind" )
         end,
         copy = { 42955, 42956 },
     },
@@ -1136,6 +1153,8 @@ spec:RegisterAbilities( {
         startsCombat = false,
 
         handler = function()
+            -- 制造水，无需状态变化
+            removeBuff( "presence_of_mind" )
         end,
         copy = { 5504, 5505, 5506, 6127, 10138, 10139, 10140, 37420, 27090 },
     },
@@ -1260,6 +1279,13 @@ spec:RegisterAbilities( {
         startsCombat = true,
 
         handler = function()
+            -- 火焰冲击造成火焰伤害
+            removeBuff( "clearcasting" )
+            -- 如果有炎爆术天赋，可能触发热力迸发
+            if talent.hot_streak.rank > 0 and buff.heating_up.up then
+                removeBuff( "heating_up" )
+                applyBuff( "hot_streak" )
+            end
         end,
         copy = { 2136, 2137, 2138, 8412, 8413, 10197, 10199, 27078, 27079, 42872, 42873 },
     },
@@ -1511,6 +1537,7 @@ spec:RegisterAbilities( {
         spendType = "mana",
 
         startsCombat = false,
+        toggle = "defensives",
 
         nodebuff = "hypothermia",
         handler = function()
@@ -1533,6 +1560,8 @@ spec:RegisterAbilities( {
         velocity = 38,
 
         handler = function()
+            -- 冰枪消耗清晰思维 buff
+            if buff.clearcasting.up then removeBuff( "clearcasting" ) end
         end,
 
         impact = function()
@@ -1601,7 +1630,7 @@ spec:RegisterAbilities( {
         handler = function()
             applyDebuff( "target", "living_bomb" )
         end,
-        copy = { 44457, 55359, 55360 }, --修复技能id错误，by风雪 20250725
+        copy = { 44457, 55359 }, --移除重复的55360，by Kiro 20251230
     },
 
     -- Increases your resistance to all magic by $s1 and allows $s2% of your mana regeneration to continue while casting.  Only one type of Armor spell can be active on the Mage at any time.  Lasts $d.
@@ -1910,6 +1939,27 @@ spec:RegisterAbilities( {
             applyDebuff( "target", "frost_nova" )
         end,
     },
+
+    -- 狮心 - 人类种族技能
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
+    },
 } )
 
 
@@ -1921,7 +1971,7 @@ spec:RegisterOptions( {
     gcd = 1459,
 
     nameplates = true,
-    nameplateRange = 8,
+    nameplateRange = 40,
 
     damage = false,
     damageExpiration = 6,

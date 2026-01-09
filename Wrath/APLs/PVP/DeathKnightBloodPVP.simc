@@ -1,0 +1,99 @@
+## Death Knight: Blood PVP - 鲜血死亡骑士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 生存 > 持续压制 > 控制
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/horn_of_winter
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/healthstone,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=need_rp,value=runic_power.current<30
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/icebound_fortitude,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/vampiric_blood,if=health.pct<40
+actions.pvp_defensive+=/anti_magic_shell,if=enemy_burst_active&health.pct<60
+actions.pvp_defensive+=/death_pact,if=health.pct<20&pet.ghoul.active
+actions.pvp_defensive+=/rune_tap,if=health.pct<50
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/mind_freeze,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/strangulate,if=target_is_healer&target.casting&cooldown.mind_freeze.remains>0
+actions.pvp_interrupt+=/mind_freeze,if=target_cast_priority>=80
+actions.pvp_interrupt+=/mind_freeze,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/strangulate,if=target_is_healer&target.casting
+actions.pvp_cc+=/chains_of_ice,if=!target.debuff.chains_of_ice.up
+actions.pvp_cc+=/death_grip,if=target.distance>10
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/mind_freeze,use_off_gcd=1
+## 疾病维护
+actions.pvp_st+=/icy_touch,if=!debuff.frost_fever.up
+actions.pvp_st+=/plague_strike,if=!debuff.blood_plague.up
+## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+actions.pvp_st+=/pestilence,if=glyph.disease.enabled&debuff.frost_fever.up&debuff.blood_plague.up&(debuff.frost_fever.remains<4|debuff.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+actions.pvp_st+=/pestilence,if=debuff.frost_fever.up&debuff.blood_plague.up&active_enemies>1
+## 核心输出
+actions.pvp_st+=/death_strike,if=health.pct<70
+actions.pvp_st+=/heart_strike,if=blood_runes>=1
+actions.pvp_st+=/death_coil,if=runic_power.current>=80
+actions.pvp_st+=/blood_boil,if=active_enemies>=3
+actions.pvp_st+=/death_coil,if=runic_power.current>=40
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/mind_freeze,use_off_gcd=1
+actions.st+=/icy_touch,if=!debuff.frost_fever.up
+actions.st+=/plague_strike,if=!debuff.blood_plague.up
+actions.st+=/death_strike,if=health.pct<80
+actions.st+=/heart_strike
+actions.st+=/death_coil,if=runic_power.current>=80
+actions.st+=/blood_boil,if=active_enemies>=3
+actions.st+=/death_coil

@@ -1,0 +1,194 @@
+## ========================================
+## Death Knight: Unholy PVP Universal - 邪恶DK PVP全流派通用版
+## 泰坦时空特别版 2025 - 智能天赋/武器检测系统
+## 更新日期: 20260101
+## ========================================
+## 智能检测系统:
+## - is_dual_wield → 双持武器检测
+## - is_two_handed → 双手武器检测
+## - talent.scourge_strike.enabled → 天灾打击天赋（双手核心）
+## - talent.reaping.enabled → 收割天赋（鲜血打击转死亡符文）
+## - talent.ghoul_frenzy.enabled → 食尸鬼狂乱天赋
+## - talent.summon_gargoyle.enabled → 召唤石像鬼天赋
+## - talent.master_of_ghouls.enabled → 食尸鬼大师天赋（永久宠物）
+## - glyph.disease.enabled → 疾病雕文（传染刷新疾病）
+## ========================================
+## PVP核心策略:
+## 1. 持续压制 - 疾病+天灾打击/死亡凋零
+## 2. 宠物控制 - 食尸鬼撕咬（眩晕）
+## 3. 爆发窗口 - 石像鬼+亡者大军
+## 4. 生存优先 - 骨盾+冰封之韧+反魔法护罩
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/unholy_presence,if=buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/bone_shield,if=buff.bone_shield.down&talent.bone_shield.enabled
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.precombat+=/ghoul_frenzy,if=pet.ghoul.active&buff.ghoul_frenzy.down&talent.ghoul_frenzy.enabled
+
+## ==================== 主循环入口 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## PVP防守优先级
+actions+=/call_action_list,name=pvp_defensive,if=health.pct<50
+## PVP打断优先级
+actions+=/call_action_list,name=pvp_interrupt,if=target.casting
+## PVP控制优先级
+actions+=/call_action_list,name=pvp_cc
+## AOE切换
+actions+=/call_action_list,name=pvp_aoe,if=active_enemies>=3
+## 爆发切换
+actions+=/call_action_list,name=pvp_burst,if=burst_window|cooldown.summon_gargoyle.ready|buff.summon_gargoyle.up
+## 单体循环
+actions+=/call_action_list,name=pvp_single
+
+## ==================== PVP防守优先级 ====================
+actions.pvp_defensive+=/icebound_fortitude,if=health.pct<30
+actions.pvp_defensive+=/anti_magic_shell,if=health.pct<60
+## 骨盾 - 减伤
+actions.pvp_defensive+=/bone_shield,if=talent.bone_shield.enabled&buff.bone_shield.down&health.pct<70
+## 死亡契约 - 紧急回血（牺牲宠物）
+actions.pvp_defensive+=/death_pact,if=health.pct<20&pet.ghoul.active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+
+## ==================== PVP打断优先级 ====================
+actions.pvp_interrupt+=/mind_freeze,if=target.casting
+actions.pvp_interrupt+=/strangulate,if=target.casting&cooldown.mind_freeze.remains>0
+## 宠物打断 - 食尸鬼撕咬
+actions.pvp_interrupt+=/gnaw,if=target.casting&cooldown.mind_freeze.remains>0&pet.ghoul.active
+
+## ==================== PVP控制优先级 ====================
+## 寒冰锁链 - 减速
+actions.pvp_cc+=/chains_of_ice,if=!dot.chains_of_ice.ticking&target.distance<10
+## 食尸鬼撕咬 - 眩晕
+actions.pvp_cc+=/gnaw,if=pet.ghoul.active
+## 死亡之握 - 拉人
+actions.pvp_cc+=/death_grip,if=target.distance>10
+
+## ==================== PVP爆发序列 ====================
+## 先上疾病
+actions.pvp_burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_burst+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 爆发CD
+actions.pvp_burst+=/use_items,if=has_diseases
+actions.pvp_burst+=/berserking,if=has_diseases
+actions.pvp_burst+=/blood_fury,if=has_diseases
+actions.pvp_burst+=/summon_gargoyle,if=has_diseases&runic_power>=60
+
+## 符能武器 - 石像鬼期间
+actions.pvp_burst+=/empower_rune_weapon,if=buff.summon_gargoyle.up&runes_available=0
+
+## 天灾打击（有天赋时）
+actions.pvp_burst+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_burst+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&death_runes>=2
+
+## 死亡凋零（无天灾打击天赋时）
+actions.pvp_burst+=/death_and_decay,if=!talent.scourge_strike.enabled&has_diseases
+
+## 鲜血打击 - 有疾病雕文时保留符文
+actions.pvp_burst+=/blood_strike,if=has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## 死亡缠绕
+actions.pvp_burst+=/death_coil,if=has_diseases&runic_power>=40
+
+## 亡者大军 - 石像鬼期间
+actions.pvp_burst+=/army_of_the_dead,if=buff.summon_gargoyle.up&buff.summon_gargoyle.remains>6
+
+## ==================== PVP单体循环 ====================
+
+## === 疾病维护 ===
+actions.pvp_single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_single+=/plague_strike,if=!dot.blood_plague.ticking
+## 有疾病雕文：用传染刷新疾病
+actions.pvp_single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+## 没有疾病雕文：用冰触和瘟疫打击刷新疾病
+actions.pvp_single+=/icy_touch,if=!glyph.disease.enabled&dot.frost_fever.remains<4&dot.frost_fever.ticking
+actions.pvp_single+=/plague_strike,if=!glyph.disease.enabled&dot.blood_plague.remains<4&dot.blood_plague.ticking
+
+## === 符能溢出保护 ===
+actions.pvp_single+=/death_coil,if=runic_power_overflow
+actions.pvp_single+=/death_coil,if=runic_power>=100
+
+## === 荒芜BUFF维护 ===
+## 有疾病雕文：保留符文给传染
+actions.pvp_single+=/blood_strike,if=buff.desolation.down&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 核心输出 - 天灾打击（有天赋时）===
+actions.pvp_single+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_single+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&death_runes>=2
+actions.pvp_single+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## === 核心输出 - 死亡凋零（无天灾打击天赋时）===
+actions.pvp_single+=/death_and_decay,if=!talent.scourge_strike.enabled&has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_single+=/death_and_decay,if=!talent.scourge_strike.enabled&has_diseases&death_runes>=2
+
+## === 鲜血打击 - 收割转换死亡符文 ===
+## 有疾病雕文：保留符文给传染
+actions.pvp_single+=/blood_strike,if=has_diseases&blood_runes.current>=1&buff.desolation.remains<10&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_single+=/blood_strike,if=has_diseases&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 符能消耗 ===
+actions.pvp_single+=/death_coil,if=has_diseases&runic_power>=40&runes_available=0
+actions.pvp_single+=/death_coil,if=has_diseases&runic_power>=80
+
+## === 宠物管理 ===
+actions.pvp_single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.pvp_single+=/ghoul_frenzy,if=talent.ghoul_frenzy.enabled&pet.ghoul.active&buff.ghoul_frenzy.remains<3&unholy_runes.current>=1
+
+## === 符文恢复 ===
+actions.pvp_single+=/blood_tap,if=runes_available=0&runic_power<40
+
+## === 填充 ===
+actions.pvp_single+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== PVP AOE循环 ====================
+
+## 疾病维护
+actions.pvp_aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 有疾病雕文：用传染刷新疾病
+actions.pvp_aoe+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## 符能溢出保护
+actions.pvp_aoe+=/death_coil,if=runic_power_overflow
+
+## 传染扩散 - 最高优先级
+actions.pvp_aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 死亡凋零 - AOE核心伤害
+actions.pvp_aoe+=/death_and_decay,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_aoe+=/death_and_decay,if=has_diseases&death_runes>=2
+
+## 爆发技能
+actions.pvp_aoe+=/use_items,if=burst_window
+actions.pvp_aoe+=/summon_gargoyle,if=has_diseases&runic_power>=60
+
+## 天灾打击（有天赋时）
+actions.pvp_aoe+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_aoe+=/scourge_strike,if=talent.scourge_strike.enabled&has_diseases&death_runes>=2
+
+## 鲜血沸腾 - AOE伤害
+## 有疾病雕文：保留符文给传染
+actions.pvp_aoe+=/blood_boil,if=has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## 荒芜维护
+actions.pvp_aoe+=/blood_strike,if=buff.desolation.down&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## 符能消耗
+actions.pvp_aoe+=/death_coil,if=has_diseases&runic_power>=40&runes_available=0
+actions.pvp_aoe+=/death_coil,if=has_diseases&runic_power>=80
+
+## 宠物管理
+actions.pvp_aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.pvp_aoe+=/ghoul_frenzy,if=talent.ghoul_frenzy.enabled&pet.ghoul.active&buff.ghoul_frenzy.remains<3&unholy_runes.current>=1
+
+## 符文恢复
+actions.pvp_aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.pvp_aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<40
+
+## 填充
+actions.pvp_aoe+=/horn_of_winter,if=runic_power<80&runes_available=0

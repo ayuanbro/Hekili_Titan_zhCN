@@ -1,0 +1,107 @@
+## Death Knight: Unholy PVP - 邪恶死亡骑士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 持续压制 > 宠物控制 > 爆发
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/horn_of_winter
+actions.precombat+=/raise_dead
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/healthstone,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=diseases_up,value=debuff.frost_fever.up&debuff.blood_plague.up
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/icebound_fortitude,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/anti_magic_shell,if=enemy_burst_active&health.pct<60
+actions.pvp_defensive+=/bone_shield,if=!buff.bone_shield.up&health.pct<70
+actions.pvp_defensive+=/death_pact,if=health.pct<20&pet.ghoul.active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/mind_freeze,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/strangulate,if=target_is_healer&target.casting&cooldown.mind_freeze.remains>0
+actions.pvp_interrupt+=/gnaw,if=target_is_healer&target.casting&cooldown.mind_freeze.remains>0
+actions.pvp_interrupt+=/mind_freeze,if=target_cast_priority>=80
+actions.pvp_interrupt+=/mind_freeze,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/strangulate,if=target_is_healer&target.casting
+actions.pvp_cc+=/gnaw,if=target_is_healer&target_dr_stun<3
+actions.pvp_cc+=/chains_of_ice,if=!target.debuff.chains_of_ice.up
+actions.pvp_cc+=/death_grip,if=target.distance>10
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/mind_freeze,use_off_gcd=1
+## 召唤食尸�?
+actions.pvp_st+=/raise_dead,if=!pet.ghoul.active
+## 疾病维护
+actions.pvp_st+=/icy_touch,if=!debuff.frost_fever.up
+actions.pvp_st+=/plague_strike,if=!debuff.blood_plague.up
+## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+actions.pvp_st+=/pestilence,if=glyph.disease.enabled&debuff.frost_fever.up&debuff.blood_plague.up&(debuff.frost_fever.remains<4|debuff.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+## 爆发窗口
+actions.pvp_st+=/summon_gargoyle,if=variable.pvp_burst_window
+actions.pvp_st+=/empower_rune_weapon,if=variable.pvp_burst_window&unholy_runes.current<1
+## 核心输出
+actions.pvp_st+=/scourge_strike,if=variable.diseases_up
+actions.pvp_st+=/death_coil,if=runic_power.current>=80|buff.sudden_doom.up
+actions.pvp_st+=/blood_strike,if=blood_runes>=2
+actions.pvp_st+=/death_coil,if=runic_power.current>=40
+actions.pvp_st+=/horn_of_winter
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/mind_freeze,use_off_gcd=1
+actions.st+=/raise_dead,if=!pet.ghoul.active
+actions.st+=/icy_touch,if=!debuff.frost_fever.up
+actions.st+=/plague_strike,if=!debuff.blood_plague.up
+actions.st+=/summon_gargoyle
+actions.st+=/scourge_strike
+actions.st+=/death_coil,if=runic_power.current>=80|buff.sudden_doom.up
+actions.st+=/blood_strike
+actions.st+=/death_coil
+actions.st+=/horn_of_winter

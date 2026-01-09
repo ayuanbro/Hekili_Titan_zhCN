@@ -1,0 +1,88 @@
+## Shaman: Enhancement 2H - 双手增强萨满（新版）
+## 泰坦时空特别版 - 双手武器输出逻辑
+## ========================================
+## 单体（风怒武器）:
+## 风怒无CD时: 熔岩强击 > 风暴打击 > 烈焰震击DOT保持 > 熔岩爆裂 > 闪电箭 > 大地 > 补闪电盾 > 火焰新星
+## 风怒CD时: 烈焰震击DOT保持 > 熔岩爆裂 > 闪电箭 > 熔岩强击 > 大地(易伤) > 风暴打击 > 大地 > 补闪电盾 > 火焰新星
+## ========================================
+## 多目标（火舌武器）:
+## 2-5目标: 熔岩强击 > 火焰新星 > 风暴打击BUFF保持 > 闪电链 > 烈焰震击DOT保持 > 熔岩爆裂 > 闪电箭 > 风暴打击 > 大地 > 补闪电盾
+## 6目标以上: 火焰新星 > 熔岩强击 > 风暴打击BUFF保持 > 闪电链 > 烈焰震击DOT保持 > 熔岩爆裂 > 闪电箭 > 风暴打击 > 大地 > 补闪电盾
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/windfury_weapon,if=!mainhand_imbued&active_enemies<3
+actions.precombat+=/flametongue_weapon,if=!mainhand_imbued&active_enemies>=3
+actions.precombat+=/lightning_shield,if=buff.shield.down
+actions.precombat+=/call_of_the_elements,if=buff.earth_totem.down|buff.fire_totem.down|buff.water_totem.down|buff.air_totem.down
+
+## ==================== 默认动作 ====================
+actions+=/wind_shear
+actions+=/best_healing_potion,if=health.pct<35
+actions+=/windfury_weapon,if=!mainhand_imbued&active_enemies<3
+actions+=/flametongue_weapon,if=!mainhand_imbued&active_enemies>=3
+actions+=/use_items
+actions+=/potion
+actions+=/fire_elemental_totem
+actions+=/feral_spirit
+actions+=/shamanistic_rage,if=set_bonus.tier10enhancement_2pc=1
+
+## 根据目标数量选择动作列表
+actions+=/run_action_list,name=aoe,if=active_enemies>=6
+actions+=/run_action_list,name=cleave,if=active_enemies>=2
+actions+=/run_action_list,name=single
+## 后备技能 - 低等级时使用
+actions+=/earth_shock
+actions+=/lightning_bolt
+actions+=/auto_attack
+
+## ==================== 单体（风怒武器） ====================
+## 风怒无CD时优先级
+actions.single+=/lava_strike
+actions.single+=/stormstrike
+actions.single+=/flame_shock,if=!debuff.flame_shock.ticking&target.time_to_die>=9
+actions.single+=/lava_burst,if=buff.maelstrom_weapon.stack>=3
+actions.single+=/lightning_bolt,if=buff.maelstrom_weapon.stack=5
+actions.single+=/earth_shock,if=debuff.stormstrike.up
+actions.single+=/earth_shock
+actions.single+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.down
+actions.single+=/fire_nova
+actions.single+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.stack<buff.shield.max_stack*0.33
+actions.single+=/call_of_the_elements,if=buff.fire_totem.down&buff.water_totem.remains<20
+actions.single+=/magma_totem,if=buff.fire_totem.remains<=latency&buff.fire_elemental_totem.down
+actions.single+=/shamanistic_rage,if=target.within10&mana.pct<settings.shaman_rage_threshold
+## 后备技能
+actions.single+=/earth_shock
+actions.single+=/lightning_bolt
+
+## ==================== 多目标 2-5（火舌武器） ====================
+actions.cleave+=/lava_strike
+actions.cleave+=/fire_nova
+actions.cleave+=/stormstrike,if=!debuff.stormstrike.up
+actions.cleave+=/chain_lightning,if=buff.maelstrom_weapon.stack=5
+actions.cleave+=/flame_shock,cycle_targets=1,max_cycle_targets=3,if=!debuff.flame_shock.ticking&target.time_to_die>=9
+actions.cleave+=/lava_burst,if=buff.maelstrom_weapon.stack>=4
+actions.cleave+=/lightning_bolt,if=buff.maelstrom_weapon.stack=5
+actions.cleave+=/stormstrike
+actions.cleave+=/earth_shock
+actions.cleave+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.down
+actions.cleave+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.stack<buff.shield.max_stack*0.33
+actions.cleave+=/call_of_the_elements,if=buff.fire_totem.down&buff.water_totem.remains<20
+actions.cleave+=/magma_totem,if=buff.fire_totem.remains<=latency&buff.fire_elemental_totem.down
+actions.cleave+=/shamanistic_rage,if=target.within10&mana.pct<settings.shaman_rage_threshold
+
+## ==================== AOE 6目标以上 ====================
+actions.aoe+=/fire_nova
+actions.aoe+=/lava_strike
+actions.aoe+=/stormstrike,if=!debuff.stormstrike.up
+actions.aoe+=/chain_lightning,if=buff.maelstrom_weapon.stack=5
+actions.aoe+=/flame_shock,cycle_targets=1,max_cycle_targets=4,if=!debuff.flame_shock.ticking&target.time_to_die>=9
+actions.aoe+=/lava_burst,if=buff.maelstrom_weapon.stack>=4
+actions.aoe+=/lightning_bolt,if=buff.maelstrom_weapon.stack=5
+actions.aoe+=/stormstrike
+actions.aoe+=/earth_shock
+actions.aoe+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.down
+actions.aoe+=/lightning_shield,if=talent.static_shock.enabled&buff.shield.stack<buff.shield.max_stack*0.33
+actions.aoe+=/call_of_the_elements,if=buff.fire_totem.down&buff.water_totem.remains<20
+actions.aoe+=/magma_totem,if=buff.fire_totem.remains<=latency&buff.fire_elemental_totem.down
+actions.aoe+=/shamanistic_rage,if=target.within10&mana.pct<settings.shaman_rage_threshold

@@ -1,0 +1,153 @@
+## ========================================
+## Death Knight: Blood DPS - 血DK输出版
+## 泰坦时空特别版 2025 - 智能符文优化系统
+## 更新日期: 20251228
+## ========================================
+## 天赋配置: 51/0/20 (鲜血/冰霜/邪恶)
+## 核心天赋: 心脏打击, 舞动符文武器, 狂热, 荒芜
+## ========================================
+## 核心循环: 疫病维护 > 心脏打击 > 死亡打击 > 死亡缠绕
+## 符文优先: 鲜血符文 > 死亡符文 > 冰霜/邪恶符文
+## 智能优化: 符文浪费检测 + 符能溢出保护
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/blood_presence,if=buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## ==================== 开怪序列 ====================
+actions+=/call_action_list,name=opener,strict=1,if=time<15&action.heart_strike.casts<6
+
+## 智能循环切换
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+actions+=/call_action_list,name=burst,if=burst_window|cooldown.dancing_rune_weapon.ready|buff.dancing_rune_weapon.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+actions.burst+=/use_items
+actions.burst+=/potion,if=buff.dancing_rune_weapon.up|target.time_to_die<30
+actions.burst+=/unholy_frenzy,if=cooldown.dancing_rune_weapon.remains<3|buff.dancing_rune_weapon.up
+actions.burst+=/berserking,if=buff.dancing_rune_weapon.up
+actions.burst+=/blood_fury,if=buff.dancing_rune_weapon.up
+actions.burst+=/hyperspeed_acceleration,if=buff.dancing_rune_weapon.up
+actions.burst+=/dancing_rune_weapon,if=runic_power>=60
+
+## 符能溢出保护
+actions.burst+=/death_coil,if=runic_power_overflow
+
+## 核心输出
+actions.burst+=/heart_strike,if=blood_runes.current>=1
+actions.burst+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.burst+=/death_strike,if=death_runes>=2
+actions.burst+=/death_coil,if=buff.dancing_rune_weapon.up&runic_power>=40
+
+## 符文武器
+actions.burst+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## ==================== 单体循环（智能优化版）====================
+
+## === 疾病维护 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+actions.single+=/pestilence,if=disease_refresh_priority&dot.frost_fever.remains<3&has_diseases&glyph.disease.enabled
+
+## === 符能溢出保护 ===
+actions.single+=/death_coil,if=runic_power_overflow
+actions.single+=/death_coil,if=should_dump_runic_power
+
+## === 符文浪费保护 ===
+actions.single+=/heart_strike,if=blood_rune_wasting
+actions.single+=/death_strike,if=(frost_rune_wasting|unholy_rune_wasting)&frost_runes.current>=1&unholy_runes.current>=1
+
+## === 爆发CD ===
+actions.single+=/use_items,if=!conserve_runes
+actions.single+=/unholy_frenzy,if=cooldown.dancing_rune_weapon.remains<3|buff.dancing_rune_weapon.up
+actions.single+=/berserking,if=buff.dancing_rune_weapon.up
+actions.single+=/blood_fury,if=buff.dancing_rune_weapon.up
+actions.single+=/hyperspeed_acceleration,if=buff.dancing_rune_weapon.up
+actions.single+=/dancing_rune_weapon,if=runic_power>=60&!conserve_runes
+
+## === 核心输出 - 心脏打击 ===
+actions.single+=/heart_strike,if=blood_runes.current>=1
+
+## === 死亡打击 ===
+actions.single+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/death_strike,if=death_runes>=2
+
+## === 符能消耗 - 没有符文时优先泄能 ===
+actions.single+=/death_coil,if=runic_power>=40&runes_available=0
+actions.single+=/death_coil,if=runic_power>=80
+actions.single+=/death_coil,if=buff.dancing_rune_weapon.up&runic_power>=40
+actions.single+=/death_coil,if=runic_power>=60&runes_available=0
+
+## === 符文恢复 ===
+actions.single+=/blood_tap,if=runes_available=0&runic_power<40
+actions.single+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== AOE循环（智能优化版）====================
+
+## 疾病维护
+actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 符能溢出保护
+actions.aoe+=/death_coil,if=runic_power_overflow
+
+## ========== 传染扩散 - 最高优先级 ==========
+## 传染必须在所有鲜血符文技能之前！
+## 只要有疾病、多目标、有鲜血符文，就优先传染
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 死亡凋零 - AOE核心伤害（不消耗鲜血符文，可以先放）
+actions.aoe+=/death_and_decay,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_and_decay,if=death_runes>=2
+
+## 死亡打击
+actions.aoe+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_strike,if=death_runes>=2
+
+## ========== 鲜血符文技能 - 传染之后 ==========
+## 心脏打击 - 传染后使用
+actions.aoe+=/heart_strike,if=blood_runes.current>=1
+
+## 符能消耗 - 没有符文时优先泄能
+actions.aoe+=/death_coil,if=runic_power>=40&runes_available=0
+actions.aoe+=/death_coil,if=runic_power>=80
+
+## 符文恢复
+actions.aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## 宠物管理
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## 填充
+actions.aoe+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== 开怪序列定义 ====================
+actions.opener+=/icy_touch,if=!dot.frost_fever.ticking
+actions.opener+=/plague_strike,if=!dot.blood_plague.ticking
+actions.opener+=/heart_strike
+actions.opener+=/heart_strike
+actions.opener+=/dancing_rune_weapon,if=runic_power>=60
+actions.opener+=/unholy_frenzy
+actions.opener+=/use_items
+actions.opener+=/death_strike
+actions.opener+=/empower_rune_weapon,if=blood_runes.current=0
+actions.opener+=/heart_strike
+actions.opener+=/heart_strike
+actions.opener+=/blood_tap
+actions.opener+=/heart_strike

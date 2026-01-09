@@ -1,28 +1,96 @@
+## 血DK坦克 (Icy Veins 优化版)
+## Blood Death Knight Tank - Icy Veins Style
+## 优化日期: 2025-01
+
+## ==================== 战前准备 ====================
+## 确保冰霜领域激活（坦克姿态）
 actions.precombat+=/frost_presence,if=buff.presence.down
+
+## ==================== 主循环 ====================
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+
+## 打断优先
 actions+=/mind_freeze
-actions+=/horn_of_winter,if=down
+
+## 号角维护 - 提供力量和敏捷
+actions+=/horn_of_winter,if=buff.horn_of_winter.down
+
+## 开怪拉怪
 actions+=/death_grip,if=time<2
+
+## 紧急自保 - 生命值低于60%时优先灵界打击
 actions+=/death_strike,if=health.pct<=60
+
+## 爆发技能
 actions+=/use_items
 actions+=/unholy_frenzy
+
+## AOE 切换 - 多目标时使用AOE循环
 actions+=/run_action_list,name=aoe,strict=1,if=active_enemies>1
-actions+=/pestilence,if=dot.blood_plague.ticking&dot.blood_plague.refreshable|dot.frost_fever.ticking&dot.frost_fever.refreshable
+
+## ==================== 单体循环 ====================
+## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+actions+=/pestilence,if=glyph.disease.enabled&dot.frost_fever.ticking&dot.blood_plague.ticking&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## 疾病上debuff - 冰霜热病
 actions+=/icy_touch,if=!dot.frost_fever.ticking|frost_runes.time_to_max<gcd
+
+## 疾病上debuff - 血之瘟疫
 actions+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 血打 - 避免符文溢出
 actions+=/blood_strike,if=blood_runes.time_to_max<gcd
+
+## 灵界打击 - 有治疗需求且疾病已上
 actions+=/death_strike,if=health.current+action.death_strike.healing<health.max&dot.frost_fever.ticking&dot.blood_plague.ticking
+
+## 鲜血分流 - 获取死亡符文（生命值安全时）
 actions+=/blood_tap,if=(glyph.blood_tap.enabled|health.pct>60)&blood_runes.current=0
+
+## 符文打击 - 消耗符能
 actions+=/rune_strike
+
+## 心脏打击 - 主要输出技能
 actions+=/heart_strike
+
+## 死亡缠绕 - 避免符能溢出
 actions+=/death_coil,if=runic_power.deficit<20
+
+## 血打填充
 actions+=/blood_strike
+
+## 符能武器 - 符文不足时使用
 actions+=/empower_rune_weapon,if=(blood_runes.current+frost_runes.current+unholy_runes.current)<2
+## 后备技能 - 低等级时使用
+actions+=/icy_touch
+actions+=/blood_strike
+actions+=/auto_attack
+
+## ==================== AOE 循环 ====================
+## 死亡凋零 - AOE核心技能
 actions.aoe+=/death_and_decay
+
+## 瘟疫蔓延 - 扩散疾病
 actions.aoe+=/pestilence,if=dot.frost_fever.ticking&dot.blood_plague.ticking&(active_dot.frost_fever+active_dot.blood_plague<true_active_enemies*2)
+
+## 补疾病 - 冰霜热病
 actions.aoe+=/icy_touch,cycle_targets=1,if=!dot.frost_fever.ticking
+
+## 补疾病 - 血之瘟疫
 actions.aoe+=/plague_strike,cycle_targets=1,if=!dot.blood_plague.ticking
+
+## 血沸 - 3+目标或无心脏打击天赋时使用
 actions.aoe+=/blood_boil,if=health.pct>60&(active_enemies>2|!talent.heart_strike)
+
+## 心脏打击 - 2目标时使用（溅射伤害）
 actions.aoe+=/heart_strike,if=active_enemies<3
+
+## 死亡缠绕 - 避免符能溢出
 actions.aoe+=/death_coil,if=runic_power.deficit<20
+
+## 符文打击填充
 actions.aoe+=/rune_strike
+## 后备技能
+actions.aoe+=/icy_touch
+actions.aoe+=/blood_strike

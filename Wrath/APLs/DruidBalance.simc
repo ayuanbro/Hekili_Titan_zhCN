@@ -1,12 +1,22 @@
-actions.precombat+=/mark_of_the_wild,if=!up&!buff.gift_of_the_wild.up
-actions.precombat+=/thorns,if=!up
-actions.precombat+=/moonkin_form,if=!up
+## Druid: Balance - 平衡德鲁伊优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 日蚀(愤怒) > 月蚀(星火) > DOT维护
+
+## 战前准备
+actions.precombat+=/mark_of_the_wild,if=!buff.mark_of_the_wild.up&!buff.gift_of_the_wild.up
+actions.precombat+=/thorns,if=!buff.thorns.up
+actions.precombat+=/moonkin_form,if=!buff.moonkin_form.up
 actions.precombat+=/potion
+
+## 默认动作
 actions+=/call_action_list,name=init
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
 actions+=/run_action_list,name=aoe,if=active_enemies>3
 actions+=/run_action_list,name=spam,if=variable.spam_now
 actions+=/run_action_list,name=fish
+
+## 初始化变量
 actions.init+=/variable,name=lunar_spam_now,value=buff.eclipse_lunar.up
 actions.init+=/variable,name=solar_spam_now,value=buff.eclipse_solar.up
 actions.init+=/variable,name=spam_now,value=variable.lunar_spam_now|variable.solar_spam_now
@@ -15,23 +25,34 @@ actions.init+=/variable,name=lunar_can_proc,value=buff.eclipse_lunar.last_applie
 actions.init+=/variable,name=solar_can_proc,value=buff.eclipse_solar.last_applied=0|query_time-buff.eclipse_solar.last_applied>=30
 actions.init+=/variable,name=lunar_fish_now,value=variable.fish_now&variable.lunar_can_proc
 actions.init+=/variable,name=solar_fish_now,value=variable.fish_now&(variable.solar_can_proc|!variable.lunar_can_proc)
+
+## 钓鱼阶段 - 触发日/月蚀
 actions.fish+=/starfire,if=buff.elunes_wrath.up&(!variable.lunar_fish_now|buff.elunes_wrath.remains<action.starfire.gcd|moving)
 actions.fish+=/moonfire,if=!debuff.moonfire.up&moving
 actions.fish+=/force_of_nature
 actions.fish+=/starfall
-actions.fish+=/faerie_fire,if=!up&(talent.improved_faerie_fire.enabled|group_members>=5|moving)
+actions.fish+=/faerie_fire,if=!debuff.faerie_fire.up&(talent.improved_faerie_fire.enabled|group_members>=5|moving)
 actions.fish+=/insect_swarm,if=!debuff.insect_swarm.up
 actions.fish+=/typhoon,if=moving&glyph.typhoon.enabled
 actions.fish+=/moonfire,if=!debuff.moonfire.up&variable.lunar_fish_now&debuff.moonfire.remains<3
+## 钓月蚀用愤怒
 actions.fish+=/wrath,if=variable.lunar_fish_now
+## 钓日蚀用星火
 actions.fish+=/starfire,if=variable.solar_fish_now
+
+## 日/月蚀触发后的输出阶段
 actions.spam+=/hyperspeed_acceleration,use_off_gcd=1,if=buff.eclipse_lunar.up&buff.eclipse_lunar.remains>settings.lunar_cooldown_leeway
 actions.spam+=/potion,use_off_gcd=1,if=buff.eclipse_lunar.up&buff.eclipse_lunar.remains>settings.lunar_cooldown_leeway
 actions.spam+=/use_items,use_off_gcd=1,if=buff.eclipse_lunar.up&buff.eclipse_lunar.remains>settings.lunar_cooldown_leeway
 actions.spam+=/starfire,if=buff.elunes_wrath.up
+## 维护虫群
 actions.spam+=/insect_swarm,if=!debuff.insect_swarm.up&(!buff.eclipse_lunar.up|buff.eclipse_lunar.remains>7)
+## 日蚀期间用愤怒
 actions.spam+=/wrath,if=variable.solar_spam_now
+## 月蚀期间用星火
 actions.spam+=/starfire,if=variable.lunar_spam_now
+
+## AOE 循环
 actions.aoe+=/typhoon,if=glyph.typhoon.enabled
 actions.aoe+=/starfall
 actions.aoe+=/hurricane

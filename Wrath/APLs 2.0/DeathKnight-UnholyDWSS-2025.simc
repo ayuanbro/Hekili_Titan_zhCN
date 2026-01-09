@@ -1,0 +1,139 @@
+## ========================================
+## Death Knight: Unholy DW SS - 邪恶DK双持天灾打击版
+## 泰坦时空特别版 2025 - 智能符文优化系统
+## 更新日期: 20251228
+## ========================================
+## 天赋配置: 0/17/54 (鲜血/冰霜/邪恶)
+## 核心天赋: 天灾打击, 荒芜, 食尸鬼狂乱
+## ========================================
+## 单体核心: 疫病维护 > 天灾打击 > 鲜血打击 > 死亡缠绕
+## AOE核心: 疫病维护 > 传染 > 死亡凋零 > 天灾打击 > 鲜血打击
+## 智能优化: 符文浪费检测 + 符能溢出保护
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/unholy_presence,if=buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环入口 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## 智能循环切换
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+actions+=/call_action_list,name=burst,if=burst_window|cooldown.summon_gargoyle.ready|buff.summon_gargoyle.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+actions.burst+=/use_items,if=cooldown.summon_gargoyle.remains<5|buff.summon_gargoyle.up
+actions.burst+=/potion,if=buff.summon_gargoyle.up|target.time_to_die<30
+actions.burst+=/berserking,if=buff.summon_gargoyle.up
+actions.burst+=/blood_fury,if=buff.summon_gargoyle.up
+actions.burst+=/hyperspeed_acceleration,if=buff.summon_gargoyle.up|cooldown.summon_gargoyle.remains>60
+actions.burst+=/summon_gargoyle,if=runic_power>=60
+actions.burst+=/scourge_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.burst+=/scourge_strike,if=death_runes>=2
+actions.burst+=/death_coil,if=buff.summon_gargoyle.up&runic_power>=40
+actions.burst+=/empower_rune_weapon,if=buff.summon_gargoyle.up&runes_available=0
+actions.burst+=/army_of_the_dead,if=buff.summon_gargoyle.up&buff.summon_gargoyle.remains>6
+
+## ==================== 单体循环（智能优化版）====================
+
+## === 疾病维护 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+actions.single+=/icy_touch,if=disease_refresh_priority&dot.frost_fever.remains<3
+actions.single+=/plague_strike,if=disease_refresh_priority&dot.blood_plague.remains<3
+
+## === 符能溢出保护 ===
+actions.single+=/death_coil,if=runic_power_overflow
+actions.single+=/death_coil,if=should_dump_runic_power
+
+## === 符文浪费保护 ===
+actions.single+=/blood_strike,if=blood_rune_wasting&buff.desolation.down
+actions.single+=/scourge_strike,if=(frost_rune_wasting|unholy_rune_wasting)&frost_runes.current>=1&unholy_runes.current>=1
+
+## === 荒芜BUFF维护 ===
+actions.single+=/blood_strike,if=buff.desolation.down
+
+## === 核心输出 - 天灾打击 ===
+actions.single+=/scourge_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/scourge_strike,if=death_runes>=2
+actions.single+=/scourge_strike,if=(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## === 鲜血打击 ===
+actions.single+=/blood_strike,if=blood_runes.current>=1&(buff.desolation.remains<10|death_runes<2)
+
+## === 符能消耗 - 没有符文时优先泄能 ===
+actions.single+=/death_coil,if=runic_power>=40&runes_available=0
+actions.single+=/death_coil,if=runic_power>=80
+actions.single+=/death_coil,if=runic_power>=60&runes_available=0
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.single+=/ghoul_frenzy,if=pet.ghoul.active&pet_ghoul_frenzy_remains<3
+
+## === 符文恢复 ===
+actions.single+=/blood_tap,if=runes_available=0&runic_power<40
+actions.single+=/empower_rune_weapon,if=runes_available=0&runic_power<40
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== AOE循环（智能优化版）====================
+
+## 疾病维护
+actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 符能溢出保护
+actions.aoe+=/death_coil,if=runic_power_overflow
+
+## ========== 传染扩散 - 最高优先级 ==========
+## 传染必须在所有鲜血符文技能之前！
+## 只要有疾病、多目标、有鲜血符文，就优先传染
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 死亡凋零 - AOE核心伤害（不消耗鲜血符文，可以先放）
+actions.aoe+=/death_and_decay,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_and_decay,if=death_runes>=2
+
+## 爆发技能
+actions.aoe+=/use_items,if=burst_window
+actions.aoe+=/berserking,if=burst_window
+actions.aoe+=/blood_fury,if=burst_window
+actions.aoe+=/hyperspeed_acceleration,if=burst_window
+actions.aoe+=/summon_gargoyle,if=runic_power>=60
+
+## 天灾打击
+actions.aoe+=/scourge_strike,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/scourge_strike,if=death_runes>=2
+actions.aoe+=/scourge_strike,if=(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## ========== 鲜血符文技能 - 传染之后 ==========
+## 荒芜维护 - 传染后使用鲜血打击
+actions.aoe+=/blood_strike,if=buff.desolation.down&blood_runes.current>=1
+
+## 鲜血打击 - 传染后使用
+actions.aoe+=/blood_strike,if=blood_runes.current>=1
+
+## 符能消耗 - 没有符文时优先泄能
+actions.aoe+=/death_coil,if=runic_power>=40&runes_available=0
+actions.aoe+=/death_coil,if=runic_power>=60
+
+## 宠物管理
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.aoe+=/ghoul_frenzy,if=pet.ghoul.active&buff.ghoul_frenzy.remains<3&unholy_runes.current>=1
+
+## 符文恢复
+actions.aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<40
+
+## 亡者大军
+actions.aoe+=/army_of_the_dead,if=burst_window
+
+## 填充
+actions.aoe+=/horn_of_winter,if=runic_power<80&runes_available=0

@@ -1,25 +1,43 @@
-﻿actions.precombat+=/arcane_brilliance,if=raid&buff.arcane_brilliance.down
+## Mage: Arcane - 奥术法师优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 奥术冲击x4 > 奥术飞弹(飞弹弹幕触发) > 奥术弹幕(移动)
+
+## 战前准备
+actions.precombat+=/arcane_brilliance,if=raid&buff.arcane_brilliance.down
 actions.precombat+=/arcane_intellect,if=!raid&buff.arcane_brilliance.down&buff.arcane_intellect.down
 actions.precombat+=/molten_armor,if=buff.unique_armor.down
 actions.precombat+=/focus_magic,if=group&active_dot.focus_magic=0
+
+## 默认动作
 actions+=/counterspell
 actions+=/spellsteal
 actions+=/remove_curse
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 吸收伤害触发咒术吸收
 actions+=/fire_ward,if=talent.incanters_absorption&buff.incanters_absorption.down&action.global_thermal_sapper_charge.ready
 actions+=/global_thermal_sapper_charge,if=talent.incanters_absorption&buff.incanters_absorption.down&buff.fire_ward.up
+## 爆发期 - 奥术强化 + 冰冷血脉
 actions+=/arcane_power
 actions+=/icy_veins
 actions+=/mirror_image
 actions+=/potion
 actions+=/use_items
+## AOE 处理
 actions+=/call_action_list,name=aoe,if=active_enemies>2
+## 核心循环
+## 4层奥爆时使用奥术飞弹（飞弹弹幕触发或连续6次奥爆）
 actions+=/arcane_missiles,if=debuff.arcane_blast.stack=4&(buff.missile_barrage.up|prev_gcd.6.arcane_blast)
+## 移动时4层奥爆使用奥术弹幕
 actions+=/arcane_barrage,if=debuff.arcane_blast.stack=4&buff.missile_barrage.down&moving
+## 蓝量管理
 actions+=/best_mana_potion
 actions+=/replenish_mana,if=mana.pct<70
 actions+=/evocation,if=mana.pct<30
+## 奥术冲击 - 核心技能
 actions+=/arcane_blast
+
+## AOE 循环
 actions.aoe+=/arcane_explosion,if=target.within10
 actions.aoe+=/presence_of_mind
 actions.aoe+=/blizzard

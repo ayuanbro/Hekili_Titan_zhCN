@@ -1,0 +1,121 @@
+## Death Knight: Unholy DW Reaping - 邪恶DK双持收割版
+## 泰坦时空特别版 - 智能符文优化系统
+## 创建：邪恶DK双持无天灾打击(收割天赋) by 哑吡 20251226
+## 修复：所有技能必须双疾病才能使用 by Kiro 20251228
+## ========================================
+## 天赋配置: 19/0/52 (冰霜/鲜血/邪恶)
+## 核心天赋: 收割3/3, 死亡符文精通3/3, 威胁之塔萨里安3/3, 荒芜5/5
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/unholy_presence,if=buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/bone_shield,if=buff.bone_shield.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环入口 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## 智能循环切换
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+actions+=/call_action_list,name=burst,if=burst_window|cooldown.summon_gargoyle.ready|buff.summon_gargoyle.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+## 先上疾病
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+## 以下所有技能必须双疾病
+actions.burst+=/potion,if=has_diseases&(cooldown.summon_gargoyle.remains<2|buff.summon_gargoyle.up)
+actions.burst+=/use_items,if=has_diseases&(cooldown.summon_gargoyle.remains<2|buff.summon_gargoyle.up)
+actions.burst+=/berserking,if=has_diseases&(cooldown.summon_gargoyle.remains<2|buff.summon_gargoyle.up)
+actions.burst+=/blood_fury,if=has_diseases&(cooldown.summon_gargoyle.remains<2|buff.summon_gargoyle.up)
+actions.burst+=/hyperspeed_acceleration,if=has_diseases&(cooldown.summon_gargoyle.remains<2|buff.summon_gargoyle.up)
+actions.burst+=/summon_gargoyle,if=has_diseases&runic_power>=60
+actions.burst+=/empower_rune_weapon,if=has_diseases&buff.summon_gargoyle.up&runes_available=0
+actions.burst+=/death_and_decay,if=has_diseases&buff.summon_gargoyle.up
+actions.burst+=/blood_strike,if=has_diseases&buff.summon_gargoyle.up&blood_runes.current>=1
+actions.burst+=/death_coil,if=has_diseases&buff.summon_gargoyle.up&runic_power>=40
+actions.burst+=/army_of_the_dead,if=has_diseases&buff.summon_gargoyle.up&buff.summon_gargoyle.remains>6
+
+## ==================== 单体循环 ====================
+
+## === 第一优先级：上疾病 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## === 以下所有技能必须双疾病 ===
+
+## === 符能溢出保护 ===
+actions.single+=/death_coil,if=has_diseases&runic_power_overflow
+actions.single+=/death_coil,if=has_diseases&runic_power>=100
+
+## === 荒芜BUFF维护 ===
+actions.single+=/blood_strike,if=has_diseases&buff.desolation.down&blood_runes.current>=1
+
+## === 死亡凋零 - 主要符文消耗 ===
+actions.single+=/death_and_decay,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/death_and_decay,if=has_diseases&death_runes>=2
+
+## === 鲜血打击 - 收割转换死亡符文 ===
+actions.single+=/blood_strike,if=has_diseases&blood_runes.current>=1
+
+## === 符能消耗 ===
+actions.single+=/death_coil,if=has_diseases&runic_power>=40
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.single+=/ghoul_frenzy,if=has_diseases&pet.ghoul.active&buff.ghoul_frenzy.down&unholy_runes.current>=1
+
+## === 符文恢复 ===
+actions.single+=/blood_tap,if=has_diseases&runes_available=0&runic_power<40
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== AOE循环 ====================
+
+## 先上疾病
+actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## === 以下所有技能必须双疾病 ===
+
+## 符能溢出保护
+actions.aoe+=/death_coil,if=has_diseases&runic_power_overflow
+
+## 传染扩散 - 最高优先级
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 死亡凋零 - AOE核心伤害
+actions.aoe+=/death_and_decay,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_and_decay,if=has_diseases&death_runes>=2
+
+## 爆发技能
+actions.aoe+=/use_items,if=has_diseases&burst_window
+actions.aoe+=/berserking,if=has_diseases&burst_window
+actions.aoe+=/blood_fury,if=has_diseases&burst_window
+actions.aoe+=/summon_gargoyle,if=has_diseases&runic_power>=60
+
+## 鲜血沸腾
+actions.aoe+=/blood_boil,if=has_diseases&blood_runes.current>=1
+
+## 荒芜维护
+actions.aoe+=/blood_strike,if=has_diseases&buff.desolation.down&blood_runes.current>=1
+
+## 符能消耗
+actions.aoe+=/death_coil,if=has_diseases&runic_power>=40
+
+## 宠物管理
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.aoe+=/ghoul_frenzy,if=has_diseases&pet.ghoul.active&buff.ghoul_frenzy.down&unholy_runes.current>=1
+
+## 符文恢复
+actions.aoe+=/blood_tap,if=has_diseases&runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<40
+
+## 填充
+actions.aoe+=/horn_of_winter,if=runic_power<80&runes_available=0

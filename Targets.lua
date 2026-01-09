@@ -141,7 +141,7 @@ do
     end
 
     function Hekili:TargetIsNearPet( unit )
-        return IsActionInRange( petSlot, unit )
+        return GetCachedPetRange( unit )
     end
 
     function Hekili:DumpPetBasedTargetInfo()
@@ -210,6 +210,7 @@ RegisterEvent( "NAME_PLATE_UNIT_ADDED", function( event, unit )
     if UnitIsFriend( "player", unit ) then return end
 
     local id = UnitGUID( unit )
+    if not id then return end
     npGUIDs[unit] = id
     npUnits[id]   = unit
 end )
@@ -228,10 +229,12 @@ end )
 RegisterEvent( "UNIT_FLAGS", function( event, unit )
     if UnitIsFriend( "player", unit ) then
         local id = UnitGUID( unit )
-        ns.eliminateUnit( id, true )
+        if id then
+            ns.eliminateUnit( id, true )
+            npUnits[id] = nil
+        end
 
         npGUIDs[unit] = nil
-        npUnits[id]   = nil
     end
 end )
 
@@ -242,6 +245,45 @@ local lastCount = 1
 local lastStationary = 1
 
 local guidRanges = {}
+
+-- 性能优化缓存系统
+local cachedSafeAreaStatus = nil
+local lastSafeAreaCheck = 0
+local SAFE_AREA_CHECK_INTERVAL = 2 -- 2秒检查一次安全区域
+
+local petRangeCache = {}
+local lastPetRangeUpdate = 0
+local PET_RANGE_CACHE_DURATION = 0.5 -- 500ms缓存
+
+local validUnitCache = {}
+local lastValidityCheck = {}
+local VALIDITY_CACHE_DURATION = 0.1 -- 100ms缓存
+
+local rangeCheckBatch = {}
+local targetDataPool = {}
+
+-- 新增优化变量
+local nameplateScanInterval = 0.15 -- 150ms扫描间隔
+local lastNameplateScan = 0
+local rangeCheckScheduled = false
+local lastCleanup = 0
+local maxTargetsPerFrame = 12 -- 每帧最大处理目标数
+
+-- 训练假人缓存
+local trainingDummyCache = {}
+local knownDummyIDs = {
+    [31144] = true, [31146] = true, [32541] = true, [32542] = true, [32543] = true,
+    [46647] = true, [2673] = true, [5652] = true, [12426] = true, [17578] = true,
+}
+
+-- 职业特定优化配置
+local classOptimizations = {
+    HUNTER = { preferPetRange = true, petRangeWeight = 0.8, nameplateRange = 40 },
+    WARLOCK = { preferPetRange = true, petRangeWeight = 0.7, nameplateRange = 40 },
+    MAGE = { preferPetRange = false, nameplateRange = 40, useSpellRange = true },
+    PRIEST = { preferPetRange = false, nameplateRange = 40, useSpellRange = true },
+    DRUID = { preferPetRange = false, nameplateRange = 40, useSpellRange = true },
+}
 
 
 -- Chromie Time impacts phasing as well.
@@ -280,6 +322,239 @@ do
     if not Hekili.IsWrath() then
         RegisterEvent( "UI_INFO_MESSAGE", CheckWarMode )
         RegisterEvent( "PLAYER_ENTERING_WORLD", CheckWarMode )
+    end
+end
+
+-- 优化的安全区域检查函数
+local function GetCachedSafeAreaStatus()
+    local now = GetTime()
+    if not cachedSafeAreaStatus or (now - lastSafeAreaCheck) > SAFE_AREA_CHECK_INTERVAL then
+        if IsInInstance() then
+            cachedSafeAreaStatus = false
+        elseif IsResting() then
+            cachedSafeAreaStatus = true
+        else
+            local pvpType = GetZonePVPInfo()
+            if pvpType == "sanctuary" then
+                cachedSafeAreaStatus = true
+            else
+                local mapID = C_Map.GetBestMapForUnit("player")
+                if mapID then
+                    local cityMaps = {
+                        [84] = true, [85] = true, [87] = true, [88] = true, [89] = true, [90] = true,
+                        [103] = true, [110] = true, [111] = true, [125] = true, [627] = true, [1670] = true,
+                    }
+                    cachedSafeAreaStatus = cityMaps[mapID] or false
+                else
+                    cachedSafeAreaStatus = false
+                end
+            end
+        end
+        lastSafeAreaCheck = now
+    end
+    return cachedSafeAreaStatus
+end
+
+-- 优化的宠物范围检测
+local function GetCachedPetRange(unit)
+    local now = GetTime()
+    local guid = UnitGUID(unit)
+    
+    if not guid then return false end
+    
+    local cached = petRangeCache[guid]
+    -- 根据目标移动状态调整缓存时间
+    local cacheTime = GetUnitSpeed(unit) > 0 and 0.3 or 0.8
+    
+    if cached and (now - cached.time) < cacheTime then
+        return cached.inRange
+    end
+    
+    -- 批量检测调度
+    if not rangeCheckScheduled then
+        rangeCheckScheduled = true
+        C_Timer.After(0.05, function()
+            BatchPetRangeCheck()
+            rangeCheckScheduled = false
+        end)
+    end
+    
+    -- 返回缓存值或默认值
+    return cached and cached.inRange or IsActionInRange(petSlot, unit)
+end
+
+-- 批量宠物范围检测
+local function BatchPetRangeCheck()
+    if petSlot == 0 then return end
+    
+    local processed = 0
+    for unit, guid in pairs(npGUIDs) do
+        if processed >= maxTargetsPerFrame then break end
+        
+        if UnitExists(unit) and not UnitIsDead(unit) then
+            local inRange = IsActionInRange(petSlot, unit)
+            petRangeCache[guid] = {
+                inRange = inRange,
+                time = GetTime()
+            }
+            processed = processed + 1
+        end
+    end
+end
+
+-- 批量范围检测优化
+local function BatchRangeCheck()
+    local now = GetTime()
+    
+    -- 检查是否需要扫描
+    if (now - lastNameplateScan) < nameplateScanInterval then
+        return false
+    end
+    
+    lastNameplateScan = now
+    wipe(rangeCheckBatch)
+    
+    local processed = 0
+    for unit, guid in pairs(npGUIDs) do
+        if processed >= maxTargetsPerFrame then
+            -- 下一帧继续处理
+            C_Timer.After(0, BatchRangeCheck)
+            break
+        end
+        
+        if UnitExists(unit) and not UnitIsDead(unit) then
+            table.insert(rangeCheckBatch, {unit = unit, guid = guid})
+            processed = processed + 1
+        end
+    end
+    
+    -- 批量获取范围
+    for i, data in ipairs(rangeCheckBatch) do
+        local _, range = RC:GetRange(data.unit)
+        guidRanges[data.guid] = range
+    end
+    
+    return true
+end
+
+-- 优化的单位有效性检查
+local npcIdPattern = "(%d+)-%x-$"
+local function IsValidCombatUnit(unit, guid, now)
+    local lastCheck = lastValidityCheck[guid]
+    if lastCheck and (now - lastCheck) < VALIDITY_CACHE_DURATION then
+        return validUnitCache[guid]
+    end
+    
+    local isValid = UnitExists(unit) and 
+                   not UnitIsDead(unit) and 
+                   UnitCanAttack("player", unit) and 
+                   UnitInPhase(unit) and 
+                   UnitHealth(unit) > 0 and 
+                   (UnitIsPVP("player") or not UnitIsPlayer(unit))
+    
+    validUnitCache[guid] = isValid
+    lastValidityCheck[guid] = now
+    
+    return isValid
+end
+
+-- 智能目标过滤
+local function SmartTargetFilter(unit, guid, spec, checkPets, checkPlates)
+    -- 快速距离预过滤
+    local roughDistance = select(2, RC:GetRange(unit))
+    if roughDistance and roughDistance > (spec.nameplateRange + 15) then
+        return false, "too_far"
+    end
+    
+    local npcid = tonumber(guid:match(npcIdPattern))
+    local excluded = enemyExclusions[npcid]
+    
+    -- 检查排除条件
+    if excluded and type(excluded) == "number" then
+        excluded = FindExclusionAuraByID(unit, excluded)
+    end
+    
+    if excluded then
+        return false, "excluded"
+    end
+    
+    -- 职业特定检查
+    local classOpt = classOptimizations[myClass]
+    if classOpt and classOpt.preferPetRange and checkPets then
+        return GetCachedPetRange(unit), "pet_range"
+    end
+    
+    -- 标准范围检查
+    if checkPlates then
+        local range = guidRanges[guid] or roughDistance
+        return not range or range <= spec.nameplateRange, "nameplate_range"
+    end
+    
+    return true, "valid"
+end
+
+-- 训练假人检测优化
+local function IsTrainingDummy(unit, npcid)
+    if trainingDummyCache[npcid] ~= nil then
+        return trainingDummyCache[npcid]
+    end
+    
+    local isDummy = false
+    
+    -- 检查已知的训练假人NPC ID
+    if knownDummyIDs[npcid] then
+        isDummy = true
+    else
+        -- 检查单位名称
+        local unitName = UnitName(unit) or ""
+        if unitName:find("训练") or unitName:find("假人") or 
+           unitName:find("Training") or unitName:find("Dummy") or 
+           unitName:find("Target") then
+            isDummy = true
+        end
+    end
+    
+    trainingDummyCache[npcid] = isDummy
+    return isDummy
+end
+
+-- 缓存清理函数
+local function CleanupCaches()
+    local now = GetTime()
+    
+    -- 清理宠物范围缓存
+    for guid, data in pairs(petRangeCache) do
+        if (now - data.time) > PET_RANGE_CACHE_DURATION * 3 then
+            petRangeCache[guid] = nil
+        end
+    end
+    
+    -- 清理有效性缓存
+    for guid, time in pairs(lastValidityCheck) do
+        if (now - time) > 5 then
+            lastValidityCheck[guid] = nil
+            validUnitCache[guid] = nil
+        end
+    end
+    
+    -- 清理过期的GUID范围数据
+    for guid, range in pairs(guidRanges) do
+        if not npUnits[guid] and not counted[guid] then
+            guidRanges[guid] = nil
+        end
+    end
+    
+    -- 清理训练假人缓存（定期清理避免内存泄漏）
+    if (now - lastCleanup) > 30 then
+        local cacheSize = 0
+        for _ in pairs(trainingDummyCache) do
+            cacheSize = cacheSize + 1
+        end
+        
+        if cacheSize > 100 then
+            wipe(trainingDummyCache)
+        end
+        lastCleanup = now
     end
 end
 
@@ -337,83 +612,45 @@ do
             local checkPets = showNPs and spec.petbased and Hekili:PetBasedTargetDetectionIsReady()
             local checkPlates = showNPs and spec.nameplates
 
+            -- 预计算常用状态以提高性能
+            local inSafeArea = GetCachedSafeAreaStatus()
+            local playerInCombat = UnitAffectingCombat("player")
+            local shouldCheckCombat = not inSafeArea and playerInCombat
+            
             if checkPets or checkPlates then
-                for unit, guid in pairs( npGUIDs ) do
-                    if UnitExists( unit ) and not UnitIsDead( unit ) and UnitCanAttack( "player", unit ) and UnitInPhase( unit ) and UnitHealth( unit ) > 0 and ( UnitIsPVP( "player" ) or not UnitIsPlayer( unit ) ) then
-                        local npcid = guid:match( "(%d+)-%x-$" )
-                        npcid = tonumber(npcid)
-
-                        local excluded = enemyExclusions[ npcid ]
-
-                        -- If our table has a number, unit is ruled out only if the buff is present.
-                        if excluded and type( excluded ) == "number" then
-                            excluded = FindExclusionAuraByID( unit, excluded )
-                        end
-
-                        if not excluded and checkPets then
-                            excluded = not Hekili:TargetIsNearPet( unit )
-                        end
-
-                        local _, range
-                        if not excluded and checkPlates then
-                            _, range = RC:GetRange( unit )
-                            guidRanges[ guid ] = range
-
-                            excluded = range and range > spec.nameplateRange or false
-                        end
-
-                        -- Always count your target.
-                        if UnitIsUnit( unit, "target" ) then excluded = false end
-
-                        if not excluded then
-                            local rate, n = Hekili:GetTTD( unit )
-                            count = count + 1
-                            counted[ guid ] = true
-
-                            local moving = GetUnitSpeed( unit ) > 0
-
-                            if not moving then
-                                stationary = stationary + 1
-                            end
-
-                            Hekili.TargetDebug = format( "%s    %-12s - %2d - %s - %.2f - %d - %s %s\n", Hekili.TargetDebug, unit, range or 0, guid, rate or 0, n or 0, unit and UnitName( unit ) or "Unknown", ( moving and "(moving)" or "" ) )
-                        end
-                    end
-
-                    counted[ guid ] = counted[ guid ] or false
+                -- 批量范围检测优化
+                if checkPlates then
+                    BatchRangeCheck()
                 end
-
-                for _, unit in ipairs( unitIDs ) do
-                    local guid = UnitGUID( unit )
-
-                    if guid and counted[ guid ] == nil then
-                        if UnitExists( unit ) and not UnitIsDead( unit ) and UnitCanAttack( "player", unit ) and UnitInPhase( unit ) and UnitHealth( unit ) > 0 and ( UnitIsPVP( "player" ) or not UnitIsPlayer( unit ) ) then
-                            local npcid = guid:match( "(%d+)-%x-$" )
-                            npcid = tonumber(npcid)
-
-                            local excluded = enemyExclusions[ npcid ]
-
-                            if excluded and type( excluded ) == "number" then
-                                excluded = FindExclusionAuraByID( unit, excluded )
+                
+                local processed = 0
+                for unit, guid in pairs( npGUIDs ) do
+                    -- 分帧处理限制
+                    if processed >= maxTargetsPerFrame then
+                        break
+                    end
+                    
+                    if IsValidCombatUnit(unit, guid, now) then
+                        local combatCheck = true
+                        
+                        -- 优化的战斗状态检查
+                        if shouldCheckCombat then
+                            local unitInCombat = UnitAffectingCombat(unit)
+                            local threatStatus = UnitThreatSituation("player", unit)
+                            combatCheck = unitInCombat or (threatStatus and threatStatus > 0)
+                        end
+                        
+                        if combatCheck then
+                            local isValid, reason = SmartTargetFilter(unit, guid, spec, checkPets, checkPlates)
+                            
+                            -- 始终计算玩家目标
+                            if UnitIsUnit( unit, "target" ) then 
+                                isValid = true 
+                                reason = "player_target"
                             end
 
-                            if not excluded and checkPets then
-                                excluded = not Hekili:TargetIsNearPet( unit )
-                            end
-
-                            local _, range
-                            if not excluded and checkPlates then
-                                _, range = RC:GetRange( unit )
-                                guidRanges[ guid ] = range
-
-                                excluded = range and range > spec.nameplateRange or false
-                            end
-
-                            -- Always count your target.
-                            if UnitIsUnit( unit, "target" ) then excluded = false end
-
-                            if not excluded then
-                                local rate, n = Hekili:GetTTD(unit)
+                            if isValid then
+                                local rate, n = Hekili:GetTTD( unit )
                                 count = count + 1
                                 counted[ guid ] = true
 
@@ -423,7 +660,65 @@ do
                                     stationary = stationary + 1
                                 end
 
-                                Hekili.TargetDebug = format( "%s    %-12s - %2d - %s - %.2f - %d - %s %s\n", Hekili.TargetDebug, unit, range or 0, guid, rate or 0, n or 0, unit and UnitName( unit ) or "Unknown", ( moving and "(moving)" or "" ) )
+                                local range = guidRanges[ guid ] or 0
+                                Hekili.TargetDebug = format( "%s    %-12s - %2d - %s - %.2f - %d - %s %s [%s]\n", 
+                                    Hekili.TargetDebug, unit, range, guid, rate or 0, n or 0, 
+                                    unit and UnitName( unit ) or "Unknown", 
+                                    ( moving and "(moving)" or "" ), reason or "unknown" )
+                            end
+                        end
+                        processed = processed + 1
+                    end
+
+                    counted[ guid ] = counted[ guid ] or false
+                end
+
+                -- 处理标准单位ID
+                for _, unit in ipairs( unitIDs ) do
+                    local guid = UnitGUID( unit )
+
+                    if guid and counted[ guid ] == nil then
+                        if IsValidCombatUnit(unit, guid, now) then
+                            local combatCheck = true
+                            
+                            if shouldCheckCombat then
+                                local unitInCombat = UnitAffectingCombat(unit)
+                                local threatStatus = UnitThreatSituation("player", unit)
+                                combatCheck = unitInCombat or (threatStatus and threatStatus > 0)
+                            end
+                            
+                            if combatCheck then
+                                local isValid, reason = SmartTargetFilter(unit, guid, spec, checkPets, checkPlates)
+                                
+                                -- 对于非姓名板单位，需要手动获取范围
+                                if checkPlates and not guidRanges[guid] then
+                                    local _, range = RC:GetRange( unit )
+                                    guidRanges[ guid ] = range
+                                end
+
+                                -- 始终计算玩家目标
+                                if UnitIsUnit( unit, "target" ) then 
+                                    isValid = true 
+                                    reason = "player_target"
+                                end
+
+                                if isValid then
+                                    local rate, n = Hekili:GetTTD(unit)
+                                    count = count + 1
+                                    counted[ guid ] = true
+
+                                    local moving = GetUnitSpeed( unit ) > 0
+
+                                    if not moving then
+                                        stationary = stationary + 1
+                                    end
+
+                                    local range = guidRanges[ guid ] or 0
+                                    Hekili.TargetDebug = format( "%s    %-12s - %2d - %s - %.2f - %d - %s %s [%s]\n", 
+                                        Hekili.TargetDebug, unit, range, guid, rate or 0, n or 0, 
+                                        unit and UnitName( unit ) or "Unknown", 
+                                        ( moving and "(moving)" or "" ), reason or "unknown" )
+                                end
                             end
 
                             counted[ guid ] = counted[ guid ] or false
@@ -433,14 +728,13 @@ do
             end
         end
 
+        -- 伤害检测系统 - 用于检测受到伤害的目标（包括木桩等）
         if not spec or spec.damage or ( not spec.nameplates and not spec.petbased ) or not showNPs then
             local db = spec and (spec.myTargetsOnly and myTargets or targets) or targets
 
             for guid, seen in pairs(db) do
                 if counted[ guid ] == nil then
-                    local npcid = guid:match("(%d+)-%x-$")
-                    npcid = tonumber(npcid)
-
+                    local npcid = tonumber(guid:match(npcIdPattern))
                     local excluded = enemyExclusions[ npcid ]
 
                     local unit
@@ -461,7 +755,14 @@ do
                         end
                     end
 
-                    if not excluded and ( spec.damageRange == 0 or ( not guidRanges[ guid ] or guidRanges[ guid ] <= spec.damageRange ) ) then
+                    -- 对于远程职业，使用更大的检测范围
+                    local damageRange = spec.damageRange or 40
+                    if spec.nameplates and spec.damage then
+                        -- 如果同时启用姓名板和伤害检测，使用姓名板范围作为最大范围
+                        damageRange = math.max(spec.nameplateRange or 40, spec.damageRange or 40)
+                    end
+
+                    if not excluded and ( damageRange == 0 or ( not guidRanges[ guid ] or guidRanges[ guid ] <= damageRange ) ) then
                         count = count + 1
                         counted[ guid ] = true
 
@@ -499,6 +800,12 @@ do
 
         count = max( 1, count )
 
+        -- 定期清理缓存
+        if now - lastPetRangeUpdate > 1 then
+            CleanupCaches()
+            lastPetRangeUpdate = now
+        end
+
         if count ~= lastCount or stationary ~= lastStationary then
             lastCount = count
             lastStationary = stationary
@@ -510,15 +817,190 @@ do
     end
 
     Hekili:ProfileCPU( "GetNumberTargets", ns.getNumberTargets )
+
+-- 性能监控和调试函数
+function Hekili:GetTargetOptimizationStats()
+    local stats = {
+        cacheHits = {
+            safeArea = cachedSafeAreaStatus ~= nil and 1 or 0,
+            petRange = 0,
+            validity = 0
+        },
+        cacheSize = {
+            petRange = 0,
+            validity = 0,
+            guidRanges = 0,
+            trainingDummy = 0
+        },
+        lastCleanup = lastPetRangeUpdate,
+        performance = {
+            nameplateScanInterval = nameplateScanInterval,
+            maxTargetsPerFrame = maxTargetsPerFrame,
+            lastNameplateScan = lastNameplateScan
+        }
+    }
+    
+    for _ in pairs(petRangeCache) do
+        stats.cacheSize.petRange = stats.cacheSize.petRange + 1
+    end
+    
+    for _ in pairs(validUnitCache) do
+        stats.cacheSize.validity = stats.cacheSize.validity + 1
+    end
+    
+    for _ in pairs(guidRanges) do
+        stats.cacheSize.guidRanges = stats.cacheSize.guidRanges + 1
+    end
+    
+    for _ in pairs(trainingDummyCache) do
+        stats.cacheSize.trainingDummy = stats.cacheSize.trainingDummy + 1
+    end
+    
+    return stats
+end
+
+function Hekili:ClearTargetCaches()
+    wipe(petRangeCache)
+    wipe(validUnitCache)
+    wipe(lastValidityCheck)
+    wipe(trainingDummyCache)
+    cachedSafeAreaStatus = nil
+    lastSafeAreaCheck = 0
+    lastNameplateScan = 0
+    Hekili:Print("目标检测缓存已清理")
+end
+
+-- 性能调优函数
+function Hekili:SetTargetOptimizationLevel(level)
+    if level == "performance" then
+        nameplateScanInterval = 0.1
+        maxTargetsPerFrame = 15
+        PET_RANGE_CACHE_DURATION = 0.3
+    elseif level == "balanced" then
+        nameplateScanInterval = 0.15
+        maxTargetsPerFrame = 12
+        PET_RANGE_CACHE_DURATION = 0.5
+    elseif level == "quality" then
+        nameplateScanInterval = 0.2
+        maxTargetsPerFrame = 8
+        PET_RANGE_CACHE_DURATION = 0.8
+    end
+    
+    Hekili:Print("目标检测优化级别设置为: " .. level)
+end
 end
 
 function Hekili:GetNumTargets( forceUpdate )
+    local spec = state.spec.id
+    spec = spec and rawget( Hekili.DB.profile.specs, spec )
+    
+    -- 对于启用了姓名板和伤害检测的远程职业，使用混合检测
+    if spec and spec.nameplates and spec.damage then
+        return ns.getRemoteTargets( forceUpdate )
+    end
+    
+    -- 其他情况使用原有逻辑
     return ns.getNumberTargets( forceUpdate )
 end
 
 
 function ns.dumpNameplateInfo()
     return counted
+end
+
+-- 专门用于远程职业的木桩和姓名板检测函数
+function ns.getTrainingDummyTargets()
+    local count = 0
+    local showNPs = GetCVar("nameplateShowEnemies") == "1"
+    
+    if not showNPs then
+        return 0
+    end
+    
+    local spec = state.spec.id
+    spec = spec and rawget(Hekili.DB.profile.specs, spec)
+    local maxRange = spec and spec.nameplateRange or 40
+    
+    -- 检查姓名板中的训练假人和敌对目标
+    for unit, guid in pairs(npGUIDs) do
+        if UnitExists(unit) and not UnitIsDead(unit) and UnitCanAttack("player", unit) and UnitHealth(unit) > 0 then
+            local npcid = tonumber(guid:match(npcIdPattern))
+            
+            -- 优化的训练假人检测
+            local isTrainingDummy = IsTrainingDummy(unit, npcid)
+            
+            -- 如果是训练假人或者普通敌对目标，都计入
+            if isTrainingDummy or UnitCanAttack("player", unit) then
+                local _, range = RC:GetRange(unit)
+                -- 使用配置的范围检测
+                if not range or range <= maxRange then
+                    count = count + 1
+                end
+            end
+        end
+    end
+    
+    return count
+end
+
+-- 为远程职业提供混合检测模式
+function ns.getRemoteTargets(forceUpdate)
+    if not forceUpdate then
+        return lastCount, lastStationary
+    end
+    
+    local spec = state.spec.id
+    spec = spec and rawget(Hekili.DB.profile.specs, spec)
+    
+    if not spec then
+        return ns.getNumberTargets(forceUpdate)
+    end
+    
+    -- 如果不是远程职业或者没有启用姓名板，使用原有逻辑
+    if not spec.nameplates or not spec.damage then
+        return ns.getNumberTargets(forceUpdate)
+    end
+    
+    local nameplateCount = 0
+    local damageCount = 0
+    local stationary = 0
+    
+    -- 首先通过姓名板检测（包括木桩）
+    nameplateCount = ns.getTrainingDummyTargets()
+    
+    -- 然后通过伤害检测补充
+    local db = spec and (spec.myTargetsOnly and myTargets or targets) or targets
+    local damageCounted = {}
+    
+    for guid, seen in pairs(db) do
+        if not counted[guid] then
+            local npcid = tonumber(guid:match(npcIdPattern))
+            local excluded = enemyExclusions[npcid]
+            if not excluded then
+                local range = guidRanges[guid]
+                local maxRange = math.max(spec.nameplateRange or 40, spec.damageRange or 40)
+                if not range or range <= maxRange then
+                    damageCount = damageCount + 1
+                    damageCounted[guid] = true
+                end
+            end
+        end
+    end
+    
+    -- 取两种检测方式的最大值
+    local totalCount = math.max(nameplateCount, damageCount)
+    
+    -- 更新缓存
+    if totalCount ~= lastCount then
+        lastCount = totalCount
+        lastStationary = stationary
+        if Hekili:GetToggleState("mode") == "reactive" then 
+            HekiliDisplayAOE:UpdateAlpha() 
+        end
+        Hekili:ForceUpdate("TARGET_COUNT_CHANGED")
+    end
+    
+    return totalCount, stationary
 end
 
 
@@ -676,7 +1158,6 @@ ns.GetDebuffApplicationTime = function( spell, target )
     return debuffs[ spell ] and debuffs[ spell ][ target ] and ( debuffs[ spell ][ target ].applied or debuffs[ spell ][ target ].last_seen ) or 0
 end
 
-
 function ns.getModifier( id, target )
     if class.auras[ spell ] then spell = class.auras[ spell ].key end
 
@@ -778,20 +1259,25 @@ ns.isWatchedDebuff = function(spell)
     return debuffs[spell] ~= nil
 end
 
-ns.eliminateUnit = function(id, force)
-    ns.updateMinion(id)
-    ns.updateTarget(id)
+    ns.eliminateUnit = function(id, force)
+        ns.updateMinion(id)
+        ns.updateTarget(id)
 
-    guidRanges[id] = nil
+        guidRanges[id] = nil
+        
+        -- 清理所有相关缓存
+        petRangeCache[id] = nil
+        validUnitCache[id] = nil
+        lastValidityCheck[id] = nil
 
-    if force then
-        for k, v in pairs( debuffs ) do
-            if v[ id ] then ns.trackDebuff( k, id ) end
+        if force then
+            for k, v in pairs( debuffs ) do
+                if v[ id ] then ns.trackDebuff( k, id ) end
+            end
         end
-    end
 
-    ns.callHook( "UNIT_ELIMINATED", id )
-end
+        ns.callHook( "UNIT_ELIMINATED", id )
+    end
 
 Hekili:ProfileCPU( "EliminateUnit", ns.eliminateUnit )
 
@@ -1286,7 +1772,7 @@ do
 
         for k, v in pairs( db ) do
             local unit = ( v.unit or "unknown" )
-            local excluded = CheckEnemyExclusions( k )
+            local excluded = CheckEnemyExclusion( k )
 
             if v.n > 3 then
                 output = output .. format( "\n    %-11s: %4ds [%d] #%6s%s %s", unit, v.deathTime, v.n, v.npcid, excluded and "*" or "", UnitName( v.unit ) or "Unknown" )

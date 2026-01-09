@@ -633,6 +633,95 @@ spec:RegisterStateExpr("rip_refresh_pending", function()
     return debuff.rip.up and combo_points.current == 5 and debuff.rip.remains < ttd - end_thresh
 end)
 
+-- 花织（治疗织入）条件 by 哑吡 20251225
+spec:RegisterStateExpr("should_flowerweave", function()
+    -- 检查是否启用花织
+    if not settings.enable_flowerweave then return false end
+    -- 检查是否在猫形态
+    if not buff.cat_form.up then return false end
+    -- 检查法力值是否足够
+    if mana.percent < (settings.min_weave_mana or 20) then return false end
+    -- 检查能量是否较低（适合切出去治疗）
+    if energy.current >= 45 then return false end
+    return true
+end)
+
+-- 熊织（熊形态织入）条件 by 哑吡 20251225
+spec:RegisterStateExpr("should_bearweave", function()
+    -- 检查是否启用熊织
+    if not settings.enable_bearweave then return false end
+    -- 检查是否在猫形态
+    if not buff.cat_form.up then return false end
+    -- 检查能量是否较低（适合切熊）
+    if energy.current >= 30 then return false end
+    return true
+end)
+
+-- 爪击/撕碎选择条件 by Kiro 20251227
+-- 野外和PVP使用爪击，副本和木桩使用撕碎
+spec:RegisterStateExpr("should_use_claw", function()
+    -- 检测目标是否是训练假人（多种方式检测）
+    -- 1. 通过缓存检测
+    if is_training_dummy then return false end
+    
+    -- 2. 通过目标分类检测（Training Dummy 的 classification 通常是 "worldboss" 或 "normal"）
+    -- 3. 通过目标名称检测（包含 "Training Dummy" 或 "训练假人"）
+    if UnitExists("target") then
+        local targetName = UnitName("target") or ""
+        -- 检测常见的训练假人名称
+        if targetName:find("Training Dummy") or targetName:find("训练假人") or targetName:find("假人") or targetName:find("Dummy") then
+            return false
+        end
+        -- 检测目标是否不会反击（训练假人的特征）
+        local classification = UnitClassification("target") or ""
+        if classification == "worldboss" and not UnitCanAttack("target", "player") then
+            return false
+        end
+    end
+    
+    -- 获取实例类型
+    local instanceType = select(2, GetInstanceInfo()) or "none"
+    
+    -- 副本内（party/raid）使用撕碎
+    if instanceType == "party" or instanceType == "raid" then
+        return false
+    end
+    
+    -- 竞技场和战场使用爪击
+    if instanceType == "arena" or instanceType == "pvp" then
+        return true
+    end
+    
+    -- 野外（none）使用爪击
+    if instanceType == "none" then
+        return true
+    end
+    
+    -- 默认使用撕碎
+    return false
+end)
+
+-- 熊织启用标志 - APL 使用 by Kiro 20260101
+spec:RegisterStateExpr("bearweaving_enabled", function()
+    return settings.enable_bearweave or false
+end)
+
+-- 熊坦模式启用标志 - APL 使用 by Kiro 20260101
+spec:RegisterStateExpr("bear_mode_tank_enabled", function()
+    return settings.enable_bear_tank or false
+end)
+
+-- 熊织时判断是否应该切回猫形态 by Kiro 20260101
+spec:RegisterStateExpr("should_cat", function()
+    -- 在熊形态下，判断是否应该切回猫形态
+    if not buff.dire_bear_form.up then return false end
+    -- 能量恢复到一定程度时切回猫
+    if energy.current >= 80 then return true end
+    -- 清晰预兆触发时切回猫
+    if buff.clearcasting.up then return true end
+    return false
+end)
+
 -- Resources
 spec:RegisterResource( Enum.PowerType.Rage, {
     enrage = {
@@ -1362,7 +1451,13 @@ spec:RegisterAuras( {
         alias = { "lacerate", "pounce_bleed", "rip", "rake", "deep_wound", "rend", "garrote", "rupture" },
         aliasType = "debuff",
         aliasMode = "longest"
-    }
+    },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 
@@ -1410,10 +1505,11 @@ spec:RegisterAbilities( {
         spend = 0.13,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 136068,
 
         handler = function ()
+            applyBuff( "abolish_poison" )
         end,
     },
 
@@ -1444,12 +1540,13 @@ spec:RegisterAbilities( {
         cooldown = function() return 60 - ((set_bonus.tier9feral_4pc == 1 and 12) or 0) end,
         gcd = "off",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 136097,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            applyBuff( "barkskin" )
         end,
     },
 
@@ -1467,10 +1564,12 @@ spec:RegisterAbilities( {
         startsCombat = true,
         texture = 132114,
 
-        toggle = "cooldowns",
+        toggle = "interrupts",
 
         handler = function ()
             removeBuff( "clearcasting" )
+            applyDebuff( "target", "bash" )
+            interrupt()
         end,
     },
 
@@ -1528,14 +1627,16 @@ spec:RegisterAbilities( {
         startsCombat = true,
         texture = 132117,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            applyDebuff( "target", "challenging_roar" )
         end,
     },
 
 
     -- 爪击Claw the enemy, causing 370 additional damage.  Awards 1 combo point.
+    -- 修改 by Kiro 20251230: 连击点少于5时使用爪击攒星
     claw = {
         id = 48570,
         cast = 0,
@@ -1554,6 +1655,24 @@ spec:RegisterAbilities( {
 
         startsCombat = true,
         texture = 132140,
+
+        -- 连击点少于5 且 (野外/PVP 且 不在背后) 或 清晰预兆 时可用
+        usable = function() 
+            if combo_points.current >= 5 then 
+                return false, "连击点已满" 
+            end
+            -- 清晰预兆时，野外/PVP正面可用
+            if buff.clearcasting.up and should_use_claw and not behind_target then
+                return true
+            end
+            if not should_use_claw then 
+                return false, "副本中使用撕碎" 
+            end
+            if behind_target then 
+                return false, "背后使用撕碎" 
+            end
+            return true 
+        end,
 
         handler = function ()
             removeBuff( "clearcasting" )
@@ -1575,10 +1694,11 @@ spec:RegisterAbilities( {
         spend = function() return 20 * ((buff.berserk.up and 0.5) or 1) end,
         spendType = "energy",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 132118,
 
         handler = function ()
+            -- 降低仇恨，无需状态变化
         end,
     },
 
@@ -1593,10 +1713,11 @@ spec:RegisterAbilities( {
         spend = 0.13,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 136067,
 
         handler = function ()
+            -- 驱散毒素，无需状态变化
         end,
     },
 
@@ -1615,6 +1736,7 @@ spec:RegisterAbilities( {
         texture = 136022,
 
         handler = function ()
+            applyDebuff( "target", "cyclone" )
         end,
     },
 
@@ -1629,12 +1751,13 @@ spec:RegisterAbilities( {
         spend = 0,
         spendType = "energy",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 132120,
 
         toggle = "cooldowns",
 
         handler = function ()
+            applyBuff( "dash" )
         end,
     },
 
@@ -1768,6 +1891,64 @@ spec:RegisterAbilities( {
     },
 
 
+    -- 野性冲锋 - 熊 (Feral Charge - Bear)
+    -- Causes you to charge an enemy, immobilizing and interrupting any spell being cast for 4 sec.
+    feral_charge_bear = {
+        id = 16979,
+        cast = 0,
+        cooldown = 15,
+        gcd = "off",
+
+        spend = 5,
+        spendType = "rage",
+
+        talent = "feral_charge",
+        startsCombat = true,
+        texture = 132183,
+
+        range = 25,
+
+        usable = function()
+            return buff.bear_form.up or buff.dire_bear_form.up, "requires bear form"
+        end,
+
+        handler = function ()
+            applyDebuff( "target", "feral_charge_effect" )
+            setDistance( 5 )
+        end,
+
+        copy = { 16979, "feral_charge" },
+    },
+
+
+    -- 野性冲锋 - 豹 (Feral Charge - Cat)
+    -- Causes you to leap behind an enemy, dazing them for 3 sec.
+    feral_charge_cat = {
+        id = 49376,
+        cast = 0,
+        cooldown = 30,
+        gcd = "off",
+
+        spend = 10,
+        spendType = "energy",
+
+        talent = "feral_charge",
+        startsCombat = true,
+        texture = 132185,
+
+        range = 25,
+
+        usable = function()
+            return buff.cat_form.up, "requires cat form"
+        end,
+
+        handler = function ()
+            applyDebuff( "target", "dazed", 3 )
+            setDistance( 5 )
+        end,
+    },
+
+
     -- Finishing move that causes damage per combo point and converts each extra point of energy (up to a maximum of 30 extra energy) into 9.8 additional damage.  Damage is increased by your attack power.     1 point  : 422-562 damage     2 points: 724-864 damage     3 points: 1025-1165 damage     4 points: 1327-1467 damage     5 points: 1628-1768 damage
     ferocious_bite = {
         id = 48577,
@@ -1874,6 +2055,7 @@ spec:RegisterAbilities( {
         texture = 132270,
 
         handler = function ()
+            applyDebuff( "target", "growl" )
         end,
     },
 
@@ -1913,6 +2095,7 @@ spec:RegisterAbilities( {
         texture = 136090,
 
         handler = function ()
+            applyDebuff( "target", "hibernate" )
         end,
 
         copy = { 18657, 18658 },
@@ -2421,10 +2604,11 @@ spec:RegisterAbilities( {
         spend = 0.08,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 135952,
 
         handler = function ()
+            -- 驱散诅咒，无需状态变化
         end,
     },
 
@@ -2439,10 +2623,11 @@ spec:RegisterAbilities( {
         spend = 0.72,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 132132,
 
         handler = function ()
+            -- 复活目标，无需状态变化
         end,
 
         copy = { 50768, 50767, 50766, 50765, 50764, 50763 },
@@ -2510,6 +2695,7 @@ spec:RegisterAbilities( {
 
 
     -- Shred the target, causing 225% damage plus 666 to the target.  Must be behind the target.  Awards 1 combo point.  Effects which increase Bleed damage also increase Shred damage.
+    -- 修改 by Kiro 20251230: 撕碎作为主要攒星技能，在背后时优先使用
     shred = { --撕碎修改by风雪 20251201
         id = 48572,
         cast = 0,
@@ -2526,6 +2712,9 @@ spec:RegisterAbilities( {
 
         startsCombat = true,
         texture = 136231,
+
+        -- 通用攒星技能，在背后时优先使用
+        usable = function() return true, "通用攒星技能" end,
 
         handler = function ()
             if glyph.shred.enabled and debuff.rip.up and rip_tracker[target.unit].extension < 6 then
@@ -2550,10 +2739,11 @@ spec:RegisterAbilities( {
         spend = 0.06,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 132163,
 
         handler = function ()
+            -- 安抚野兽，无需状态变化
         end,
 
         copy = { 8955, 9901, 26995 },
@@ -2621,7 +2811,7 @@ spec:RegisterAbilities( {
         startsCombat = true,
         texture = 236169,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
             applyBuff( "survival_instincts" )
@@ -2779,6 +2969,7 @@ spec:RegisterAbilities( {
         texture = 132328,
 
         handler = function ()
+            -- 追踪人形生物，无战斗状态变化
         end,
     },
 
@@ -2858,6 +3049,8 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 战争践踏，AOE 眩晕（牛头人种族技能）
+            applyDebuff( "target", "war_stomp" )
         end,
     },
 
@@ -2903,7 +3096,7 @@ spec:RegisterAbilities( {
         copy = { 5177, 5178, 5179, 5180, 6780, 8905, 9912, 26984, 26985, 48459, 48461 },
     },
 
-    -- 自动攻击 - 后备技能
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
     auto_attack = {
         id = 6603,
         cast = 0,
@@ -2911,7 +3104,9 @@ spec:RegisterAbilities( {
         gcd = "off",
 
         startsCombat = true,
-        texture = 135641,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
 
         handler = function()
         end
@@ -2949,6 +3144,28 @@ spec:RegisterAbilities( {
 
         handler = function()
             interrupt()
+        end,
+    },
+
+    -- 狮心 - 人类种族技能
+    -- 使你的爆击几率提高15%，持续15秒。3分钟冷却
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
         end,
     },
 } )
@@ -3089,6 +3306,47 @@ spec:RegisterSetting( "optimize_trinkets", false, {
     width = "single",
 } )
 
+-- 熊织/花织设置 by Kiro 20260101
+spec:RegisterSetting("druid_weave_header", nil, {
+    type = "header",
+    name = "野性: 形态织入"
+})
+
+spec:RegisterSetting("enable_bearweave", false, {
+    type = "toggle",
+    name = "启用熊织",
+    desc = "启用后，在能量较低时会切换到熊形态进行输出，然后切回猫形态。\n\n"..
+        "默认值: 不勾选",
+    width = "single",
+})
+
+spec:RegisterSetting("enable_bear_tank", false, {
+    type = "toggle",
+    name = "启用熊坦模式",
+    desc = "启用后，在熊形态下会使用坦克循环而不是熊织循环。\n\n"..
+        "默认值: 不勾选",
+    width = "single",
+})
+
+spec:RegisterSetting("enable_flowerweave", false, {
+    type = "toggle",
+    name = "启用花织",
+    desc = "启用后，在能量较低且法力充足时会切出猫形态施放野性赐福。\n\n"..
+        "默认值: 不勾选",
+    width = "single",
+})
+
+spec:RegisterSetting("min_weave_mana", 20, {
+    type = "range",
+    name = "花织最低法力百分比",
+    desc = "花织时需要的最低法力百分比。\n\n"..
+        "默认值: 20",
+    min = 0,
+    max = 100,
+    step = 5,
+    width = "full",
+})
+
 spec:RegisterSetting("druid_balance_header", nil, {
     type = "header",
     name = "平衡: 通用"
@@ -3170,11 +3428,13 @@ spec:RegisterOptions( {
 
 
 -- Default Packs
-spec:RegisterPack( "平衡(黑科研)", 202512261, [[Hekili:9IvtZnXrt4Fl(Ik7kgfjBmWHiFiCj4dKdIZ7UJwnsAlVFOS7SsLRs1wcsCSnVycoXHYGnfMcsGaHWBkQIySX2)ySwTIt8xi9SJwTFRvKKIl2sZ09t)0Fm9mT4kYDnUYvrem3vNRWClu4sZviFXcN)cZXvMSstmx5MiXLr1HpOIuG)A)2xp4rpA63F0wopDlN93EgQeRiRHQsbYqZuxeKITT9n3fKW53Et)n6YvUIPKm5kQCvczVlwybqTMyrURwSix5gsvRIzYGne5kp40717GN3)MDh8Th37D7yV66oh(03V6Moh)h2p8WEhE7VcVSKSu))Cd7BDxNnw3E930749oR7nSwYAP4S4SU3zWoBn4hwJc02p8SUB5rcQ8dE8Q2pzTZFTIfC1E3FU)Dx7dV7(935Hdo5)B)G9hCNJpR71HV6C9xaFyW9EHZjpXAj7tEUZTFvVJ(FohTjiU1sfPBE6UdUFx7n2S)lFS9bhWK5dV7w27UFVd(P(V(zm4h8xpW5xpQ4LC2)60n37zx5YxU3bV0(WTD2(z9oyZ(78kNnER96VW(TN2)17cow)9(9Hg84tbzaSh80VJXjgKUo)Cuka2)j3DWJ(fgrT)XB1FV1hsDyRVFva)3V2n7V9jmb829gqkvxRMKmKirIejnvJ8n1XIAkvqKpR0NRG0xMxRgpPbMVTKC1zLQvAkZM5MQIzTA5RlvJeC38MnTwkjyin00vngQCYIOOPPUSKkFnnDLXkytn6A0S2WDH1erYY8SVYllzqMLwaxssvIeukDt14cH0WuZrxVfMhRIvKWgloFM6z0e5YZwiDjufzCE6c8QATZuZAsgncq)8uAcY6betiztvKoVhMZ2cjBIl5g0XIYsnnW8UsekINiqgAYzaKRetaqHHyKFhMPD64hqcz5mqNgucG(uPaFUP(NbpdfrKkpuUlME4ugzq4rnBklHRwQqNoFJjwFfEIKc(Czi9ILMVqwrqxgposWsftkjIl9eqcwKis4Euq1B9CrI)EKEI8WmbF6ijrp070jAE3BNzcEGHIdyAdcsVMKU7XxwCb0bBW3whrAa1Z5MokAEeOtN4YRJvqsQgFbZi59apFDXQD6OO1ssT(mXOaTPLhfMQk2fvV1OmGPxm1GECIyAJtveXuhNSNbT0IRicRlH5hzsQtsqYyvsEjfio1cxLpGm5XQuVhCG66AMn5vWkvW6glwAH0DjigGfj8gTrd7dp0TcUEOMfd1dEbrdWZPQWGoxDzyP8dx3JkF0HWusH5IkQx(B(ywWn)gQvDyOgBHvKkvFD81I2cc0Qb8ekD41nqkajkILXGzH9N10GMQRXdfsLk6xRgPlEUewDOlTObMqGaQH3zcnn5QATHRuW42OvIre2fKF6Tl1GseSIXNEtNvRGykmHv5qlKePUxdKe5(fNjM5IxcM2Txj4qPCvyWsq4rmHpcMXzpM8XBZWwVHPUUe05fEtylOKg2j4d4HqJkn1Wv(kkn10jaUcxWsGbHLa9Dog5TwIRS7NOtkqp0a))QUZFmKlCFjxzrDOCb8nUYtzjajjHCwctBjmbn0Se60XsiutnlHflzjSaBNH9DfMX7vTaj8rHJa(Z44s82qUClL(h(2WtbQbMpvdKjmUvlumo)eqYO9Ldr0WnT8TqqLOgAHSjBAq5vPcWqOtYvdzkt8Y2U)HecAAVH2nGboG72nONXPcncn4rf6A8v00OLoLd0hXvkFAb2Hcby76ycVKbufKuw1d2OZhWko5zJ5sFjZeMX8o75JCKx4hcyQ0jLgNeDDpZ4gshn7ZKEec(uAtNfOunYGDzEMiOYSX5gFmlIkbhVJ5xUrNX6sP0SmHdkPZ8uAEMw9RBTqcKsdCf4ojF18WL(j4rU0FYJeUNWvUHz0ieibw)rAeV52cAKirQeYqzBK0UVXTZAQ5KaCiG1Jw6NT1NkwFwFcWkUNakmQnvc92YMczmPNLaCrtbw4WF0mlHZn8C340KEh18fIxw4nNdLWx4FhHJpv4Ks4K0moHdpYgLWx8JMWTIosys3VoYeXIwbtVx6)iJpDScRrZ86g4Ixx6V)mXJpbOOBJLkidC1VwnXFuvKjTHkx5G)CLUAX93]] )
-
-spec:RegisterPack( "野性(黑科研)", 202512261, [[Hekili:nJ1ZZnTXx8)wYfMKjdASnjXegOh6PsoKEWCRtL8APv2AISKMvRIXZKrJNVKqmPjPbg(rl0bsHWqime4YxAAcq)JHiBNt9FH(wTswY2s2b6K2EjrJ33(EFEF23V2vmR41elOGOyX5ZLj30zZLjRq28zNEQzelqRBHflyHKxavg(Wavf(7jRUzRgVy8to62TFXTBV9DNGjrDDtKctt2MoezMu(l7T2JajA)Y316wneluYrtNEvdXs9BqyBwyzX5ZcFvrtrbZLbBlNKICNZDoV9x37(lp5X)X(E7SrP6Uf)uJTo5zBEYJ274d217J)25B9G35TYTU6NACBM4zDlY2Xk761C7t(5DAFZ1AV(R608XE3z92n3Z71BbF7oxoqQ1p0R5n5UiSO3(nBT2oE78Yo))F4pF)6ljRQofE2zuZV03qr6yd6LYp7ux68zxQY35T5dB)W9)(LQSezYeKlxUPYXfSZQ71E5359JB492LhM4zd07kFO9h3XBJx59Sx5lUBXl7wCg3IhFWHb40hEUZDba(p9XERT91Y698h05zR4T6hADV3c4gOPw3939AUtR7)6tACuNpcKYuHs36o3R9t30BRn7CJ1JlcBFhSrRF6nTF0(T2E12pCz(hTAE)onwX7x2LG0uo(Gx3(UpP19A6o30HkS9r3O9HVaoayu7Qh1ATgDUXhGGeIPQMoeAiwyrmXwZ0iEaqneXqZOSTyHwn3YBTN49M37TYZp(WBEXJpypUk8A(Go)6UFQX)ZDoXc6A2uBwaNmIkHmXWNZ7hkJnqL0XkIFnSerJIjAiXcL1RBvrWSk2qYuvswhbRuxiqu3INZT4yUfl5OQkiRJrezKnfaJGJL)AJhSwja2yYcH)SQQKIdbKtkyb3IlTuKM6tASbMuUUGSdHahW(hIxmVBXj8xugzibPagksQQIfqYug7uqfbOhlPQrG)GjiDrkqzmN0XgdoIQuzzfMBNStNGfVqg3INpYHsYzZon3najNickuTYG7iP6qQZaXfsLP73OFfeRMH7JMM6kM1meIPlbcUksZWgK7kmthzWa2JzSPs1yavhGAkvX3wqI(KUf1HQlgY1J0MnArOcMeXeryAC6u1iWm2yQujtdhBbnftDw8cTcws2KqCSOMq63v8ndJJgu0QounW6GrdLl4a2SAjtjltndQDe5CfFA(CbNgXazeVCzMwICKQiJY6aAquMFmtQ(XPbz)THvyYri5NU4t23jtiTmEjCfniQNIiLXuoPYkRWxLxluWUcbROWYZquk0lYwGGmwWhM5IDeZKIrk5hw4Y)95LipIGwaZCOlMEY21LX22syE6dFFc210S8Jqe8ROWj1Ks3JXDHBHzUzhg)DQkKQG9nhIu1KibNkoCGf3IjwAlBMWQ400qqFXlG9ktmDSKQIRYQye2BKHJAinQKkGG4Lu7j)H639OBNJ)TlQM7SJ4dsNyKMGPd1wtbNBehgPxI)ubLH1mTpGelc9SRd74(BJOzjzywJRMeKpifcelm55ZU)8q7w1nMKQ6R3GdmM9cCIuOUeBmMEBSXsOOtpj892pm9(idcWe07iQjYZnyuFv01Jx6dkgZCpBM6L0X4AiEJHl3Tq7W2uvndFdXYzTzfdyBZMizGRXIAckPhJsteCScNqD6uPM07MeelfRETM1Wlx3f6qWIPSMPJDjyjP4zojetot(ttoLVMGrHJQ4Z(HsyiydCgnREZdgi9P7o6pFlw5QUOwIj5iBvee6WR4km4CACFA0vP5Tfs2mPYir2h2ewPFZp7GDzZM(ThglIMhlzlYNBzbSKfrZKvomgDBxX0rxrITCq5Rbq2e9cUHYnDX7zD7IbcfHmLzZmQw4P32OxhkKDsEeg2SCJA8LuABW(XXJDBJbGzsdRLWTwYNp5UeS9KjJ)z2z3mSzN6F2jHMp70J0GbEsq(C8qPppddbJ14dFPGvro6DhalbZZgjRwfnFC6FU7pyw82tSNuiGeK0SLypqv)ZXXEhjOci36r4WqJsmHldyYEiHGXV(cGap0e57NvdZDsaxrnjJBybwm6GqoeJki7kDhgl8hzcdwVQDCCgo5rOqwM8)3JetFQhZ1hOXVOEyQ1N3T4Ru3ceYcQZjHKLX6yEB5KM5OB9nhdj(3sS34zKunt2fznrXv1W2(PU58xqhViwNNkNH)Ers8hWm8fJsO7(xai6x1dFea)xSiwUqGE45dwem7INXUssYZKb0VBXEgkOSMkn8LkQPPR0ZWEvrKfIV4WVRbpGS7vuQysmSh(9bIEfMq4OWk2wcQwhrsj4XJoG1NvkHSXkFRrIp8mYHbqyPeE6x)Dl(xd]] )
-
 spec:RegisterPack( "守护(黑科研)", 202512261, [[Hekili:TAv3oUnru4NLEdIcIO8Z60TiexGqcrVyVXCThpz8Xzhv)t04X7QivzvAfq2LkubuPCdcQOfbfjkIkbLYs5HH4SlVfCMXXo2o2j7IqR2eNzoNVZ58D(Zw9SEplthQeS2RF3(g9633Ot)bgd6VRLPC6eWYCcLDD6y8HaQp(zV(QJM6fsDuQgfgly4XwMJI5EY3nWAut41RhIx0eGzTxVEwM7ZDCGmrHiML5BlI5oVEI97etfoCAqI9RLyN(tZwC8dtFXV9p)Y7p)KJNFYxMENV40JMLCTfp9Nt)QVBX9)1t)HNF6r)E6SFuDSsNmHwC0hV4P3dL7BEw6FD70x84t)KNGOV4ZU3zF7TsSFZeB875N8q9JlUZJs)O)adkrOl3thkhsfb8GXrwMlMD30J)60NCs6h8O5p)dnM)ShV44BE2T)Z0z3)Sh89)9nVvY1SmPXY9dfwMPF(NME3hyz6XJKrAIfCPXEs8X90eneqh5bowVfQdtYddSmzupps2pik9Y0MKr28aU0sIuznLzcUeeCkYKa1tUFNjmzI9BKypWyfYJaeh19yOqMeQpeXAGcRCzIJaccLFuz4rH2PSql1TQegkjuQh66sgZCuryHg7JvocmDdoyOXapqqBaIHTgvJIDD74Wfazeqfe3qHFN4jj2VuITYehaeia85qKodUZkdlIdALm1qrdbLPVYf00NFlOqF3wr)sj2BZavVsb3vlNm8XcQA8yVULfalgdjuPeBBRkNuvJdSq)r0gRix3l9PIRJ5xICFGCi3ZjphKF)yURS29LD0QkV564Civnsbrvak7OIs3))41TwKlx2b2azfIihbYv6FafDKrQ5hhq9IXVE5eBhilMeuUAEcXj23FAojoOB3e7lNyFJBKylPIXGSJK7dem75W1Wiwwwv(4giXT7kxQWv8OmvViODcLLRFEKQUrpkXOSlOgU7qYLQPCXsVG72SF0mqewOQfAvEmxLo1mywKqaVi85UfbwMLk59tGaNe7xjXgzFd9gHwcWlxuaCrzYwCrDoTUXeGpM6J085UBvIcKBPoqjPe)VsEW4)wEynSApvSUzVizJMg0VDEUPY1TWE70XyRYSngg8bSrmGnTmfllT6yJJnvGQndoqUi0GaH(TNQTQmVpE1YAreiQnXETMSQlbytzEyuONDeP3)wFF8kFt5eDyXcbei1lnh2TPoGCdeDiFs20YgmtEv3gwjnS89LbR24v9HBKuXObFZmwejmKvz5d6uubJgjXjRvg07srnbIRAEVlMe928MNlywBW2ZA1j1nKfw2YOyW8HxVARJy0TOvfO52yTmfqhm2lJ9x2qwlVTEiwFKsdZeAOrPa2YtNgwToPWvQXyxPSyRN)QkC7VDvRJMvB6208SMC9RE(ZId72yX(AVAwtV7wVZxNs2Fw)l]] )
+spec:RegisterPack( "平衡(黑科研)", 20251231, [[Hekili:9EvtVXnry4FlCjk5aRYUlBlGaou1l0dHdBpB7zThNDug7XmECwfPkRukG2eqOg(kviqPrQLpApuebbPTHYpgI3n5FbVJN1RThB3nPh6LKDN5DEMN59959J1OTXnn67GeyJ16SANET70TDR2960PxxJ(ITcWg9dq2BGwh(GpYd(75hFqYl(7Lp)57n9x2B69)2vKwSfLHCKifYI42Gvg9herOIp03yqz470dmkaBBSw72g9hsCCWkBWH2g9VopI48UXwxdrr(24yR3m2k5PhD2Hhc355)XTp9KDp9K7L8LF)0DghFJjh97j)0ppz))A6V9SP780KXpwUS8mkJMSZxm5OVdS7(hN8V3j5fpA6x9ea8j7)WZ(HTxEYN(GjB)1ReB9bWs)440LU3btV9JvlD9p6MtF(Foz3haVpoZLqtFvBI5HeMFXxZie3N4VEOr)jJVBYUhK8Kts(ShE6Z(8RC6XpAYUBF2D(NKX7F2H)6)T9NeFdJ(usOiu6RCjHdH)VwAia7JgqXogxZOVnNiWCcs6dDDBHPr(4qZrCKyyROGyRLITwo26nIT2ebwbNQfybIBkXZ0Nnk26w3k2Q6z5ypeXpm269ITq2c4z0kuG4UeoU162oQJ5X2eEmXwqyvzdeUMzKHaE2nYvGpo40l1JX8tbDgzvqMJx2(s86kXlBdxgODmzUM(ireSFHlcm9TkAAkNquQMn9Ua0ZfbRGnlYqWDkquSVOfXdc2BIDmlA1mavoO15SOatpS3aqkakL3p2QxJUUcOiP3vUa0dIqyBHziiR8a(LJvXnKGD1lay6HIgvmlv9ifLlDRp692nsHgUOCysLKsmENfJriJwlgfeMczfexuevuxgv2bSbfJP6lMY0qvYOPQWgXNiE5s8HyefYJcSfkNsVCKhGbCK7dkaZaw6IzY7AicpYVmpYVe5YBInX(ypcomTuu3s8eXWZthUCqN7qdqEkxzbCLlwxouJax4SPLYsJcPOutiikuMz7AcfAKBoh1Hqpgo0qas5q22ykg0fQyLwvqBkjaWivpLjNRzN5QwWVfIfczL5zIqBgJ6Wgb0hJhH2QUyDtSCwe91dP0fnnrk56aD8cFnXlDf3lVpv99pUifO1QawOHxdpU82Dn(6UAPYY6LsBUUSwnO8eNk1XAUCSwTWQyuUoMm)olbAbT76u0MHrCoXg5R13uiNFbBZ8gGQT2yPiGQdaIVHSlSyi2CeH6KfdY2FDIRqB)cTh0o8chAifsXqg3pSeqQLQlFOggd9K2G4BcdquUNzXnQmdrwsTM3kTpqnokgGlKKKF(S4Q8t0iCd5EP2nRmPMaOgxZL8ssvLAxIMsTgh4IVKgKSQuTgZjkWHc3UEzJfF7vhTnNalvEY3MPW8XfQPQZIPqnHskcA3HccOe5OGWyFRQChFCeMVLPG4P(5kl8KYjg7UAvzbK6AcdFAxxbPljHvYIxfcx3jRsyLxViH1R(TycppewAiuT4(8ROI3Qy4vFm0x1lF5kcRS7x54QQlZ3FLQ(NcuuvypswtZOFY3SxYDpmDnJ))p]] )
+spec:RegisterPack( "野性(黑科研)", 202512312, [[Hekili:nVv3VTT1v8)w8lcs1jAs2w2Xaw(HHHH18q3a0WEuu0KxztyksbskRAabb3vKghh3S4H0pstrBAxlAAgqY6(OT57)yILS0t7FHDpxYl5L3pOODTXYdnW6YZ9Co3Zh)oNlpSnR28p2SHPEaQ57SqLfQvDHfRwUATfwP6QnBeSBxuZgD1n2wFt8F4O3b)VtV(TgV33vC6Zo6KV7OtU)DkbuSRTRUjWjF3EEgavKhp6G7HP4KV)hhFJ9A2yJEw2bVTtZn4fyv8(6ImA(oWFTLLPjkKiKVrZgtE1Dp(NF44d2BY7)IJF(No6A7FYt)UPx7dp5fpA0x(0JF6T(DOTTSTg)d3y0HF8j3y)r7)Jh)Ip)179NhE1HxvunE9E3E6F7wtV3dF9EhbYVYkvwaOSA5JF1Jg9nF4OR9GjV3Hh)ZF2079rJ)4Rp5XFWO9)7t)Khn9R)0HxDbkrV8NM(pFVJF(bXk0Xp5hM8thrPBXi6M(z)LrFZ3p5)CZX3)Ojx)HJo4bJ2)6J)WVo5CeTHLGnm(opz67JP4do5vpBYJpA6DU7Kh)4HxTw5IJE0xm9HhwkKMX34MJ(2pz0b3F6EF5O7(GP79SjV8O)7ZpeBtgD79p5W7n5U364NCZX79xNE9dgFNxo8QlhZHrF9xG344p(ZhFR7hRet(hV)4p6Fp657n6A)lGpp7tN8OVb(5TFm(Nh)Y7DYDEW49)j8byYxD409UX4B(9yZl2T7522Yg7S1ncSCD8l31dz42zd9G5R)R6O7TTMBBTGTqA9TSnVKv76Z1RBH52Ox72L30QDa7tl3R7WRkJnbB5654hTz5KyOhO121RtAjyA5H02aP7rEMs(31fwdcaIEkETE(inRauhF2fPeMSYw4SdpCClYut3WazJ80HhDjy7UTBRTPHz9QGsr0NaRnXuR1UN3UGY0AWGHTmCDTnD77K6HEOo6wo(dBTE9HTQwJvIE9C0c)LMTLFWLGeY6WzSpsFhuSOeo6fO0y5SPgYrFdBKzU4RwGUZ2A6UzX75KW8ca32bH)jQJfYF9LiAGwhxtuilp1kXPvboJYdILypU0ylqoCNPfYdZKXi29Xf7Yehc7aI)tImedSWQI3M7w2ONNhYjyTfRC5IHcZgF6n09dWweqZRwBWGkL4zDBDKNfsRnyqBJdETjkXM272DRYUDqoq(PHTUNvWULPM15mrejO71X1tZdz2JWsqib6EBIck72lW3YeTqUK2meM0dtrobnyaHSnWMjK32afytKzppiAiAXbdMJNgot3vwPuHIZ5z1vZXT)GbCpn8Kug)4Y48DhZsfm0D0i)Pw728N0iPqSM91TioyTG2fImDaxIrP4oC8SYxFhCLxnpxDpc7i7HzXzVL0cvY(fxlca6YfbZrh93n63Z7Jca10hyMMnc1xF3sRvVsbvK1XYHWqiMfV4A1990Cq9bFdbOSG4XjIhRxpiWK)GHfdCGI8rcHxipxdl3E(ABGHUbcJ1J4hbpjgGGZfV8kQc3i7cNMID24qn4hBGWEuSgB1fcA4ISIOjDaOqUxhDNnTrArie0SQWvjjtbMRxTqs4JyuMN(2mWuCknLH4tkYKYVvvXca4PvHHTkoSL8OssXkGATUEwUqo6WwLOBXFl3E2MAWJdjKx4uAbFAR1h2AvYVY6SDoJmX5QRVAfEbMUOcj6j8ufxCLFh8nWWSN22U9rH7Qa2JQxURrW6PYkiptdEgVUTKaUP)w4ZsASK2Tlue9UgiFFn061JaNi0fcpfHiY5ffWjhmOyCdicwCAQ4A1RYPJRVYk8aK1RwPsPsCfVG6ONR4(NtW8kHUJu4lQkUrSNP6aNDD5kfYQHW1RZ0midd5RrqrpM3gFhlhJDLTN0WpfXbNAB460ZVSLPRnnS2W1ZRx3axV6vhmqKKo9cSSja51RITQ4gQD166A5e4hhwurzXfCyL0ZcnypBXDgKgUTbSrrfbZhBTK6ZIbkFZsT87B1n2jkciqFAwGcYy7ff0M0O3ZxOEwiOyO7Zrqi5CNTj(idfEj50IC8WEzrGL4m)Outypkfyh9E2ISyovDvwaezmmdn(aysyOX8fvi9cXKMSAuWel4wAvlMuENr4nXSCSGYA7GT2GHo8MsbwDWxuZvZ0cDPD0T7HQxmYhh4HteamEZED6a3CUWI4AndgeDjaMnMBHbVgktnBDd4c7u5rJPOltQpYVMFGUX2Rv7mkjmGk(MHUDbWnR2GhJsDzPQuKXpr6GL)Tkw7YsvRsH7sdz7JQxj3QiGZeG)pb7HcDRaVWPyzxr5tI50zXzjOFzyfvDwKAipBMluhmMgaiZldXWhL2JLkx7uARKOEeyhB7SETnWbq(oVyGdPCxfehCKwRQmBDsBrYFOC8UuOAIGAkcGjXpZRoMj85Qa(KRFXXcSrJIHkQoCmiM5YBDkuI0N9bduFULZ0WMiGveS4lxroaFyD9tFqq6(JvtajyWyxCOOwyraFmNZo4y5mKhZjKJPnBSdwxWBk1Gk6R7b1J8B2y8(3E0bF5Oh)8rx7Bp(PFWvINsXO9)KjF1ditGOzdiZ0hMmsSGX)4DitDjk3Q5VM(g0B2GpNoC)AHtEjDQDZaSEXXgdColoyrVzJmZMdVa(WwYYPt0fH4oqIlcsKXAdhf5Aa4Ph2ATHTQwjHNHHfaJwcyeD5iNolNWKul3YI1BtEhdcWbdBn)WwzbjKMa5WceAubnKCAaPc6)Yk9ozasKWM4vWSAfwRfJO5SyxHLmr)xAIxD2QxA7u4R3rTnsUQJD)QKJGBBzMqLKeZMqSEdtuBSDnGM9q(NaPjrKdRMXwqIm0jEQOYW(gnXzv6ogO1Vcnnsc)GqV(BzrUOmj9GeaMWlSgzfdyOz5RbjP8XRWqm9S6gQzj6iob2ZfFxsxaDikV6mOcHzWmZwaYSLOxK1jeZk4Yqp)IQmvhn193sivnE4yYswPefoSmokwo3PZHD(FghywIwOyaDX5tscD4MJJGsjovrIHfjmakbGBYfKIZrp3e9CsLo5raZsMxfj)APy1vC2ykk1GRskdS4ctRpnkNu4L8Qz8znsmxlKsSrV0cIqvv)(uiuEEt4R6c6ytgBXzkJcXgHTt7QixzyPF3mKY0lwzyRltEJ(sB1hmrvRfMgIPSuIQWKlMDpj4JqUAlr9R3HmgH0J)lp9RC(2HeDWh8d8KyAiBi5fqtOv4fvhnNe5ulX1CLvyM3cEB0zGryJe6JArjEEL0DZ(QVNHDBPS8Imt1mQGd5GeoKX81CjTJpALdvIs4vJYYeM1ZUFlrfucFLVEC1LWCJ0d7K0qOK5Ism4RvNKPui7nXnL0WTXnP0uMuPkhu6liWuPPHVEhtpyHXsmqywDLvMkzhzpyvvXWlVsEYPyg2Au(u6bUMopqi9jEh85BLs1DiZKIZUr4eWO4rZMAuMvPNjMzZj0NofBxDFWkTijYFJ4HPYi(vz8A6BlVYeZH5)lJ5vHTjwFVOlxiekIZuwTYmq)QQUSb)GHzAxovRoe2OgfvCGkeTLoufIfuXGvuLHTetTq(z4q0MAzFTjS5TVeve6NaEuyfejt4Ii8AejOgboDCanOIo0QqaSOYwmtYMPMQ0GvPaafzUNGY5AhgiuvQTeB6xzf5fxH9uPcjupmAFooRedcmCmcBpl(doSPKx9dxlEPqjL8zsYcVK(lSCMnFXU5WVRYS7qsuFe6MxAdPPVWO07coJqXUEU9TfuLcZfzfP98sAhpttAUaqYSG0fB)CNIoYw4nHM7vhSijjA5krygNMlTZ0yyM9Gkwjg3vv00Yv2gK6wnlsGBZ6RGim5p0gL13baLUszayg3zO6o6iWtQ6LqnoBE0SFXQfn5GA8vt(8CEMuXwueYm6oDU8zRFt5er7QrDZZYR4L(t1qDvpgBhDlz3a7frBg1MrBgQ7Z9xChDzdrgimIej1gC7ssss4e99zd)LDpebkq1hFarbxmQbaWjj(ziqyy0B1HDzjfNNTQKylygSCOKL(rae1kgJkK(n4ldcpslSAlxpKZiY4qIvZOW40dyFyR3IKsvJu5rH6wkIhK5W3Srf2OfftHqwLHCzjvovJcIQxc6aUA9mPq2u7zTDItkrsTOC6hKpzQSDf5Xilvh5RZmB7SSW1zy9wQCTzsZSSWsMJghEaBRI5QlQzm)Yfy7Xv(8l5Z0sQL3dAULDAZe1GxTyEjnsguMK0G0fhcNpOGyITlHxF9IP9580lBwfSitTt2vlY)8Nv8nTjZxUuUzQ4vIK1knN7QUQ5rZEtvUV7pGnXBI)JqrsF60zoNAmCkhuCymGUpY83Jj73cULHT(n)Hgyv6T)tax7b3pSzJW)pLKqEZ)3]] )
+
+spec:RegisterPack( "猫德(黑科研)", 20260101, [[Hekili:vV1)pTXrw8)wIQecuAC9AJ5lvyl1R9oPlxvZj5iD)MTxSxaRy8ATEDZfjlliuaBsasdjbsG0esdjPHgcnjnLGHWFmNN12)u)x4EZo7xMD3zxV2qVVKFGa7oZ79M38EFEFEZyNGlXLtepdVSqIVjuWqdfKlixaUWrgjCI4YxRGqI4f4tFf(jHFjp)0WpBEZDrF83Wp(A5e5ZGNDrXssPHxLi(4LYMt(VMpX4mezOGbbzwSGq6eFdhxI4tLntgbYqfkMor8VsQu2mFELu)fbj(CvsDHkPAV4kkZ8CqBTFZSnoAPkP6NOCLTMPXrB06JRHw8WV4V)1du5IkVDF0dFw7fxU9AhOS1Yvs9peL)6)wLuHdmyG)zLlcd4XhGozo0hFzZvEnmx08vBE4Z)8kxS1V(Bk1UbO1MV5JnN9xBo7U9FPl9LdujvSkPA9JxVXrpv9xblP1M7HU9cO12t9bk3BlLvEm5xV9DB(KvAT4BJOSXJuFcQ2BG5Q(RnVX1vEW7Og35BT9out2PG1LgzMnRVMYdFuLlsS8pxxX9h6YJswgdqnR(voyEL7Vp6K5vQT2aSLFJdVdyMAwi4yq7SERFCEL7wv5h2c8hxMRsQqnQ)E4Xgk7Zql((M3CtqhOB)ZTM742lU6fIqg6GgdLyUNpCZNFB4vJ6ukGReT3Bvw9wOLx83p6MgBcWtAV7gyXfKEselutBWRiVFqBcfujAX6eHMiEUSfLlIdihxGxkPmF(Ra)X3OgGlKNF8Cczs8NsepTuwzbPS8jIFUkPYimEPjMiWe8Wtesorwj4h44VaLkKioFA5SI5te3XBtidr22eR(GfYlPMTyQg8FhiDjjjH8YvsngSkdMiEPIcjfNyIKtMod2ebbgglqDPmUGurbPRqRbyidspKP5ZpzoHK41QTHfXhR4C8PHvISaSqRKQCzNpVOmK3RAUrm1P(BXAzix1IDrjjmnF28fvf2GSf2WUkmREpicEOGMIO4vZwqZfaczeRUNs5S6xKXw2eWJLncl0hmE3au40fT5jTVjBAwQRqTDjdFOmV0KcYbKZoTqszXKzYkOUMdtzXfev)F99B3LDgC0MAG8eIstRQI(QKs9btlMrqn8oP(0neVuP8jj)EsC2ajNijb52mRqpuYDTNMx2IEXY8Bfa9jmDwbyNmwuyz5p1IffVOG3bMmvk2pQ6a5IO(3MrVszlyjdTt6xSay5sEh1A3e8T09o(fmA3LS(djrNfKeslo948YDe2svItZlDfadjP8ucjVA2Cz0DB6VFYStiB790PhwNS3r76IuEkrP8fTiiYJ8oGMHpWIL6iwNPhYk8NwIK9mC9Onp9GtM7AfMkG40c5XUG054H3CTaAd1ILLohyvP5lkNn)K6wDArXCzeVA(ZIQg2d)SQo7aDAbBE6O1YqivhSTLRwWqtiUdaOV2lY)Ta2BsjrEjZL(0JlMSGy28YfPaLbWaokB1CE(iPNwl0fkI0bfg2vf6EkoBPzOmk8f(Ry13HFaR8CJSGStc1csorjPRrRqmQZKxZIQch0saMzjewCcgXBFhLwnQbzeDs)sdhBmmyQtAgGQg1)BtUgyYf8uKYXWxfkYPoHJZsDEtRLbUH3ygUch0pUQ8uzZNjjP8pzBa2FloLyPCzsI3vH17vRKAakdzkjHoG56QcDixTWjRgHRjpwz0HLalmL)GdS9e9Xds52Yt5LMwukj4klPAUDoCWtQXNLOEDGNHBOEH7Kc1d5OicrNCpKr0NfMswJ9SAPUtDHTzeLbCPMs6JnfymOdffyy0EJT1b9YAPJbl6s93baVZsSvpWf9)AvVdaVqJH4CX0zflvm54zjnwX5oIM)vn9sCy2wHLH4Pb1f9u5AQqNmYiD2iJ4Pr2vuS8mWZn(xC(bcuJhIxkyuNKu4ChLJwUoXDCtf6GoffKtoUy(sfHHiinQkQAYqfsRUHWrYrSogUGKbnO5GgGHb3XZsOlnygQWDyUEIAsyFqnXs9qxP2ZM2s3IoAqI90rhHZDuXoOx)WkXjTJq9mYO99eyBFKGNbEGq9mGP7wup5B0AMv7Ol04MQ(dzMm1ijAPNclncfxtlxlpjt2IY85tleBeVPE2joyy)PZGACEqhcR7ky1)hUZvF0PODiTUNq9GDdHA3H38c8YZm6ttBx)xc(6)WOx9oVo7CNDWo1dEBo5e2V(XZ1tCwdAXxstBT7OQ5APAgvJ7WHF7lsGNrXmEqeRhSLEmqQdhsMVSHODM37yw7eYgENh0WyzfNs3U7iwSuwp5xvlIEvEP8q5PIjIRu9wOLEe61hHMFNghUWqno4LklntR5ogvD9wB)I)1mxVYfbzucFK2jIJw77r3AB8PYlor2CcjI)jFsLuNMlPgp)oCr14HOnqxUWA87()LlTgBR)bDX1MokBxGn(rDXLyRpCxUiB1x3dxMnrSEFH2gJXRl1gFf94bg13)tl8P6gOAlJwCb0txS7LajnQyaJlK68r)m7xy0NMDIONtJWMJ7HQpYByCduSfo5sKmfPX9mXE46xkK5eOUzjnD78(tzkkY1i1RU5ghuNeGdikOv)XUxiAMeyiaSJysEz1BDN6Xg3mn9djgnE1BdQSCzNDepw4G0Z12Lz(P4RXmQXvdBithUV(yF1ZDu0AxiNHGP3PWd28wLJfnSVKgPJiMceVShJlsFNZkhjFivwIJEEEgY1RHp4kfh)eLzMLGOJoAvO8bK3YfbqFACWAnVZlgO3KmxaQQdTE(ZqR(9em22p57qZVGzUGPdfwKoOYRUA9OvWYLz3gOUdjua9ks9diVWVrK1aQvob4(2BxhaoBCWsUyqMn(rBjMh8MMAchWEbdq8C4Yfl)w0QVgD0mUiFkcqMBSw7ESpwKTIfLtx3dgWSW6fWicl9vx6YUOom9x6fI(X7PjQi4nTBUzR7VsJpCdLzUTQajvmACWYTE)Bvw)9no(eiQWf5trX)tPArmkhwPw7dCSbdQbusr0sZogYsWZ27qmbwwdjYciF0nbu2mKWry6Ihd)yVoCnnJD4a2zZ4YwnM4jw9UOS(TqLSC5ZzJX5aUix878qS2Kc4ZTqzwBrmsa7eCyh)KTGBQkQtqpIOhnGjHUlOtdbIsr7Cm6wR0C3BGZrCnbrl4aRvlshCxoB4SCzVA2mgxWb0nkUGgwLYwpQ96VZKGP3zo2Iy7JrpNJf2qlC20sxfNyxv)bf34t14V4iUq2wX4fQfKrFHd6hBcc4CRpZXW0B1mim0CZ6pVz9xrC(n38DOQ7BTpHUBF4S2H7ppBNk7A(pBL214hQwAV5lElAVhq6jShkSBmdq8)8p34GzOAmmfD5DsLvsUTY7R2AM1jtJ0Aa1a1ygS(7HMyuw)XT27Wg1R3447Qm38Of(v0QVe6hJSVzXP6y7X2LB0L7r23CSlnV3HCjJXH76WBs7USwNnkDxpelQBQLg29APM7w1SOE9YRkl90M35nOAlHWvyzyhDnNmJ6ao)Wry3OqBUjTrrdu0S(7uU5S0HnVzBLTQrpesyJonlBLqoTKRWQKwzyvS)ceedIIjwou443pQAJJxO1ZMTXjpS1RNvVc3Yk37v)(r16Gv5kgwy3ST(635LohBiig3sbYbCg)DhAFTLQ9MEzdJh9QnqB9cYkfdItsMTZuUl5e0NZUdJPFueen70nJvoQ6VPCV9b)mA5TBE9pO6ZD4y92qC6ZglKBMJTG05FLLmhnUmrnrAnZK1kZx9EF5x16JZ1(UNWMXSvIn9atgNOlhmhTrsFytaUpzZw5WNa4(GfnaL1xiqXa0Vg84y7P9Ch36KnGeoaLhkzatcVUmWP)UVNiBZdMdT9UO5NNit6yl64iL6B36xwaQaRSYoeGDS5zhVXYhgc)TJIpDaNj30XvXggFEAq3r3XAAT2Zb7d6tRr9Di2eePPS57G0z0EvB(GVt5HB3OoSpUvJdoe90fBptngHF9IDRVFoSRuzInSwqgnlsWbEYmTozt0w7tcU8RN0N8QyyHUt2kMJyr087shlYU)BgvA6qZ2mZwDKh8HhAHuIwJXMvr2QwOlpkSDRFoQ6hC6MVR9UBaXOeOhOZedOgh4mSBIML5nQBZLzBdmLqF972h6LOCLl76h2LOC6h4)6pMSGX5FKm1A)uJJV)y4dyUXhEeu2YJ1O)Tthbblplt(gmolOu9R1v)XRydCI8CajL8kis3MCS35VB8v88JytFSoqap68xJRL9pASmCawzitGij34d1I04gjiBpeewu17R9qn2VQUJt(b0I1HOYXIGJGVZTT3f5z(XmCwD(cgwEuSL38v1AwVkotBPzWePoEb0ZUUYpSfz7o2ibBC0divJq7)lAnVvBTUALcOyw3vbPE2U2zQb)5nI67)zRxUV4s)zs7Cqot4Z3CZ9uE8I9qFC4X3vhqlVOqVLzXmtXFNRg(KeOTilDtYW6m(O17wBC0hwlPMebDJLW855(oO9Z9LLDDA6cPJIZ12hyFOMQxXbX2JyCUXeGeGZdeEH5RQwuai)a9FzNNJMrOxEWfmbxoE5HSF8YmK8zuxVdBEOJmuYze3B8HMQ8IxQuBx8np)thIH19vGPDAQeXHpOu6cHmZopJYlT5jd5ZZ6w9ytHQtTV)TilCpxV9mC3clHE4ZqlFxcax3leDBY4wf7LJXGTyiF7QDgAs)TeESqbzpzT4o2VK6Rtn7bO)1vM2WP(wuxUS9NP(nOgFquDsA2NOogYGSNQ5x6z7R8yd5Ykx9ldn(tdtI)n]] )
+
+
 
 spec:RegisterPackSelector( "balance", "平衡(黑科研)", "|T136096:0|t 平衡",
     "如果你在|T136096:0|t平衡天赋中投入的点数多于其他天赋，将会为你自动选择该优先级。",

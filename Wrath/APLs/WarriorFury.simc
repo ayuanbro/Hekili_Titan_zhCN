@@ -1,16 +1,31 @@
+## Warrior: Fury - 狂暴战优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 嗜血猛击 > 嗜血 > 旋风斩 > 斩杀
+## 姿态切换: 仅在需要撕裂/压制weave时切换战斗姿态
+
 actions.precombat+=/berserker_stance,if=buff.stance.down
 actions.precombat+=/commanding_shout,if=assigned_shout.commanding_shout&buff.my_battle_shout.down&buff.my_commanding_shout.down
 actions.precombat+=/battle_shout,if=assigned_shout.battle_shout&buff.my_battle_shout.down&buff.my_commanding_shout.down
+
+## 默认动作
 actions+=/call_action_list,name=init
 actions+=/sunder_armor,if=variable.should_sunder&variable.emergency_sunder
 actions+=/pummel
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+## 生存技能 - 低血量时使用
 actions+=/last_stand,if=health.pct<30
+## 狂怒回复 - 低血量时使用
 actions+=/enraged_regeneration,if=health.pct<40&buff.enrage.up
 actions+=/run_action_list,name=execute,if=variable.execute_phase
 actions+=/run_action_list,name=berserker_stance,if=buff.berserker_stance.up
 actions+=/run_action_list,name=battle_stance,if=buff.battle_stance.up
 actions+=/run_action_list,name=defensive_stance,if=buff.defensive_stance.up
+## 后备技能 - 低等级时使用
+actions+=/heroic_strike
+actions+=/auto_attack
+
+## 初始化变量
 actions.init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
 actions.init+=/variable,name=execute_phase,value=target.health.pct<20
 actions.init+=/variable,name=should_slam_over_execute,value=!variable.execute_phase|settings.execute_slam_prio
@@ -20,34 +35,63 @@ actions.init+=/variable,name=should_sunder,value=settings.debuff_sunder_enabled&
 actions.init+=/variable,name=build_sunder,value=!debuff.major_armor_reduction.up|(debuff.sunder_armor.up&debuff.sunder_armor.stack<5)
 actions.init+=/variable,name=maintain_sunder,value=!variable.build_sunder&debuff.sunder_armor.stack=5&debuff.sunder_armor.remains<7&cooldown.bloodthirst.remains&cooldown.whirlwind.remains&!buff.bloodsurge.up
 actions.init+=/variable,name=emergency_sunder,value=debuff.sunder_armor.up&debuff.sunder_armor.remains<1.5
-actions.init+=/variable,name=should_weave,value=cooldown.bloodthirst.remains>=settings.weave_cooldown_threshold&cooldown.whirlwind.remains>=settings.weave_cooldown_threshold&cooldown.recklessness.remains>1.5&cooldown.death_wish.remains>1.5&!buff.bloodsurge.up&!buff.recklessness.up&!buff.death_wish.up&rage.current<=weave_rage_threshold&target.health.pct>=settings.weave_health_threshold
+## Weave条件优化：更严格的条件避免DPS损失
+actions.init+=/variable,name=should_weave,value=cooldown.bloodthirst.remains>=settings.weave_cooldown_threshold&cooldown.whirlwind.remains>=settings.weave_cooldown_threshold&cooldown.recklessness.remains>1.5&cooldown.death_wish.remains>1.5&!buff.bloodsurge.up&!buff.recklessness.up&!buff.death_wish.up&rage.current<=settings.weave_rage_threshold&target.health.pct>=settings.weave_health_threshold
 actions.init+=/variable,name=should_rend,value=variable.should_weave&rage.current>=10&debuff.rend.remains<=settings.rend_refresh_time
 actions.init+=/variable,name=should_overpower,value=variable.should_weave&rage.current>=20&(buff.overpower_ready.up|buff.taste_for_blood.up)
 actions.init+=/variable,name=weave_now,value=settings.weaving_enabled&(variable.should_rend|variable.should_overpower)
+
+## 狂暴姿态 - 主要输出姿态
 actions.berserker_stance+=/bloodrage,use_off_gcd=1,if=rage.deficit>20
 actions.berserker_stance+=/heroic_strike,use_off_gcd=1,if=rage.current>=settings.queueing_threshold&active_enemies=1&!buff.recklessness.up&!variable.execute_phase
 actions.berserker_stance+=/cleave,use_off_gcd=1,if=rage.current>=settings.queueing_threshold&active_enemies>1&!buff.recklessness.up&!variable.execute_phase
+## 破甲优先
 actions.berserker_stance+=/sunder_armor,if=variable.should_sunder&(variable.build_sunder|variable.maintain_sunder)
+## 死亡之愿 - 破甲满层后使用
 actions.berserker_stance+=/death_wish,if=debuff.major_armor_reduction.up&!debuff.sunder_armor.up|debuff.sunder_armor.stack=5
 actions.berserker_stance+=/use_items,use_off_gcd=1
 actions.berserker_stance+=/hyperspeed_acceleration,use_off_gcd=1
+## 嗜血猛击 - 最高优先级，立即消耗
 actions.berserker_stance+=/slam,if=buff.bloodsurge.up&variable.should_slam_over_execute
+## 嗜血 - 核心技能，4秒CD
 actions.berserker_stance+=/bloodthirst,if=variable.should_bloodthirst
+## 旋风斩 - 第二核心技能
 actions.berserker_stance+=/whirlwind,if=variable.should_whirlwind
+## 鲁莽 - 配合死亡之愿或破碎投掷
 actions.berserker_stance+=/recklessness,if=buff.death_wish.up|debuff.shattering_throw.up
+## 挫志怒吼
 actions.berserker_stance+=/demoralizing_shout,if=settings.debuff_demoshout_enabled&!debuff.demoralizing_shout.up
+## 姿态切换weave - 仅在安全时切换
 actions.berserker_stance+=/battle_stance,use_off_gcd=1,if=variable.weave_now
+
+## 战斗姿态 - 仅用于weave
 actions.battle_stance+=/shattering_throw,if=buff.bloodlust.up&debuff.shattering_throw.down
+## 立即切回狂暴姿态如果核心技能就绪
 actions.battle_stance+=/berserker_stance,use_off_gcd=1,if=(cooldown.bloodthirst.up|cooldown.whirlwind.up|rage.current<10)&(debuff.shattering_throw.up|!buff.bloodlust.up)
-actions.battle_stance+=/rend,if=!up|debuff.rend.remains<=settings.rend_refresh_time
+## 撕裂
+actions.battle_stance+=/rend,if=!debuff.rend.up|debuff.rend.remains<=settings.rend_refresh_time
+## 压制
 actions.battle_stance+=/overpower,if=talent.improved_overpower.rank>0
+
+## 防御姿态 - 立即切换
 actions.defensive_stance+=/berserker_stance,use_off_gcd=1
+
+## 斩杀阶段 - 20%以下血量优化
 actions.execute+=/bloodrage,use_off_gcd=1,if=rage.deficit>20
+## 斩杀阶段英勇打击阈值提高
 actions.execute+=/heroic_strike,use_off_gcd=1,if=rage.current>=70&active_enemies=1&settings.execute_queueing_enabled
 actions.execute+=/cleave,use_off_gcd=1,if=rage.current>=70&active_enemies>1&settings.execute_queueing_enabled
+## 死亡之愿在斩杀阶段立即使用
 actions.execute+=/death_wish,if=cooldown.death_wish.up
 actions.execute+=/recklessness,if=buff.death_wish.up|cooldown.death_wish.remains>30
+## 嗜血猛击仍然最高优先
 actions.execute+=/slam,if=buff.bloodsurge.up
+## 斩杀 - 斩杀阶段核心
 actions.execute+=/execute
+## 嗜血填充 - 等待怒气恢复
 actions.execute+=/bloodthirst,if=rage.current<30&settings.execute_bloodthirst_enabled
+## 旋风斩填充
 actions.execute+=/whirlwind,if=rage.current<30&settings.execute_whirlwind_enabled&active_enemies>1
+## 后备技能
+actions.execute+=/heroic_strike
+actions.execute+=/bloodthirst

@@ -1,34 +1,106 @@
-﻿actions.precombat+=/unholy_presence,if=buff.presence.down
+## Death Knight: Unholy DND AOE - 邪恶DK死亡凋零AOE优化版
+## 泰坦时空特别版 - 修复双疾病检查 20251228
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/unholy_presence,if=buff.presence.down
 actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
-actions.precombat+=/raise_dead,if=!pet.ghoul.active
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环 ====================
 actions+=/mind_freeze
 actions+=/best_healing_potion,if=health.pct<35
+
+## ==================== 单体/AOE切换 ====================
 actions+=/run_action_list,name=aoe,strict=1,if=active_enemies>=3
 actions+=/run_action_list,name=st,strict=1,if=active_enemies<3
+
+## ==================== 单体循环 ====================
+
+## === 先上疾病 ===
 actions.st+=/icy_touch,if=!dot.frost_fever.ticking
 actions.st+=/plague_strike,if=!dot.blood_plague.ticking
-actions.st+=/icy_touch,if=dot.frost_fever.remains<3
-actions.st+=/plague_strike,if=dot.blood_plague.remains<3
-actions.st+=/blood_strike,if=buff.desolation.down
-actions.st+=/use_items,if=cooldown.summon_gargoyle.remains<5|buff.summon_gargoyle.up
-actions.st+=/summon_gargoyle,if=runic_power>=60
-actions.st+=/scourge_strike
-actions.st+=/blood_strike,if=blood_runes.current>=1
-actions.st+=/death_coil,if=runic_power>=60
-actions.st+=/raise_dead,if=!pet.ghoul.active
-actions.st+=/ghoul_frenzy,if=pet.ghoul.active&buff.ghoul_frenzy.down
-actions.st+=/horn_of_winter,if=runic_power<80
+## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+actions.st+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## === 以下必须双疾病 ===
+
+## === 符能溢出保护 ===
+actions.st+=/death_coil,if=has_diseases&runic_power_overflow
+actions.st+=/death_coil,if=has_diseases&runic_power>=100
+
+## === 荒芜维护 ===
+actions.st+=/blood_strike,if=has_diseases&buff.desolation.down&blood_runes.current>=1
+
+## === 爆发 ===
+actions.st+=/use_items,if=has_diseases&(burst_window|cooldown.summon_gargoyle.remains<5)
+actions.st+=/summon_gargoyle,if=has_diseases&runic_power>=60
+
+## === 核心输出 ===
+actions.st+=/scourge_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.st+=/scourge_strike,if=has_diseases&death_runes>=2
+actions.st+=/scourge_strike,if=has_diseases&(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+actions.st+=/blood_strike,if=has_diseases&blood_runes.current>=1
+
+## === 符能消耗 ===
+actions.st+=/death_coil,if=has_diseases&runic_power>=40&runes_available=0
+actions.st+=/death_coil,if=has_diseases&runic_power>=60
+
+## === 宠物 ===
+actions.st+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+actions.st+=/ghoul_frenzy,if=has_diseases&pet.ghoul.active&buff.ghoul_frenzy.down
+
+## === 符文恢复 ===
+actions.st+=/blood_tap,if=has_diseases&runes_available=0&runic_power<40
+actions.st+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<40
+
+## === 填充 ===
+actions.st+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== AOE循环 ====================
+
+## === 先上疾病 ===
 actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
 actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
-actions.aoe+=/death_and_decay
-actions.aoe+=/pestilence,if=dot.frost_fever.ticking&dot.blood_plague.ticking&active_dot.frost_fever<active_enemies
-actions.aoe+=/use_items
-actions.aoe+=/summon_gargoyle,if=runic_power>=60
-actions.aoe+=/berserking
-actions.aoe+=/blood_fury
-actions.aoe+=/blood_boil,if=blood_runes.current>=1&dot.frost_fever.ticking&dot.blood_plague.ticking
-actions.aoe+=/scourge_strike,if=active_enemies<5
-actions.aoe+=/death_coil,if=runic_power>=80
-actions.aoe+=/empower_rune_weapon,if=blood_runes.current=0&frost_runes.current=0&unholy_runes.current=0
-actions.aoe+=/raise_dead,if=!pet.ghoul.active
-actions.aoe+=/horn_of_winter,if=runic_power<80
+
+## === 以下必须双疾病 ===
+
+## === 符能溢出保护 ===
+actions.aoe+=/death_coil,if=has_diseases&runic_power_overflow
+
+## 传染扩散
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## === 死亡凋零 - AOE核心 ===
+actions.aoe+=/death_and_decay,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/death_and_decay,if=has_diseases&death_runes>=2
+
+## === 爆发技能 ===
+actions.aoe+=/use_items,if=has_diseases&burst_window
+actions.aoe+=/summon_gargoyle,if=has_diseases&runic_power>=60&burst_window
+actions.aoe+=/berserking,if=has_diseases&burst_window
+actions.aoe+=/blood_fury,if=has_diseases&burst_window
+
+## === 天灾打击 ===
+actions.aoe+=/scourge_strike,if=has_diseases&active_enemies<5&frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/scourge_strike,if=has_diseases&active_enemies<5&death_runes>=2
+
+## 血沸
+actions.aoe+=/blood_boil,if=has_diseases&blood_runes.current>=1
+
+## === 符能消耗 ===
+actions.aoe+=/death_coil,if=has_diseases&runic_power>=40&runes_available=0
+actions.aoe+=/death_coil,if=has_diseases&runic_power>=80
+
+## === 符文恢复 ===
+actions.aoe+=/blood_tap,if=has_diseases&runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<40
+
+## === 宠物 ===
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 亡者大军 ===
+actions.aoe+=/army_of_the_dead,if=has_diseases&burst_window
+
+## === 填充 ===
+actions.aoe+=/horn_of_winter,if=runic_power<80&runes_available=0

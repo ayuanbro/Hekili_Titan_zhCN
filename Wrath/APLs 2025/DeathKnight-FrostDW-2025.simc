@@ -1,0 +1,173 @@
+## ========================================
+## Death Knight: Frost DW - 冰霜DK双持版
+## 泰坦时空特别版 2025 - 智能符文优化系统
+## 更新日期: 20251228
+## ========================================
+## 天赋配置: 17/54/0 (鲜血/冰霜/邪恶)
+## 核心天赋: 杀戮机器5/5, 威胁之塔萨里安3/3, 冰霜打击, 凛风冲击
+## ========================================
+## 智能优化特性:
+## 1. 杀戮机器优先级最高 - 绝不浪费
+## 2. 双持特化 - 更高的冰霜打击频率
+## 3. 符文浪费检测 - 优先消耗即将刷新的符文
+## 4. 符能溢出保护 - 防止符能浪费
+## 5. 无符文泄能 - 没有符文时优先使用冰霜打击
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/blood_presence,if=buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/unbreakable_armor,if=buff.unbreakable_armor.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环入口 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## 智能循环切换
+actions+=/call_action_list,name=aoe,if=active_enemies>=3
+actions+=/call_action_list,name=burst,if=burst_window|buff.unbreakable_armor.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+actions.burst+=/use_items
+actions.burst+=/potion,if=buff.bloodlust.up|buff.unbreakable_armor.up
+actions.burst+=/berserking
+actions.burst+=/blood_fury
+actions.burst+=/hyperspeed_acceleration
+actions.burst+=/unbreakable_armor,if=buff.unbreakable_armor.down
+actions.burst+=/blood_tap,if=prev_off_gcd.unbreakable_armor
+
+## 杀戮机器 - 最高优先级
+actions.burst+=/frost_strike,if=buff.killing_machine.up&runic_power>=40
+
+## 冰封迷雾
+actions.burst+=/howling_blast,if=buff.freezing_fog.up
+
+## 符能溢出保护
+actions.burst+=/frost_strike,if=runic_power_overflow
+
+## 湮灭
+actions.burst+=/obliterate,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.burst+=/obliterate,if=death_runes>=2
+actions.burst+=/obliterate,if=(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## 鲜血打击
+actions.burst+=/blood_strike,if=blood_runes.current>=1
+
+## 冰霜打击
+actions.burst+=/frost_strike,if=runic_power>=40
+
+## 符文武器
+actions.burst+=/empower_rune_weapon,if=runes_available=0&runic_power<40
+
+## ==================== 单体循环（智能优化版）====================
+
+## === 第一优先级：疾病维护 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+actions.single+=/pestilence,if=disease_refresh_priority&dot.frost_fever.remains<5&has_diseases&glyph.disease.enabled
+
+## === 第二优先级：杀戮机器（绝不浪费）===
+actions.single+=/frost_strike,if=buff.killing_machine.up&runic_power>=40
+
+## === 第三优先级：冰封迷雾 ===
+actions.single+=/howling_blast,if=buff.freezing_fog.up
+
+## === 第四优先级：符能溢出保护 ===
+actions.single+=/frost_strike,if=runic_power_overflow
+actions.single+=/frost_strike,if=should_dump_runic_power
+
+## === 第五优先级：符文浪费保护 ===
+actions.single+=/obliterate,if=(frost_rune_wasting|unholy_rune_wasting)&frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/blood_strike,if=blood_rune_wasting
+
+## === 第六优先级：爆发CD ===
+actions.single+=/use_items,if=!conserve_runes
+actions.single+=/berserking,if=!conserve_runes
+actions.single+=/blood_fury,if=!conserve_runes
+actions.single+=/hyperspeed_acceleration,if=!conserve_runes
+actions.single+=/unbreakable_armor,if=buff.unbreakable_armor.down&!conserve_runes
+actions.single+=/blood_tap,if=prev_off_gcd.unbreakable_armor
+
+## === 第七优先级：核心输出 - 湮灭 ===
+actions.single+=/obliterate,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/obliterate,if=death_runes>=2
+actions.single+=/obliterate,if=(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## === 第八优先级：鲜血打击 ===
+actions.single+=/blood_strike,if=blood_runes.current>=1
+
+## === 第九优先级：冰霜打击 - 双持更频繁使用 ===
+actions.single+=/frost_strike,if=runic_power>=40&runes_available=0
+actions.single+=/frost_strike,if=runic_power>=60
+
+## === 第十优先级：符文恢复 ===
+actions.single+=/blood_tap,if=runes_available=0&runic_power<40
+actions.single+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## === 第十一优先级：宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 第十二优先级：填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0
+
+## ==================== AOE循环（智能优化版）====================
+
+## 疾病维护
+actions.aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## ========== 传染扩散 - 最高优先级 ==========
+## 传染必须在所有鲜血符文技能之前！
+## 只要有疾病、多目标、有鲜血符文，就优先传染
+actions.aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 杀戮机器
+actions.aoe+=/frost_strike,if=buff.killing_machine.up&runic_power>=40
+
+## 冰封迷雾
+actions.aoe+=/howling_blast,if=buff.freezing_fog.up
+
+## 符能溢出保护
+actions.aoe+=/frost_strike,if=runic_power_overflow
+
+## 凛风冲击 - AOE核心
+actions.aoe+=/howling_blast,if=frost_runes.current>=1|death_runes>=1
+
+## 爆发CD
+actions.aoe+=/use_items,if=burst_window
+actions.aoe+=/berserking,if=burst_window
+actions.aoe+=/blood_fury,if=burst_window
+actions.aoe+=/unbreakable_armor,if=buff.unbreakable_armor.down
+
+## 死亡凋零
+actions.aoe+=/death_and_decay,if=unholy_runes.current>=1
+
+## 湮灭
+actions.aoe+=/obliterate,if=frost_runes.current>=1&unholy_runes.current>=1
+actions.aoe+=/obliterate,if=death_runes>=2
+
+## ========== 鲜血符文技能 - 传染之后 ==========
+## 鲜血沸腾 - 传染后使用
+actions.aoe+=/blood_boil,if=should_blood_boil&blood_runes.current>=1
+actions.aoe+=/blood_boil,if=blood_rune_wasting&has_diseases
+
+## 鲜血打击 - 传染后使用
+actions.aoe+=/blood_strike,if=blood_runes.current>=1
+
+## 冰霜打击 - 没有符文时优先泄能
+actions.aoe+=/frost_strike,if=runic_power>=40&runes_available=0
+actions.aoe+=/frost_strike,if=runic_power>=60
+
+## 符文恢复
+actions.aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<40
+
+## 宠物管理
+actions.aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## 填充
+actions.aoe+=/horn_of_winter,if=runic_power<80&runes_available=0

@@ -1,0 +1,214 @@
+## ========================================
+## Death Knight: Blood PVP Universal - 鲜血DK PVP全流派通用版
+## 泰坦时空特别版 2025 - 智能天赋/武器检测系统
+## 更新日期: 20260101
+## ========================================
+## 智能检测系统:
+## - is_dual_wield → 双持武器检测
+## - is_two_handed → 双手武器检测
+## - talent.vampiric_blood.enabled → 吸血鬼之血天赋（坦克核心）
+## - talent.dancing_rune_weapon.enabled → 舞动符文武器天赋（爆发）
+## - talent.heart_strike.enabled → 心脏打击天赋
+## - talent.mark_of_blood.enabled → 鲜血印记天赋（治疗）
+## - talent.hysteria.enabled → 狂乱天赋（爆发增益）
+## - glyph.disease.enabled → 疾病雕文（传染刷新疾病）
+## ========================================
+## PVP核心策略:
+## 1. 生存优先 - 吸血鬼之血+符文分流+冰封之韧
+## 2. 持续压制 - 心脏打击/鲜血打击+死亡打击
+## 3. 控制链 - 寒冰锁链+绞杀+死亡之握
+## 4. 爆发窗口 - 舞动符文武器+狂乱
+## ========================================
+## 资源预留逻辑:
+## - 有疾病雕文：心脏打击/鲜血打击保留符文给传染（疾病>6秒才使用）
+## - 没有疾病雕文：死亡打击保留符文给冰触/瘟疫打击（疾病>4秒才使用）
+## ========================================
+
+## ==================== 战前准备 ====================
+## 坦克用冰霜领域，DPS用鲜血领域
+actions.precombat+=/frost_presence,if=talent.vampiric_blood.enabled&buff.presence.down
+actions.precombat+=/blood_presence,if=!talent.vampiric_blood.enabled&buff.presence.down
+actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/bone_shield,if=buff.bone_shield.down&talent.bone_shield.enabled
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环入口 ====================
+actions+=/mind_freeze
+actions+=/best_healing_potion,if=health.pct<35
+
+## PVP防守优先级
+actions+=/call_action_list,name=pvp_defensive,if=health.pct<50
+## PVP打断优先级
+actions+=/call_action_list,name=pvp_interrupt,if=target.casting
+## PVP控制优先级
+actions+=/call_action_list,name=pvp_cc
+## AOE切换
+actions+=/call_action_list,name=pvp_aoe,if=active_enemies>=3
+## 爆发切换
+actions+=/call_action_list,name=pvp_burst,if=burst_window|cooldown.dancing_rune_weapon.ready|buff.dancing_rune_weapon.up
+## 单体循环
+actions+=/call_action_list,name=pvp_single
+
+## ==================== PVP防守优先级 ====================
+## 符文分流 - 紧急回血
+actions.pvp_defensive+=/rune_tap,if=talent.vampiric_blood.enabled&health.pct<=40
+## 冰封之韧
+actions.pvp_defensive+=/icebound_fortitude,if=health.pct<30
+## 吸血鬼之血 - 大量回血
+actions.pvp_defensive+=/vampiric_blood,if=talent.vampiric_blood.enabled&health.pct<=35
+## 反魔法护罩
+actions.pvp_defensive+=/anti_magic_shell,if=health.pct<60
+## 骨盾
+actions.pvp_defensive+=/bone_shield,if=buff.bone_shield.down&talent.bone_shield.enabled&health.pct<70
+## 死亡契约 - 紧急回血
+actions.pvp_defensive+=/death_pact,if=health.pct<20&pet.ghoul.active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+
+## ==================== PVP打断优先级 ====================
+actions.pvp_interrupt+=/mind_freeze,if=target.casting
+actions.pvp_interrupt+=/strangulate,if=target.casting&cooldown.mind_freeze.remains>0
+## 宠物打断
+actions.pvp_interrupt+=/gnaw,if=target.casting&cooldown.mind_freeze.remains>0&pet.ghoul.active
+
+## ==================== PVP控制优先级 ====================
+## 寒冰锁链 - 减速
+actions.pvp_cc+=/chains_of_ice,if=!dot.chains_of_ice.ticking&target.distance<10
+## 死亡之握 - 拉人
+actions.pvp_cc+=/death_grip,if=target.distance>10
+
+## ==================== PVP爆发序列 ====================
+## 先上疾病
+actions.pvp_burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_burst+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 爆发CD
+actions.pvp_burst+=/use_items,if=has_diseases
+actions.pvp_burst+=/berserking,if=has_diseases
+actions.pvp_burst+=/blood_fury,if=has_diseases
+## 狂乱 - 给自己或队友
+actions.pvp_burst+=/hysteria,if=talent.hysteria.enabled&has_diseases
+## 舞动符文武器
+actions.pvp_burst+=/dancing_rune_weapon,if=has_diseases&runic_power>=60
+
+## 符能溢出保护
+actions.pvp_burst+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power_overflow
+actions.pvp_burst+=/death_coil,if=runic_power_overflow
+
+## 心脏打击/鲜血打击
+## 有疾病雕文：保留符文给传染
+actions.pvp_burst+=/heart_strike,if=talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_burst+=/blood_strike,if=!talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## 死亡打击 - 回血
+## 没有疾病雕文：保留符文给冰触/瘟疫打击
+actions.pvp_burst+=/death_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1&(glyph.disease.enabled|dot.frost_fever.remains>4)
+actions.pvp_burst+=/death_strike,if=has_diseases&death_runes>=2
+
+## 符能消耗
+actions.pvp_burst+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=30
+actions.pvp_burst+=/death_coil,if=runic_power>=60
+actions.pvp_burst+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## ==================== PVP单体循环 ====================
+
+## === 疾病维护 ===
+actions.pvp_single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_single+=/plague_strike,if=!dot.blood_plague.ticking
+## 有疾病雕文：用传染刷新疾病（1鲜血符文）
+actions.pvp_single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+## 没有疾病雕文：用冰触和瘟疫打击刷新疾病
+actions.pvp_single+=/icy_touch,if=!glyph.disease.enabled&dot.frost_fever.remains<4&dot.frost_fever.ticking
+actions.pvp_single+=/plague_strike,if=!glyph.disease.enabled&dot.blood_plague.remains<4&dot.blood_plague.ticking
+
+## === 符能溢出保护 ===
+actions.pvp_single+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power_overflow
+actions.pvp_single+=/death_coil,if=runic_power_overflow
+
+## === 坦克紧急死亡打击 ===
+actions.pvp_single+=/death_strike,if=talent.vampiric_blood.enabled&health.pct<=50
+
+## === 爆发CD ===
+actions.pvp_single+=/use_items,if=has_diseases
+actions.pvp_single+=/dancing_rune_weapon,if=has_diseases&runic_power>=60&burst_window
+
+## === 核心输出 - 鲜血符文技能 ===
+## 有疾病雕文：保留符文给传染（疾病>6秒才使用）
+## 没有疾病雕文：不需要保留
+actions.pvp_single+=/heart_strike,if=talent.heart_strike.enabled&has_diseases&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_single+=/blood_strike,if=!talent.heart_strike.enabled&has_diseases&blood_runes.current>=2&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_single+=/heart_strike,if=talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_single+=/blood_strike,if=!talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## === 死亡打击 ===
+## 没有疾病雕文：保留符文给冰触/瘟疫打击（疾病>4秒才使用）
+actions.pvp_single+=/death_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1&(glyph.disease.enabled|dot.frost_fever.remains>4)
+actions.pvp_single+=/death_strike,if=has_diseases&death_runes>=2
+
+## === 符能消耗 ===
+actions.pvp_single+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=20&runes_available=0
+actions.pvp_single+=/death_coil,if=runic_power>=40&runes_available=0
+actions.pvp_single+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=30
+actions.pvp_single+=/death_coil,if=runic_power>=80
+
+## === 符文恢复 ===
+actions.pvp_single+=/blood_tap,if=runes_available=0&runic_power<40
+actions.pvp_single+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## === 宠物管理 ===
+actions.pvp_single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 填充 ===
+actions.pvp_single+=/horn_of_winter,if=runic_power<70&runes_available=0
+
+## ==================== PVP AOE循环 ====================
+
+## 疾病维护
+actions.pvp_aoe+=/icy_touch,if=!dot.frost_fever.ticking
+actions.pvp_aoe+=/plague_strike,if=!dot.blood_plague.ticking
+
+## 有疾病雕文：用传染刷新疾病
+actions.pvp_aoe+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+## 没有疾病雕文：用冰触和瘟疫打击刷新疾病
+actions.pvp_aoe+=/icy_touch,if=!glyph.disease.enabled&dot.frost_fever.remains<4&dot.frost_fever.ticking
+actions.pvp_aoe+=/plague_strike,if=!glyph.disease.enabled&dot.blood_plague.remains<4&dot.blood_plague.ticking
+
+## 符能溢出保护
+actions.pvp_aoe+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power_overflow
+actions.pvp_aoe+=/death_coil,if=runic_power_overflow
+
+## 传染扩散 - 高优先级
+actions.pvp_aoe+=/pestilence,if=has_diseases&active_enemies>=2&(blood_runes.current>=1|death_runes>=1)
+
+## 死亡凋零 - AOE核心伤害
+actions.pvp_aoe+=/death_and_decay,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.pvp_aoe+=/death_and_decay,if=has_diseases&death_runes>=1
+
+## 坦克紧急死亡打击
+actions.pvp_aoe+=/death_strike,if=talent.vampiric_blood.enabled&health.pct<=50
+
+## 死亡打击
+## 没有疾病雕文：保留符文给冰触/瘟疫打击
+actions.pvp_aoe+=/death_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1&(glyph.disease.enabled|dot.frost_fever.remains>4)
+actions.pvp_aoe+=/death_strike,if=has_diseases&death_runes>=2
+
+## 鲜血符文技能 - 传染之后
+## 有疾病雕文：保留符文给传染
+actions.pvp_aoe+=/heart_strike,if=talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&active_enemies<=4&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_aoe+=/blood_strike,if=!talent.heart_strike.enabled&has_diseases&blood_runes.current>=1&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+actions.pvp_aoe+=/blood_boil,if=has_diseases&blood_runes.current>=1&active_enemies>4&(!glyph.disease.enabled|dot.frost_fever.remains>6)
+
+## 符能管理
+actions.pvp_aoe+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=20&runes_available=0
+actions.pvp_aoe+=/death_coil,if=runic_power>=40&runes_available=0
+actions.pvp_aoe+=/rune_strike,if=talent.vampiric_blood.enabled&runic_power>=30
+actions.pvp_aoe+=/death_coil,if=runic_power>=80
+
+## 符文恢复
+actions.pvp_aoe+=/blood_tap,if=runes_available=0&runic_power<40
+actions.pvp_aoe+=/empower_rune_weapon,if=runes_available=0&runic_power<30
+
+## 宠物管理
+actions.pvp_aoe+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## 填充
+actions.pvp_aoe+=/horn_of_winter,if=runic_power<70&runes_available=0

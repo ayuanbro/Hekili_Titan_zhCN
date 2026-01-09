@@ -590,7 +590,13 @@ spec:RegisterAuras( {
         id = 22959,
         duration = 30,
         max_stack = 1,
-    }
+    },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 
@@ -847,6 +853,7 @@ spec:RegisterAbilities( {
         texture = 236291,
 
         handler = function ()
+            -- 混乱箭造成伤害，无需额外状态变化
         end,
     },
 
@@ -920,6 +927,7 @@ spec:RegisterAbilities( {
         texture = 132386,
 
         handler = function ()
+            -- 创建火焰石，无需状态变化
         end,
 
         copy = { 17951, 17952, 17953, 27250, 60219, 60220 },
@@ -942,6 +950,7 @@ spec:RegisterAbilities( {
         texture = 135230,
 
         handler = function ()
+            -- 创建治疗石，无需状态变化
         end,
 
         copy = { 6202, 5699, 11729, 11730, 27230, 47871, 47878 },
@@ -964,6 +973,7 @@ spec:RegisterAbilities( {
         texture = 136210,
 
         handler = function ()
+            -- 创建灵魂石，无需状态变化
         end,
 
         copy = { 20752, 20755, 20756, 20757, 27238, 47884 },
@@ -986,6 +996,7 @@ spec:RegisterAbilities( {
         texture = 134131,
 
         handler = function ()
+            -- 创建法术石，无需状态变化
         end,
 
         copy = { 17727, 17728, 28172, 47886, 47888 },
@@ -1246,10 +1257,11 @@ spec:RegisterAbilities( {
         spend = 0.15,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 237559,
 
         handler = function ()
+            -- 召唤恶魔法阵，无需状态变化
         end,
     },
 
@@ -1264,10 +1276,11 @@ spec:RegisterAbilities( {
         spend = 100,
         spendType = "mana",
 
-        startsCombat = true,
+        startsCombat = false,
         texture = 237560,
 
         handler = function ()
+            -- 传送到恶魔法阵，移除减速效果
         end,
     },
 
@@ -1340,6 +1353,7 @@ spec:RegisterAbilities( {
         end,
 
 		handler = function ()
+            -- 生命吸取引导结束
         end,
 
         copy = { 699, 709, 7651, 11699, 11700, 27219, 27220, 47857 },
@@ -1369,6 +1383,7 @@ spec:RegisterAbilities( {
 		   removeDebuff( "target", "drain_mana" )
         end,
 		handler = function ()
+            -- 法力吸取引导结束
         end,
     },
 
@@ -1398,6 +1413,7 @@ spec:RegisterAbilities( {
         end,
 
 		handler = function ()
+            -- 灵魂吸取引导结束，可能获得灵魂碎片
         end,
 
         copy = { 8288, 8289, 11675, 27217, 47855 },
@@ -2030,7 +2046,7 @@ spec:RegisterAbilities( {
             removeStack( "backdraft" )
         end,
 
-        copy = { 6353, 17924, 27211, 30545, 47824 }, ---技能id错误，修改 by 风雪 20250723
+        copy = { 6353, 17924, 27211, 30545, 47824 }, --移除重复的47825，by Kiro 20251230
     },
 
 
@@ -2381,6 +2397,27 @@ spec:RegisterAbilities( {
             -- 晕眩效果由宠物处理
         end,
     },
+
+    -- 狮心 - 人类种族技能
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
+    },
 } )
 
 
@@ -2484,8 +2521,8 @@ spec:RegisterOptions( {
 
     gcd = 687,
 
-    nameplates = false,
-    nameplateRange = 8,
+    nameplates = true,
+    nameplateRange = 40,
 
     damage = true,
     damageExpiration = 6,

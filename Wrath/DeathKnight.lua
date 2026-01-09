@@ -6,6 +6,25 @@ local class, state = Hekili.Class, Hekili.State
 
 local spec = Hekili:NewSpecialization( 6 )
 
+-- ============================================================================
+-- 泰坦服符文索引配置 by 风雪 20251228
+-- WotLK 标准布局: 1-2=鲜血, 3-4=邪恶, 5-6=冰霜
+-- 如果泰坦服使用不同布局，修改这里的索引
+-- ============================================================================
+local RUNE_INDEX = {
+    BLOOD = { 1, 2 },      -- 鲜血符文索引
+    UNHOLY = { 3, 4 },     -- 邪恶符文索引
+    FROST = { 5, 6 },      -- 冰霜符文索引
+}
+
+-- 获取符文冷却的辅助函数（带错误处理）
+local function SafeGetRuneCooldown( index )
+    local start, duration, ready = GetRuneCooldown( index )
+    start = start or 0
+    duration = duration or 10
+    return start, duration, ready
+end
+
 spec:RegisterResource( Enum.PowerType.RuneBlood, {
     rune_regen = {
         last = function ()
@@ -40,9 +59,9 @@ spec:RegisterResource( Enum.PowerType.RuneBlood, {
         local t = state.blood_runes
 
         for i = 1, 2 do
-            local start, duration, ready = GetRuneCooldown( i )
+            local runeIndex = RUNE_INDEX.BLOOD[ i ]
+            local start, duration, ready = SafeGetRuneCooldown( runeIndex )
 
-            start = start or 0
             duration = duration or ( 10 * state.haste )
 
             t.expiry[ i ] = ready and 0 or start + duration
@@ -177,9 +196,9 @@ spec:RegisterResource( Enum.PowerType.RuneFrost, {
         local t = state.frost_runes
 
         for i = 1, 2 do
-            local start, duration, ready = GetRuneCooldown( i + 4 )
+            local runeIndex = RUNE_INDEX.FROST[ i ]
+            local start, duration, ready = SafeGetRuneCooldown( runeIndex )
 
-            start = start or 0
             duration = duration or ( 10 * state.haste )
 
             t.expiry[ i ] = ready and 0 or start + duration
@@ -317,13 +336,13 @@ spec:RegisterResource( Enum.PowerType.RuneUnholy, {
     reset = function()
         local t = state.unholy_runes
 
-        for i = 3, 4 do
-            local start, duration, ready = GetRuneCooldown( i )
+        for i = 1, 2 do
+            local runeIndex = RUNE_INDEX.UNHOLY[ i ]
+            local start, duration, ready = SafeGetRuneCooldown( runeIndex )
 
-            start = start or 0
             duration = duration or ( 10 * state.haste )
 
-            t.expiry[ i - 2 ] = ready and 0 or start + duration
+            t.expiry[ i ] = ready and 0 or start + duration
             t.cooldown = duration
         end
 
@@ -549,11 +568,10 @@ spec:RegisterGlyphs( {
     [58671] = "obliterate",
     [59309] = "pestilence",
     [58657] = "plague_strike",
-    [60200] = "raise_dead",
     [58669] = "rune_strike",
     [59327] = "rune_tap",
     [58618] = "strangulate",
-    [58686] = "ghoul",
+    [60200] = "raise_dead",  -- 亡者复生雕文 (法术ID，物品ID是43673)
     [58635] = "unbreakable_armor",
     [63332] = "unholy_blight",
     [58676] = "vampiric_blood",
@@ -734,11 +752,37 @@ spec:RegisterAuras( {
         tick_time = 3,
         max_stack = 1,
         generate = function ( t )
+            -- 尝试多个可能的 spell ID
             local name, _, count, _, duration, expires, caster = FindUnitBuffByID( "pet", 63560 )
+            
+            -- 如果找不到，尝试用名字搜索
+            if not name then
+                for i = 1, 40 do
+                    local buffName, _, _, _, buffDuration, buffExpires, buffCaster, _, _, spellId = UnitBuff( "pet", i )
+                    if not buffName then break end
+                    -- 检查是否是食尸鬼狂乱 (Ghoul Frenzy)
+                    if spellId == 63560 or buffName == "Ghoul Frenzy" or buffName == "食尸鬼狂乱" then
+                        name = buffName
+                        duration = buffDuration
+                        expires = buffExpires
+                        caster = buffCaster
+                        break
+                    end
+                end
+            end
 
             if name then
                 t.name = name
                 t.count = 1
+                -- 修复：如果 duration 为 0 或 nil，使用默认的 30 秒
+                if not duration or duration == 0 then
+                    duration = 30
+                end
+                -- 修复：如果 expires 为 0 或 nil，使用当前时间 + duration
+                if not expires or expires == 0 then
+                    expires = GetTime() + duration
+                end
+                t.duration = duration
                 t.expires = expires
                 t.applied = expires - duration
                 t.caster = caster
@@ -898,7 +942,13 @@ spec:RegisterAuras( {
     death_rune_6 = {
         duration = 30,
         max_stack = 1,
-    }
+    },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 local dodged_or_parried = 0
@@ -928,6 +978,46 @@ end )
 
 local GetRuneType, IsCurrentSpell = _G.GetRuneType, _G.IsCurrentSpell
 
+-- ============================================================================
+-- 泰坦服符文系统修复 by 风雪 20251228
+-- WotLK 符文布局: 1-2=鲜血, 3-4=邪恶, 5-6=冰霜
+-- 死亡符文类型: 通常为 4，但泰坦服可能不同
+-- ============================================================================
+
+-- 符文类型常量（兼容不同服务器）
+local RUNE_TYPE_BLOOD = 1
+local RUNE_TYPE_UNHOLY = 2  
+local RUNE_TYPE_FROST = 3
+local RUNE_TYPE_DEATH = 4
+
+-- 检测死亡符文类型（泰坦服可能使用不同的值）
+local function IsDeathRune( runeIndex )
+    local runeType = GetRuneType( runeIndex )
+    -- 死亡符文类型通常是 4，但也检查其他可能的值
+    -- 如果符文类型与其原始类型不同，且不是 0/nil，可能是死亡符文
+    if runeType == RUNE_TYPE_DEATH then
+        return true
+    end
+    
+    -- 备用检测：检查符文是否被转换
+    -- 鲜血符文(1-2)原始类型应该是1，邪恶(3-4)是2，冰霜(5-6)是3
+    local originalType
+    if runeIndex <= 2 then
+        originalType = RUNE_TYPE_BLOOD
+    elseif runeIndex <= 4 then
+        originalType = RUNE_TYPE_UNHOLY
+    else
+        originalType = RUNE_TYPE_FROST
+    end
+    
+    -- 如果当前类型与原始类型不同，可能是死亡符文
+    if runeType and runeType ~= originalType and runeType ~= 0 then
+        return true
+    end
+    
+    return false
+end
+
 -- 食尸鬼宠物注册 - 修复亡者复生有宠物仍显示问题 by 哑吡 20251226
 -- 有"亡者大师"天赋时为永久宠物(3600秒)，无天赋时持续60秒
 -- 食尸鬼NPC ID: 26125(普通), 可能还有其他变体
@@ -940,9 +1030,12 @@ spec:RegisterStateExpr( "ghoul_active", function()
 end )
 
 spec:RegisterHook( "reset_precast", function ()
+    -- 修复：使用更健壮的死亡符文检测 by 风雪 20251228
     for i = 1, 6 do
-        if GetRuneType( i ) == 4 then
+        if IsDeathRune( i ) then
             applyBuff( "death_rune_" .. i )
+        else
+            removeBuff( "death_rune_" .. i )
         end
     end
 
@@ -953,15 +1046,30 @@ spec:RegisterHook( "reset_precast", function ()
         applyBuff( "rune_strike_usable", dodged_or_parried + 5 - now )
     end
     
-    -- 修复：强制更新食尸鬼宠物状态 by 哑吡 20251226
-    -- 直接使用游戏API检测，不依赖NPC ID匹配
-    if UnitExists("pet") and not UnitIsDead("pet") then
+    -- 修复：强制更新食尸鬼宠物状态和亡者复生冷却 by Kiro 20251230
+    local petExists = UnitExists("pet") and not UnitIsDead("pet") and UnitHealth("pet") > 0
+    
+    -- 确保 pet.ghoul 表存在
+    if not rawget( state.pet, "ghoul" ) then
+        state.pet.ghoul = {}
+    end
+    
+    if petExists then
         -- 有宠物存活，设置食尸鬼为激活状态
         local duration = talent.master_of_ghouls.enabled and 3600 or 60
+        state.pet.ghoul.name = "ghoul"
         state.pet.ghoul.expires = state.now + duration
+        state.pet.ghoul.virtual = true
+        
+        -- 关键修复：同步亡者复生的实际冷却时间
+        local start, cdDuration = GetSpellCooldown( 46584 )
+        if start and start > 0 and cdDuration and cdDuration > 0 then
+            setCooldown( "raise_dead", start + cdDuration - state.now )
+        end
     else
         -- 没有宠物，设置食尸鬼为未激活状态
         state.pet.ghoul.expires = 0
+        state.pet.ghoul.virtual = false
     end
 end )
 
@@ -1167,6 +1275,9 @@ spec:RegisterAbilities( {
         end,
 
         handler = function ()
+            -- 血液沸腾对所有10码内敌人造成暗影伤害
+            -- 对有血之疫病或冰霜热疫的目标造成额外伤害
+            active_dot.blood_boil = active_enemies
         end,
 
         copy = { 48721, 49939, 49940, 49941 } --补全各等级技能by风雪 20250901
@@ -1275,7 +1386,16 @@ spec:RegisterAbilities( {
         cooldown = 0,
         gcd = "spell",
 
-        spend = 1,
+        -- 修复：添加死亡符文支持 by 哑吡 20251228
+        spend = function() 
+            if frost_runes.current >= 1 then
+                return 1
+            elseif death_runes > 0 then
+                return 0
+            else
+                return 1
+            end
+        end,
         spendType = "frost_runes",
 
         gain = function() return 10 + ( 2.5 * talent.chill_of_the_grave.rank ) end,
@@ -1287,6 +1407,15 @@ spec:RegisterAbilities( {
         handler = function ()
             applyDebuff( "target", "frost_fever" )
             applyDebuff( "target", "chains_of_ice" )
+            -- 修复：当使用死亡符文时，移除一个死亡符文buff by 哑吡 20251228
+            if frost_runes.current == 0 and death_runes > 0 then
+                for i = 1, 6 do
+                    if buff[ "death_rune_" .. i ].up then
+                        removeBuff( "death_rune_" .. i )
+                        break
+                    end
+                end
+            end
         end,
     },
 
@@ -1308,6 +1437,8 @@ spec:RegisterAbilities( {
         -- TODO:  Determine if I can rely on the UI for usability of Corpse Explosion.
 
         handler = function ()
+            -- 尸体爆炸对10码内所有敌人造成暗影伤害
+            -- 需要附近有尸体
         end,
         copy = { 49158, 51325, 51326, 51327, 51328 } --补全各等级技能by风雪 20250901
         
@@ -1420,6 +1551,7 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 死亡之门，传送到黑锋要塞
         end,
     },
 
@@ -1763,8 +1895,18 @@ spec:RegisterAbilities( {
         cooldown = 0,
         gcd = "spell",
 
-        -- spend = 1,
-        spend = function() return death_runes > 0 and 0 or 1 end,  -- 当存在死亡符文时不消耗冰霜符文，修改 by 风雪20250412     
+        -- 修复：只有当没有冰霜符文时才使用死亡符文 by 哑吡 20251228
+        -- 原逻辑：death_runes > 0 就返回 0，这会导致优先使用死亡符文
+        -- 新逻辑：只有当 frost_runes.current == 0 且 death_runes > 0 时才返回 0
+        spend = function() 
+            if frost_runes.current >= 1 then
+                return 1  -- 有冰霜符文，消耗冰霜符文
+            elseif death_runes > 0 then
+                return 0  -- 没有冰霜符文但有死亡符文，不消耗冰霜符文（在handler中消耗死亡符文）
+            else
+                return 1  -- 没有任何可用符文，返回1（技能不可用）
+            end
+        end,
         spendType = "frost_runes",   
 
         gain = function() return 10 + ( 2.5 * talent.chill_of_the_grave.rank ) end,
@@ -1773,9 +1915,25 @@ spec:RegisterAbilities( {
         startsCombat = true,
         texture = 237526,
 
+        -- 修复：添加usable检查，防止重复推荐 by Kiro 20251228
+        usable = function()
+            if frost_runes.current >= 1 then return true end
+            if death_runes > 0 then return true end
+            return false, "没有可用的冰霜符文或死亡符文"
+        end,
+
         handler = function ()
             removeStack( "killing_machine" )
-            applyDebuff( "frost_fever" )
+            applyDebuff( "target", "frost_fever" )
+            -- 修复：当使用死亡符文时，移除一个死亡符文buff by 哑吡 20251228
+            if frost_runes.current == 0 and death_runes > 0 then
+                for i = 1, 6 do
+                    if buff[ "death_rune_" .. i ].up then
+                        removeBuff( "death_rune_" .. i )
+                        break
+                    end
+                end
+            end
         end,
 
         copy = { 49896, 49903, 49904, 49909 }
@@ -1889,6 +2047,25 @@ spec:RegisterAbilities( {
                 removeDebuff( "target", "blood_plague" )
                 removeDebuff( "target", "crypt_fever" )
             end
+            -- 修复：当使用死亡符文替代冰霜或邪恶符文时，移除对应的死亡符文buff by 哑吡 20251228
+            local deathRunesUsed = 0
+            -- 计算需要消耗的死亡符文数量
+            if frost_runes.current == 0 and unholy_runes.current >= 1 and death_runes >= 1 then
+                deathRunesUsed = 1  -- 死亡符文替代冰霜符文
+            elseif frost_runes.current >= 1 and unholy_runes.current == 0 and death_runes >= 1 then
+                deathRunesUsed = 1  -- 死亡符文替代邪恶符文
+            elseif frost_runes.current == 0 and unholy_runes.current == 0 and death_runes >= 2 then
+                deathRunesUsed = 2  -- 死亡符文替代两个符文
+            end
+            -- 移除对应数量的死亡符文buff
+            for _ = 1, deathRunesUsed do
+                for i = 1, 6 do
+                    if buff[ "death_rune_" .. i ].up then
+                        removeBuff( "death_rune_" .. i )
+                        break
+                    end
+                end
+            end
         end,
 
         copy = { 51423, 51424, 51425 }
@@ -1947,6 +2124,16 @@ spec:RegisterAbilities( {
             if not ( dot.frost_fever.ticking and dot.blood_plague.ticking ) then
                 return false, "目标没有疾病"
             end
+            
+            -- 疾病雕文检查：有雕文时可以刷新主目标疾病 by Kiro 20260101
+            if glyph.disease.enabled then
+                -- 有疾病雕文：检查主目标疾病是否需要刷新（剩余时间<6秒）
+                local needRefresh = dot.frost_fever.remains < 6 or dot.blood_plague.remains < 6
+                if needRefresh then
+                    return true
+                end
+            end
+            
             -- 使用实时检查：计算缺少疾病的敌人数量
             local missingCount = countEnemiesMissingDisease()
             if missingCount == 0 then
@@ -1983,7 +2170,17 @@ spec:RegisterAbilities( {
         cooldown = 0,
         gcd = "spell",
 
-        spend = 1,
+        -- 修复：添加死亡符文支持 by 哑吡 20251228
+        -- 只有当没有邪恶符文时才使用死亡符文
+        spend = function() 
+            if unholy_runes.current >= 1 then
+                return 1  -- 有邪恶符文，消耗邪恶符文
+            elseif death_runes > 0 then
+                return 0  -- 没有邪恶符文但有死亡符文，不消耗邪恶符文（在handler中消耗死亡符文）
+            else
+                return 1  -- 没有任何可用符文，返回1（技能不可用）
+            end
+        end,
         spendType = "unholy_runes",
 
         gain = function() return 10 + ( 2.5 * talent.dirge.rank ) end,
@@ -1992,8 +2189,24 @@ spec:RegisterAbilities( {
         startsCombat = true,
         texture = 237519,
 
+        -- 修复：添加usable检查，防止重复推荐 by Kiro 20251228
+        usable = function()
+            if unholy_runes.current >= 1 then return true end
+            if death_runes > 0 then return true end
+            return false, "没有可用的邪恶符文或死亡符文"
+        end,
+
         handler = function ()
             applyDebuff( "target", "blood_plague" )
+            -- 修复：当使用死亡符文时，移除一个死亡符文buff by 哑吡 20251228
+            if unholy_runes.current == 0 and death_runes > 0 then
+                for i = 1, 6 do
+                    if buff[ "death_rune_" .. i ].up then
+                        removeBuff( "death_rune_" .. i )
+                        break
+                    end
+                end
+            end
             -- TODO: talent.desecration effect?
         end,
 
@@ -2012,11 +2225,13 @@ spec:RegisterAbilities( {
         texture = 136143,
 
         handler = function ()
+            -- 复活盟友，将死亡的队友复活为食尸鬼
         end,
     },
 
 
-    -- Raises a Ghoul to fight by your side.  If no humanoid corpse that yields experience or honor is available, you must supply Corpse Dust to complete the spell.  You can have a maximum of one Ghoul at a time.  Lasts 1 min.
+    -- Raises a Ghoul to fight by your side.
+    -- 修复：亡者复生技能ID改回46584 by Kiro 20251230
     raise_dead = {
         id = 46584,
         cast = 0,
@@ -2028,25 +2243,22 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 136119,
 
-        item = function()
-            if glyph.raise_dead.enabled then return end
-            return 37201
-        end,
-        bagItem = function()
-            if glyph.raise_dead.enabled then return end
-            return true
-        end,
-
-        -- toggle = function() --- 取消亡者复生天赋切换群组功能，因插件不能在切换后自动重置，需要手动rl下，怕遗忘。 by 风雪20250414
-        --    if talent.master_of_ghouls.enabled then return end
-        --    return "cooldowns"
-        -- end,
-
-        -- 修复：亡者复生有宠物仍显示优先级问题 by 哑吡 20251226
-        -- 使用游戏API直接检测宠物状态，确保检测准确
+        -- 修复：有食尸鬼时不推荐亡者复生 by Kiro 20251230
+        -- 修复：没有雕文时需要检查尸尘材料 by Kiro 20251231
+        -- 尸尘物品ID: 37201, 亡者复生雕文spellID: 60200
         usable = function() 
-            local hasPet = UnitExists("pet") and not UnitIsDead("pet")
-            return not hasPet, "cannot have a pet" 
+            if pet.ghoul.active then
+                return false, "already have a ghoul"
+            end
+            -- 如果没有亡者复生雕文，需要检查尸尘材料
+            local has_glyph = glyph.raise_dead and glyph.raise_dead.enabled
+            if not has_glyph then
+                local corpse_dust_count = GetItemCount( 37201 )
+                if corpse_dust_count == 0 then
+                    return false, "需要尸尘材料（没有亡者复生雕文）"
+                end
+            end
+            return true
         end,
 
         -- 修复：根据天赋动态设置食尸鬼持续时间 by 哑吡 20251226
@@ -2269,7 +2481,7 @@ spec:RegisterAbilities( {
         end,
     },
 
-    -- 自动攻击 - 后备技能
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
     auto_attack = {
         id = 6603,
         cast = 0,
@@ -2277,7 +2489,9 @@ spec:RegisterAbilities( {
         gcd = "off",
 
         startsCombat = true,
-        texture = 135641,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
 
         handler = function()
         end
@@ -2302,6 +2516,28 @@ spec:RegisterAbilities( {
 
         handler = function()
             -- 晕眩效果由宠物处理
+        end,
+    },
+
+    -- 狮心 - 人类种族技能
+    -- 使你的爆击几率提高15%，持续15秒。3分钟冷却
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
         end,
     },
 } )
@@ -2396,13 +2632,15 @@ spec:RegisterSetting("dk_special_footer", nil, {
     name = "\n\n"
 })
 
-spec:RegisterPack( "双持邪(新手盒子)", 20241209, [[Hekili:TV1wVTTrw4FlgfqqgPqROLJRlGKEyFA38GFr9zsnICKeHPifiPSJkee822SWU1D3IffPD3wGI(qrlkW2KcSy3fboO)yQLC6t5VWEgos8YWz4qrkNlydcqCc5zo3MZLVZm0QkQVNAhdKpw9O9QV3(k7v)DRTNsJ937Du74pDmwTZyK(XObW)Wgnc(7f)1lxE5F63(GFuB5dF8Yl(KB(Q)2I)5NriBQLdYGWopNjU6aPQD6nX0Y)pAR2JJm2t5U7d0ogRRE0bQDgAAyGPuI90v78SF5VF9)9hx(XN9Sp8PxF1xU4bNFZt((F7bF6np9Nw8np56N8x(d4JnTmx(ZxS4YhEZfNV48)91p9R)1Z(G53lufF(vNFZN)ZX1Zt1T65C)A6oJE(vxS4NUCXd)OLF1)cOy(9O)C5xFg8338p(OvS)SZw(fFFOqE(vx(Sh9FwC(JtA7wME(Eel3YSpg(5rbEvKUVPJTAhtDCpNj2gA9DC9n9NyaUgSnQNf2q93R6dofc1rpPJURPp21eP2zN5DhJ9RHSmpbhXqxKPhwZadEBy1neUAolfwK)qnyl1xL8h4)3hnXYpLopYKOVUy87VrkBVj97xBI9qhRPAJDXEyBDCTjJN3TY8UuwxZBYOro2AdqUdCMAHR5BocR5zceoVBZ5DBupsjyyu2g7AP3ZYXXiLWH36JSW2(1mhn215eSHgRAUIR5vxBNuxtkwIQUVqvnqph64AR50x7utB4X1mCo1oIBjFjHB3nBU1ZXg0SHMyldgwf7ne(CqPI1EhHREigz5pS2yD)GTX9J5A0rwwA0)JgjtHMVOrlNeKXaC(qHCMSYtWAyB8itS38UTM3vjM(nXwiV9iH4h9U5MZTZnNroyA(dSHd1s6HIYGUvdoZkEtCIzrI3eNOTsvhH8Ghqw0GHotS8sRIjdDKKoK7ayXjc5ja(G4f5g7q)z86B(0nx26HtaEaYzKhVQHzXVSRyz44VoMWcnycPcJ(XM2dcclQoV7QWaiue7rR(47OncDFihdsd0DCSi(QA0Q6iOKTbwhnTMlEeY0gIO3nMYfianpFxZJLuFALI131bc47Jpbcxy0l6R2gQLP(uyXt0hM9EBw6JmN4QI5JXE(MwbztjQJtQNSpOtRjNYQTHTfjXSR8ccDG10Xdxzf(OXrnJMnBE341wHAuhuFT2gxv1N46c5Lu1uzTXKH(ImMszVCBkWhvpHTfQQz3wacLg5CY6ndFOrkKHAafsr0g(jlMZOaz3xO6QAQaCrhluWwmXkO2e7BcnfIeBqPPV5GHqqC4BM39WBLWakNIs8e3qI7(5DsMUf)5jkpefaawyK0XJg7CkuOMqK2Py0y4HGsOu)wjxRSETa(iNUGaYA3L1h3ZX0kW4su7EimgJlmNb0wfPRJTWUio1PvsukNb5hlTIlQxL2o3zWaaV4AdXlWSaVIPUwWUr0MfbZrDAcnjMSQG1g6syHKUkpol2RiN97uojuVEj26OuQVERtCBPm77KULftq1wORvo6kZjdzJw)gOiYPlLR2thMmFqCqak5VLBIsOhk3NMhnSWwscydkIBTkE3iYkYC7uUUjJdbTIcWitgO2(9tUu58pLTNcjNI4(VHSNb(FusDUvGnJ6SMTqrCtDr1oLl3vn2ZfTzxdYpyYXxetaqBwiUNkPKD2rWn2MLvk0Wcr2axmdRnbHvsASflqVXJvukmKBnOIfnQLfy5RKty8YAMH8HKtmw8Qcm(ngo(ULhrEOpg5oAkPwQ)q6rAuJ3yCCiADeezRvoW4uiOz5ixOZ8NOjvZpA(1wQIvrZCIRrsa0x4PHexviJslvY4DeR4aPSwU3OyUmMjSK1q4ntaLFxlZeqz2U62AcO8O45bPrzhak)6HC6YZ8pzp6WRjZ)iUx6)Fm)J45j2IZ)K5enIXr8QWenhTNySfz0HE1n9K4LHWgLMjFB0bpQbj)aQaSH1f2Npy2UtrU2qpAyoULN)zl(4VzXJUAXd(URFYF(UHFVblo)lE23(dbFlbKR4ZPVPv4nk5vl8o)UtRFxYRH7Tn73Ah(x0xLDY5v8n)E8KtYqoICeDPE8xF0TGrwRKRWJplIDpCHYN9w7YJW3j8s64tnDg653l8TWZI95ie)XmUWi3F6pbHk0vLXv63Sr948E7VZkxfANufkWM(MUpLNDhGg2RW)TjxdElYD3twt00Jn3pHb4M8k0PRc(jSgYJJU79wksxgYbNEDTvIfNuZJe(eEonmpFDyvYhgVvcH9v3reM(zZe1lTzRg7wPQOkHnBjR62UmkvyV9ifIZaiu9HdafQ6iaxYMRnXpKHafI3bMmBMGPwOkJG5vYHYurgfTBrAlWtL9rJd0xbh8XSzrHTTpO(Uv4mTFZwkvQM9bCW6UyikiLIEAgvyojJMXc6PRLPWaZB5CSb09J069D4Ccf3H3PtSBZgmsrWzcqKKKtHy2mPNab4NzehlLmVoE)7WIzPaRuQKV8gH9wV16VKabjgcYtRiQGI40cb5svEPKgrM4VqM3gBD8FE7whiKvYSQcz2riNP1FZ7jz0wPE91hYWw8emAROKnB3PO8fu3c5GsofDGtsu3gbTOYO)KmfkRoTIAqN1AKlpzuWZfLOfUW(0hwg3Gmk4PwPG7igsZHvkSlt8kfo5wHSM0WJd5cVP9lKmswmivTaP8eW)iLMvYnsYaux(azPVGfj7QNYU3kejBPAxYk2er6IWQUDGJUYod)O6kuxPQuUX)Rbe2j2VuWvzv2xKirJH)sCGw9uQyzaSMt4zzCosLkwmFzwvew1bmO683XkX4oZML47kS5HB1akbdbuMzaIpcqCFqHb(vcZnF7OS6RGzwyjt44vXteEdUpX(5BvGF5i4y7I8lhcugfC9sV6H9taaHxxb)TkP)2a9x(Ok7khVGajso81GOn2F5ctrI0d4DnHurt(LdKqy8FxAM4d(u1om)MugCFkQ)Vp]] )
-spec:RegisterPack( "血冰(黑科研)", 20250820, [[Hekili:fFvBpTTvu4Fl7lten10K0gkvQ0pmnnPXK6x8(wvT9123KyHJVr(LgLPkRqBdnbs5LogSrPcyfwPDRaTsJ2gsu)XSCDC(e)f25A3qmH4uXKMMekkCVN7ZZ55Co3Z9e(K8)apNcYcZFRujsLoXePsepzI0xpvkEoRsfW8CfqYtJYcFrhLh(0B7Y0zpCSUhVCNxSCNTwjgZIsAeKcdjtITHmyfpNKTQM13PZlDw4tmophY2khXGN7BXQLS155YPQOGdSeBkZZb4)nF)jnRt3Sr7gleqiDNx69xZFsZQjtF50JF5eN0SgyH3JpGw7(0Nu3T280DxJo3wDlVP3JEf9DVXDHxqREeCa312YDXL6o7tGJ4mLZuTBTHx5kN0CDVLFJ7B)G7817(SFZzk6(1PR(qy5aLrN7PG468YJCRv(2DF(cDF6RUdpNMQPLPFedNbzRzbF9wj79HfphwhjPHv4)AEoBtSqXCQAybzKPLQEwMrCizlvcizDvldIGeHWWZ3wsMmczLv8Ts2q1cBOI85HbHfYil2sq1uasbwqSK5dHiR)bYQvQqU4kQMyKjo(NmXr8lDeviwXZyaekKbFxSrClv5Pb3609K0iefHcAOS24ZS5yN)Sg48ivDthXB4iEvhX7DVHaXa2eRV4lGHaIgwx2xlxjsTizNjdqlg)JGRiKHKnUDbFpIb0DXcyDCEvmWWnDedfBZrkQXoGKge4zmC1iz4lImS0hov5scweB5CmOs)5GAyrXqk3FDbtld1P9f)4rI3yzni2fG8DEjSrGgt7l(GAH4AG3Q5iojKFUuYyq81rKya)Zah7gt27CsetZqjbdeuJiOGH7TGFCTO9J)TvoX6v8a)zzaQEyzTWPZbOXVWzOhmwqf3fb3WU4iboYY0j(FltzRlzGrtZywazKh6CcUZ1J2DgliiAyRJnJlBByG1TCe)khrB9CeTsdUXnbEt2lKg5fDMvJp8m(zTjwSHEfDYZCfLiPXCx27cGwsMyuvFbCDE1CXujKYVYP1K)3KXcLYW5lqkIn8DcHIyubyrMqtgPqVGT0sg9laJ6c7qBupWn2r7jbNuIOQ57gFMM3tRQ5735rY5u1X96FpSg7JsSr3apcw6dwqyOFd3Kr3b)I6vr37wMq0uif1JdJ5OdVSluuv3Y)2esPu)iW52T)dMPdtCyR8zo6U1qbNQSGFXxOB4WdWjgrij6wBr3oWr8AFUUbGjdw3eI0OBGnunaXKjsmIGcm8vbdSmjVe60PYgGCyFt)U5HODKZsnSKelTos3aCeiszY2o0iVfrg6q1dmRN7R3PBLh3P1(UR(O2hFuNMnOhUm9Gp0T86DwzVU7Ei9NMPZ6p0DLdCRpZFx((0JB4T)(UhSy73)Q2n)fALQDA8IUpOv3nk797ZqRxXD()eMAfMSv8soI3UDRpcW0P2lbyUdBg66vOl9hTp(42T(z33UT7g1cwHUXENIw73)AGXaQHJ4wDvya5EagSCY7adz)PVNIHR3h)v3TEhDM1PhoR7c7594LanqBSsGjEpVcDNh5U1IHHgeJZuUvxIo3M0dAsRSB7gZMcuL7CL9EqlA1182EpFByPscBUx2VJWSawMnNelYY)pp]] )
-spec:RegisterPack( "双光环(黑科研)", 20250820, [[Hekili:DA1xRTXrq8pl9LA5wqCs2soTKgO)bk2POcvM2cLC7TAV50T4t7EDV9IQcHfdT5HemjeiKhAmLg6dLgkPqFOV02VnvXrp1VcD29SoFs(ozOViFENz)nZoZV53U(D8p0Fyivd(d661TN31661UJxV(721FOEwk4pmLYoIog)qqNG)o)rNm)E3)Sh(BTw8Np(SF(XN9JpzBRtZsK0qlyzYCfdD0F4OCEIEFH)OvJGxF0PuG5pa)iMhgcfUazm)HTM)YFyXloz7YW8r38qZbMd(N)(0xF89(3)67lI68h8mmWN9l)XRU)XF1R(2FD(tp9wMdM)YtM)0VRENw8tpCXZEXT8hMWZ0z2eLkb8pdCvaktZLcBsq1XeQiKecm6m)HGGokbc9)aFnM)wxVyLHmfxdko1F4ByccL62rkzMMeb3guT1C2rCX4lWMZMr0YCwmUXzSeGOPQXaMlykGGVZvb(OePmKKMqhNdxg9I1jzAf)iO(iSBJrOHC3e8MnhANXwMaBcCBGSgeMG3EftvrWeCDtGwHz75oacychYmbVLjORjy7kNkitZtabsOWdqVgpaXanrh3oLPnb3We03BTSRmc3WfH7Extawv1ueADBCZk95vU2Nd)kzrrYpsYtWSqBzjr08e9s2J7h9kzwEgqMgJzoHrXta2OqNkXtW1kjIN0YeD(kJIiJzHoVQ0wGiEzxKWZitGsA4sSMWrYAKcG7aRXw3P(uBvQEjFP2s51FpSC5TK7SbWu5cBEMUjG21BzpCdavqHsvqMRPxbUr5rrTx1C7q5uHf0(BGzJEuIESujWAnzkxG2T7CV12zLdeP4BIvWavSWcftVwdQg2vNcfgsHAPvJb301AokqnTaCzoJKkNIJISCLcjPoS75QGVtdG1udTyDBOYCtEDRFSop1cEhVn3FQkIvgb3g7unTgTI51gKS8e7oAwoTOn7s5lkaifY7cOGjU6JZjYuGMkDmHo7uD4ixeltMzhpe3zw1SZ6zZYH)peCTa2S80g1qVKrfGjCwSfNcPQRsEUQTkBUjz0o9RwJkc9sAZkkiD2REYWvXuXo1EERtmzLYN44ltozeTuaTESDd8RoQ3KmHUay88Nznx5HgtPkbwQqz2V49)Sb7p4JFxtGj4WySYYrgKct3ijEB1w4K6wMaf815CLv(ptob9HMRLtW3UGlWIPIXiF0CWNWfOPEisFOuGX0zERZVm5lru0Yk))YBuW1B15B2UT91m77cTDB7uCfLuycCpmbnBlqsRWV7nu0mi8tXt8IF)0x)8JBT)NBVxkxJkzU5oTV))b]] )
-spec:RegisterPack( "血坦(黑科研)", 20251226, [[Hekili:nF1YUTTru0VLUPizrfePSCEGKUiiBQdG3WSEihsosCGP4qqo0QQiGWPUYrXnbWgXWoBkCmqAsBsBtbIDrSLB9htnfvwLFHodPLfjvggZ2n1gqIyECM7CU3Z9qbKa3fOycPiWIY1LBkjlpFnjzP6YYafApxeqXfASeSn7bhyh2NJ3BLOF4fx69d3m(LBg)STUmFf9Sjqtos(Kapd2Qak6byB6x5a0laFtj2QCrgGfNhOyHnnrPRb5BauUncsTc1UJdUTf96HA3YMqmd1Ul0zPqTViuJD43(oSJpQ)3F6Xpn6rBh)WbHlm6T)oBSr78hX)8rXp8WObVMpmF9X)YlgT9dI)T9I3yn(g6pi(TdJhUB4c38c(hd9N9UOtwLbq0jhC98qgQ9LSb2(1X70pE4(Jw)5PdS1Ur)6ttEC8F9KOhCu4cV)(Ne1)XPBD0bVA8(h(HJFu89py0(dJoARO3Cy0gFx8lF8Ov7hT2bx8GJr9EKwy7ecFzKNpM4KJO7c9CWoT9bkJgSr067g9MJJ6)JNE0Ano9DVA06RmE1)mAWoJ37N(7v(2WfakWaQfXdOe9KnJ2ypGIn2N6ZZRqcI91IjvlihOUnYeClGIHhMI8WqGYNfQzsO1A5r8PQTqSGPgfBSe7WzB2GYdmfSrpvkjWWcqzr5NckDEUx11g2oanlwPJR6t9WlH441qiEcIRqTpx8bLmj)SwgPwy)HA348PqoOoyKFMWc5tz5dhJKyAUjCgnxOnzXM8QDvOJPQjYa2JVJMcVf6bTAvZWkG81SOmWTuuMxikwiOn1QMRbLDnUzOwZ6fbAkJEfHOK)2ZQ05infOucvNGT5WC1lmm8aAUPWWIvpAM45Acbkn74f4G8Rze45HCOPbLusEmWXIy3t885iLqTRjlMtKQlUmlzPjhsk4LbJyHedaSHQlPlVsJdtJmPio6zHrSiAgyU6mzAJZsqsILoPzYcehdS6ft2uOBcuZvDOssbF0m45Z(XtGNpDU76nYZyOojJNSx1UiOlBqEGkwOveTRKbnwZrhvsl1Uyh2Qzar5KzlyGn982JtwBhmts2YdH(gu2tQ0wFfQeBKvuX6SOYNN1DIfDjdwSTNEwSO4oOeuMPoSTh2Ds7PlqCWvLfRbplFlMflIq2Cc2aPtc4SdXJIPbMOQ10klTSmSJl2JLWsQVkVTvsluDcxczHr2M1mjDDYWWtNPA9TsuPS3QHPln41w54k10Nv5wPPgQQPVif3sT0UAv2sTKMt)78uLYvqh4Juz41XVq5Cv6cnF2UqqhdEXCrPP42rvX9QQTIk0XUO5tjnmecxQ7s2P5Asw(svkrykvRzjhOy9W)j7UICyPUDI1sZ421OeyelLkL7kluNHUeRJQIJQSyjufCuLfBVxUn4Le4eEgJCV79jYUxwGVSSyj6)V8LLfl(RQVSRhYG0rho1zwSPaBT(8xAVGJq6TFYKLBDNGt(4OaAZeKL8BwQKv1K)b)Z]] )
-spec:RegisterPack( "邪双手(黑科研)", 20251226, [[Hekili:9M1xZnTrq8pl9LojdToXojgkdWd08aeMHPZy603KLS0zBnil5r6ezChgnjqj4aucjmnPfctifAce(BHbiKajp0VjT5KSFQFf6Q)4izBDN)dHMhYOt3E7U3U7T)(PZCj5ohxgjbmI7SPgo1yjtLkDIKJms6KP5YGRugXLPSG45fkapOkuc(pzUByFJPDFDffnbj3LBOzQlctXLjNPSc(0QC5IvNGKLrICNfEOOSKeYxoKHixMXrc4Iw8NrvUqr8rT4)E1IAkvS4tDkl(V2IV(L2WE63o(zCn(Sx3(zRr(Th5mBvRjSF9lj3Bn7LERZJ3Yz23tQ(e3x7UKujDwFbYD3I887q2zdNB(c7LNI8W1j3yXA7CBYv3YAcs17s2ER)9d3PzTtE4JDMEh7zbH22Iph4eKBpp5wRcQmyZynXX7Y)aJ8Whx7nxV(v(zNp(CyFn8qjp8qJnQf)a1F1Y1wDQHiZ8Y6lV8q(UWGWg6(Bs29Y(RcKpQZ8vWqpPDE6A2lEvNxTt9PUd8Y6Bpp8E4b7LUF9hSc5LBw)PFW56xAV3)N9IN6fWsoI91MQ2L)y0ah4SGMdE)cpfcrdEuRj(Umw8hYI)0NZI)VNzbl(tM5VwkvWZzYe8W4QJh80P0(H9NmuWOlA8V195jgW5xxXzXN4VLpeSXQT(AbsaXl41HRacoW49hS(E7SBJbZ9UARVqtIfUS2vJ7kHXd2lHlNQZqMBE3QXx)lq4izcqXV5DWy)ujz9DTNA6bC2E3A)0MdsUY2oR8AYLNdYmqKgKD)HoBFB77Tc5w30VGGuDg73mnP6vdggOMT(Dx1ynXiWsTF2diBUjSf8lX9ZrDTNZLrr2aB4DUvwTGccE6SEDbqQc5uqsCNKlJOUmgPllWL5lS4L0WjYPOPjLTSIqbtucSS45HLYLrqelRPc9c8EFwdSU85rCy4yFN0xEDndC28OlG0BxDYIvYI1mfl6QQrOQQ28lDujbzvdl(JzXpIf)x2xU(OmTxu)oEZ197SXOAPCM5ZNaAmQPi4UUesAtQgQe)nuOhNMTEc2)6idKQiYtxEoR3KgMLkPPMTGGEbTkkOyTuJL6ARdt1w(7BDtvKrcrtDDKk2I)eh3IpPN1m9AOh78H2ZqeqskenBCe6zdxedF95RNuS0Z3qvpdyXZY1V4fz67w8d6N5B1ByURso8NHWO38IAAkU5WenB0WA1tayqHUMVBlOkLvcjkuXZ3O3lO9q(bLnP3VWVemM9Bk6hissVNbv1Lm8mrKdErpINCygwKExdWwYIzlRnjspWsd3wWqutwXtn0Bj0MAoYWEECS1lW0dZOCz)PJnAC8yYw77G0710MdMMUwO3fbGhkJWjkuuZujH7QVaQ5AmDbzdeu5iibjhbPkH2iCgpBqVZb1D9NuaT1IdSqzp)GENNMIyhZnJgQJIA6Qz1YNDszvqAqry3GyEbtf8(41nKTKmCwkVoc9JOOwIjmCrKGcUyIYIyF4RXI4(iy)7opGCbEN3lzId7NMYIurLKB0zyKq9jkOOK1FqwxQh(eqY6)1ecADa0nS5slivEzF)(ZXIKzwUlDHCM6g44WJ7QvhWHYlbbaLIALYjGztPYZDBcpo0wb1xrHCz0B0vrnxP0I6ARmIrA0NSGMk0)UOmsrQvUaHZWoJDqDeg7xD0nSt7EoxDKyApYwKn70y8lM0s9MmUJtra7kdhpLvAuCmA0gbTIS2CZGXIkQjeNbpTKrlcLoQq5q6giD)iqtsD4MKYBJK3uVvdsVdmtSIwoiZM9w)txQp5N1B0ozqMQdmr6NYNwZj5AG32HwiT8Lg0Pg0sGRh4Dfd9fQSd(83AHfrR)FzhqNpv)APULyhQKx2WtOStIek7dZNSPZ2c6LQ4IFGlge7A(eodsw9k5gFu4oJB2cazyblBIc9jcBpJVq)eq)HV0xeJc)MLO4g7ZKJETF3PZUK0viedM1DuCGAZiiwywxwXbRrdbazI6DGA0Ivkd71YiKeqnvePG0fAKF7YV4OlWDzGdsXb)KAs(P26QdToO4TD4cG60LUmit8)oG8sXL6rsgDGtpRYO4Umg69Cy5Z9fHHoCfOumvBLXJ2pxybZntCZf9(SsZaJeZ8goOETRHgoMBSLg)bg3YXbIDIctY4QmoOiM5rfysbDvOdo8Pj2vVf5ARqEXhix5p2BRzgBVn3i4NHQ6s1w9r)ZuxYAcqtMyGrbi9Z2M8GNuFJ53BRvD)yCT8W3jXLXtPC)3]] )
-spec:RegisterPack( "邪双持(黑科研)", 20251226, [[Hekili:DJ1wVnXXx8pl9LkqT44lXHlQWdvivrOIhQ7)YB7617o2EfR31A3zjYi0kBsH4CbfUerQaxfsf3lfqa1YKeGpm1Z61p9)Rqp7m2X2R3ztCjLhAEW2zMZ(7CMZ1F7iKq4hfYOiHrcNlz8KPtKm5mXsKk10joQqgCLYiHmLLKVGub4h6sLGpjRUI7Il7VCfndjf)h3YW2ug2sitoBvn8z0fYfgMPsNcKTmsw4CZiKPOQIcIjjYswiZPrs4IozpRUAHI4t4K9)Px0qRIt2tFENS)asQSQEbNShXjB3R8m3Anp9z9TJvQ5UwtYIVUZI1DM19nVI8RpYD9MDE6wDw8DK6)U)Y(ps7w3UDR762Ok5bpMSYD8(WTjlSLZSK63JS9w))DUBaix)(Kh80o1(G7IGCBFiMkGL8(ZLpSt2CGnrU9nj3ytNS9pDawREfVQZdyDg5kh5NqQ6wozpVb(7p7qhe43FNTQcYz2tUp)dWLQ2Ux96DE)laNsIJpv8PsN0j7Hix7vDB0yQUVUH3MvNIDcom4eUFlYhNN9uG8mBp1uP(A43)X2T3AZop)rU3zHoV(dDREx26KNuZB(ATF3YKnxZ7gpP7cRqEXIST8U(T8wQr6PspjMmZeCBSfPEZt4mBIy9vnzHL7EVMU)YlB3ABVhvJDc(kMPZml3M19QUU7sv9M)9hkqCaoCjbOyhy2sD2(TUl9aMrMZoFEY7AcNkVpUa7y79(N7E9FB4JTZSPai6SXBiZVA3NVtN6xJS6nDBSr31F7UzhUvFy3QBqU1kURTnzhinz6y9t6ip(JUvRr2PQB1NbjwNQV10B9wT8E8p3p5AV8t9)tiJMQf2YVmsYabFDoAfjsxkNgsr4BfYiBQIrMQscz(cNSkg4y5nnSWI5rxezgdRkFbOYaEyzSQHUqgv5kIydB5IcyO6BVGkNMHHIyznPc2OXXITUOf2u9ciF8sXfpo2Lt2VKVIOB6RRlIer6OsQiOO5uNekRgYeqwyvnKUmv)ttDt92sXVHHOKUIOcswQYWggiA6Hf12cjcwAjRacnZWcLdzAHmzEGrK6OJif9GK32mOcp2Wsve6CAcT6qkIsYYinKPeBJrEKJZ1DAARRklw2yoKjZLmt8bGBzxQKHUybjZcgv0OoMeX5cfZGbarwXKTnnr6ygKj2n4mPbUGEJCgQAuRGFQRF5zmOrVHg1retXyoDQo4BEb1YG0We8ZRhZXDS4bZyK7BT8ZMHQJYiCScfnS1IXYqPgRSHHMVLhZusfsPa8uIzcFuzGogSdvhtZvhHQaQBIUQyEWvCPkuh1a0hElk(PNS4o4qItvelKZBxB6iRW2oyqblvMAhZW1o(NQj(zhJAhOs0OnviX5aIcWI(w0ivTsMLQiAKxexSxSz0cXehB)Lq9nJMpv0Wu3h15u1bPbGWqXjuFO9FN(4MOssuYmWrpvunm4y58Z)hZSdxvt4jlI6Hq6aXVfd)85D7beOn8i2)WtWmOF3FoYNaMozV8L71IiOC2LdByx)Ps)7RZHMDg5CTdwLoyuC0Japq1kVr7rp)BIhOZVKNJf(j1w)tTzl)gk7P)minUONAg6bCaBMWpHbOteMg533GjnfXXyNggs87CShmXc2GA4KZeJn4Di2q87RWvJjJao(TmIkZBSe8P5t8Ac49MioxysYVGpewGFwkpcyGrYa4GHGzs(9jMacM7)ANGeqtgrL)NtcOj53YiQS2q3B3cp4f8NjcoK(QDp4Bee6bV2J)U942yIS8Fb3qzK0FtQY43AzszPQGYlzRH3LMAFzlPc9YGOl6sOauK5NNvejPHlgRSmMrDl9W0cGyS)(aXaXbeH4NZWYuh92asnapzjnnr2)i6FTjSlprKDXK(xFsimo3xpBpw7uFd4YLnkLtchnjEAeKtSRx67ibVObA0Gua4glcgHhKLyzaJNTkQI0ucMvnyNOPNpbDp43DGF1XbvdqAeBojtDiaAjKXT(nilTb5L7qU6dBV11MUDRNXUnrs91928j)v1R4mlGKngCPczyxJRFe3iVQM)fy7dNWFd]] )
-spec:RegisterPack( "冰血(黑科研)", 20251226, [[Hekili:DJvxZnTvt4Fl9c6eM264pIdPmax0HPtRzgUrVxlPJLo2wtKL8OpiJ7WOXbAio8rbAOj0KWazAAcqFjKjabtsG8JPwY2x1)cDpNtcXw2hzNmbUOzYKiP9C29z39S7ZkjMq8)jkOICWIxoz8KPtKm5OXsKkf8ROGt5syrHsiLXr5HlmqfH)6FJnAUCfYJlRBIujB3201sbejkK1vt35hneZ2lDgpvcyTLWkIxEurHcAQQy2kX2kIcxeJCk4jFjdT8fCoRN83BzA74jN8h8K)gpzWQTwAPlEj)7E7GzUvWlw1)3FAJzQ6Lj4vB4)OvdMFRgpB7gZ8o)Q)f5XKTuV2S1RTqWsv8xzn)BpxZpmR)0B7LXV6I(7S9)S7cHu57wVXKVi4nt6jNTmyVzVV)9wgm)(43lZ5hWFalSYZA(MB1AQ7049RdosI0dNE0HJ7jpuRnxccDdZm8WTU2ZdMCRtdUWtQ5V31z7cwFWJQeuD9GL2gCryRF9boFWmGdSd52PxS1F8l(3yZ9V9rexj4MR04bB6LP1I)wWCtF2U2e4FbBUmCrJ5(qJ5N6O4pm8rau1ToRxMeX6eJnxBv)7EFiduF3h6pv12T7qjIh)ubl8A4sWptgJcdsy(HVSETDAU6Kn()RcOnyRQnRmFWnR086V3ltQyD6Im9dQ1FJjBU3BBT4haB5p1DA(63v)9714bp1lZiXoWVASZRHirRkl0CVPRV7tcE8S(vFBWCBmelUaOinSwwIWFT9cQmPFTAnx7NzNog6RsK(u13Df)1F1PpkriMN3y71GWt7HM2JfEYxGMu(Ox0UpsfYIn0lzaSZngst39Tnx7xhCqkkORz7ytlx1mYRJHRUmT4hBGYQJvf)orbflnhSLgsu4l8KvnDILJuekLdFfSvmhnLXHDkkGuC0mnef0ukl5y6Quq0bk07NQYQBAQkvshL3f3TUypxY2XsBCmrFP4QVW4YcxePzy7jFop50EYFjxK)rz9bkyBhnDSHcfhJqWXbICTXsamkA3o0GfLMlyZ6MlhZE6U2oXCl5jF1R6j7GSYJDaBxedHqjvnmf(PI3gmmP)3H0SSniKfBzJTyiUdmCMowf1dZ5Avo0QgR9vva6VBbnKXQsiffSo2cXe0Xw(2ODoxJSwy04eXsiRIMwXunNWOTywy5eDMioxLYsCwUgy7ykUwwydGf48EYXPPpxJcM6L5kM538KcpxtrQK5eyRUc34I0Nt3R0eyujwSpb)seQ3pUMUoKlKkIukOzGPj4Ww6caagPntX8WdpQNGFTd1g5SW4FIyKCM5bd0w(ZCcQXZQJSDOAIFvtpdReKLiI4kv(H2ZmRorDeIDIXgHFjkHlNPmMssYvj8lDgYtokqtkJIa1EYNMvVhgk89Nr5Ng61XQq(fBnTLvpZrxDj6gYNlAJmgxJ01rqGloIZG8RY7srJfHEsYVWUh1eu394wWhbi4x0ECnw0DxcNGCqLO4issXsabq(cMU6XiB(kyQjumn1j9pJzH0aYg4OGkqWHulFOjouc1g8l5d3UR98wbtldjZCstOzaRwK09qaz(FNHcgekFQqwSxcBGlQ1JUv9yyGtIg18761VwEr1pRlZm6Gm8YzgOXlgBGgV4Z8ScdeRflIHmuHAgfu5(WQ)jGNKFvWrGNK)r)(XMCmQmcNPZAQP3hkF(Oic2R(m38jYWv8z1pseBrqN)zLtjcg)p14G3iY8l6p5y5gWXkgawovCoKRUZhz6oyTf1Goe0o44qn14x)waJ0DkeRKId79js3EJuixqKtoaF47YXVmUxerPouFkiDDj2nsK3KN9(8sSVjhH5Uh0td0E3)RbqJnLSWkMfZICIEoaAXjSwBcVyOw473ozFHrh(O6PZCuiT1vcmIa4XNHHFxTtQdW0O7eildiyd8VbvVN)nFS)l31FQ)S(23yK61Eo7RF5xD(Ml)0)UY18YaAY1b8Frb23IKKDmZbZIikqvN4)c]] )
+spec:RegisterPack( "冰DK(黑科研)", 20260101, [[Hekili:TR1wVrTXx8pl9LQKhQB2nxAab8qvuvBqIx2w13S9S2ZgBfV2w2JZQTczL0uYvu5ssjIlTbkfAGkGiUucKu63L2y7SpXxHEgpRZUzxBV2HWFe6p7dOWmN535mZ5C(DoNvlFb(VMVKmIG5ptXbkoYafgOaxXIdDScFgFjsDtmFjtK0KOjG)qhvf(xV52CSt3xJTVuWVFPGBUA)ubQRzGKPazB4yjbcXxQSJQg5R05lhh6Jo8OGSMyj(ZmcFjfvzzmtsSTeFPtMXpUJpggruCfpTU6ekKJ7k(fwg2exXVrxDkSLnsZv8tCfbdUXnUXyN27CB4)Sz8F6RAm91cwDJGfxWDC)NSP3pFx)1(ZG79YGfFH3c)bDzrWwho8S(x9L7n7F59B3BVNT8N6)G76D1n8V90(pB5GNSDW2RdaC9N6FLn9x7o(3y9JhEWWlP749Y4J(aqeQJ2H94UJd6w1wq2bPjutfRj7k(pZDz4UCHZ7F(zA3qIeLuZqqbPlJBx0fxUlrjinSoHJOybVDcgveikiBBKLksNdRJkR1cGnMzVzNz3xSS3TwDVlUrJ5pV3dxK9u86DwOPLCZT8(7zF9ol2o26yRPW2uSLm0KfSjySwNyp3MEZ98gx(xBScvdb35xc2(c7J6UBTsWJFvhOQyuttvFcHYAiBsNWn)1BC7F0BUh7n)2mlm8KtOv3uHtw1gJSXDCKGR8QG1oxJR)t(xzEqX7UZn9xFfVfEo4nzBfPEgizv77d4EZFFVL2y3TwIf(fm7dIWSxrerFGiJvFe8AeCTFGf3cHff4IIbyW6k2xZy(X(2(zr7X51GZ7oErUOGIopBXVKDw)x8WGzEqOW9Y4I(Wxst1MyhM7dVpAy4VotiNsZ3i(pNVKKLkbdry8L(ixrzdcxfQEfQGHSuoIQ0KWj5lHKiQg68LuLQlqmCKu4jaRrVGQSMHHSGPgAchC3yXwhcbTuNetXBWeXlHGLp2vesqeAUUD4c919TWcxfPQdBFcxXHCfp7zJX66qM(JWIjKLJo2MtYXYcI2Dfp1jDfl0eiklhB)9xV)2UJyBIkKIifEbhkThSKVJ94(eJeP73g(WBgP9MfNi92PpsIgtxU2YovQWnPQwyYEvKKIQoMZXmCpWdOkjyAudBX8ddnqlLYEAAPZplN6SIfg)DuLwXyIifMgZxlnFGTPQE0SR62UscgGxTIMrTKVth7qbCZy2bs5XQWazc5wa4yJfajQAhE6K5BI)0LHMdWwHbn0JNmhtchpm6RIJv9WJNmLs8EAh9YqT3jPYlGSQAyXjButVT7wN7hQLKZR7slSx345tGTD0vm0Qh7(TmcJYAu8PDUr1EYPZDP9UyRkMiQ5iVSV0VwuAYuUxrKTDZKMOTLN83u4VzMEYCErfkIL79uUIJCaQEMMAlV5WLQhXEfTo0SgAkKQgfgxryR0svFtibgnfGlMnoGqG7O14poJT1gNjnsAMu2iws(zSBvEIdw1G5qjiZq1LnIOCQUbBtD4QmQE6PfQHrMWIufNmfge5AIjCtOy4OXrHzkCOwKmGw7bAloleywcqILme3IKR3szT2juhjtG1PfpAMcmvmS0Po6AQ6ao80kFW8JvqoAK97bns2QQ6aHnTclUDBi1(lvWinIcNPeH9moC71pGWe6(0YUMgHlMAVLShobSoUQAe1ZGTWtcPPjW(pc02PznvlWM3gz0J(6k7ybcdpdG)GrOKqzghZmQYqeJRlUmD6MZbe6qmTWsgvlJiPpwqObdYAt7ITJYHn71R5MP7ZcX5GbgDGwxrnP41oQI9jmN4hgm6ddg9(7GrXrHv8TIJkpDEDunTwo6J6OEATdx)uzyATmouvpT9S2)DpCYDDXZ4yBnF0BvJRfKhCkWC09u8W1XyH5AUUyX7GZjMJj4EdMtmhtQLPbbzEve0)KmwcXUj5G24TWSO5GFihZIMhgG3DZ7D4ilEtM3lpJLLV59Yr6F2N25)Xdxn0)hnCfBQG3x7IndFpI5GGUVMC0HMNMduSK2eqQZEDWoE2FOXSXxNurQSXeNujPSXK2wurDtq7MySmm8NewJYE28AKh6ZdDXTCW(DK1zyE6I6OU1W80Huo7nmhSHVfkHNT008wcpF5V9QD2J2Vo5SLM)UU9ISrNeFsuAFrQ5PNTJYIVH1TO)uqOYq)fOmCHIfhDq(s1qw6qQgWT5VWf9wADVhTJ35UZUVCUH3DR77V000F0hlS2E3AJ)D6V3DCqnoeOKiFjVvUK3fVf971YOcmXkFPqvW)F]] )
+spec:RegisterPack( "邪DK(黑科研)", 20260101, [[Hekili:TR12UrTry4NLEdk5IUS7g20uuHlQYfTbjUzBvVZ2ZAp7Al8AB5djArvwjqb2qqcOKsehQcrCObAqq5qkKeOVlTX2zVIxHoEM1XE96z8M0nfQk7fqYoZ)38F4B(pmkCL4(gUQsaBi3jlxS84flvSuHYLRuQufUQ2TmGCvnaINc0a9dAGMO)TZzE0KNyKoBE1GF5Qb3zXrd3qlvDGuiqw6oMIOnXvTMJIQ9xRXvll0lwzc0EnGICNCCUQYkssqYoHwICvp2a(XDQjHaBzxHtOP0q2(OUcFRMSUARW)xzAOPfq1v4tDfqAS)CRp5j8o3Q(VCo)x82oZEZGfxny(2Ut5)8N69ZpWFP1dE4gbZ)AV2)A4xlGu2kyz9VXg7C234DVhUZlx4W(p(bE3yv)7oR)lxi45BgS5YiaU1l8V(t9x6((3E5JIfeBLUtLN2h9bbb(msc7rDNcD2kw8soav(zuGQsUc)55)rxbVlFj)lnxsfjAR2ZOZld0KGj368l03wTbQqn7cwIOqvdiVLTPYPGfGAGAQXIEVhgm3B9N)AExytIT)UTA3fV78kV)4SVBR5tcMjeyOO1ifk(lUU38pBx578SBVZkZsaDN3SM)J3C7nwjyTh4F9lKcUgY6oQ81nHANUvkm7C3L9E6R6S2wblCMTF9VraVh7YPztDn(gaZg6Tu7ZWU8AElEVGLFU3zVmcKeI3qTLHCbjfliWkTubx)TblDUo36NWQA7T36o(lFnV2)okWtwcR)5fOJ(Gc4l(euqm4M)aHoII2LkefViKvxHrI4YL)QrXmXKXeKCUtvUqeDOpzM87iYq8XExyHo3A9dtchyrZtfJ(WvvvXY2cFZgfFvHOF6K4mgDDqCFjxvrtfBOPcGR6N4kiPBxOUPULnFDi6kybBfXtHKKRkq0wrxJRQIylEBDhrzoBuoH8GQMQUUeVHkOHdSFSiFFxkCiEJrfpkH3d5kidqxZiFVf(lgPFRWe2eOOHw(lCfoIRW3)9zODP2ZOryr2KPJg0QGOJjIuB7kC8J5kuQlqH5WiRV73pAcBeAzRGy2Iyd8iSCy0TXCSNm2b74wL9VAWYNL1wYpOpovLb5uve5n0NbAYRJSQ6Q6ZedeXXlQROgIYNrffRWSrsOuXnn4tGinGMGkqXmb(zaOOQwdSjxZPE9cOkF6QGq8kiPpJwe5HU7mIdMzy94UcJ3dlIC0X(SpNQsMt5bIAro0ETKqfYbN)j1cKBcXI0)1Gd1JKPxp2k6vPcTJsfzXe)q2wiKgu9AEjOiOf2yONz99bhPe9SZ57yhgUOmc30tWNVk1xI2Ympk6PAZ)OgHTdif9Q)nmA2kmBFdZKY5RZdJiwwKA6PNhi1IvulRJJEECwfIZinCYAtLkEGFzBqkBKsVlFGRu0ltKOqirzocXfHvtEW0af1qPCfqlvKwPYY0ZE3h(tqWhzQI6AwqZPHexcvSPNmTpShF)O7m7D1a2DkMcHspneJVOUUAyI7cMauCcXzbsHtoj1k(mIxbFg5MUl7jLoeffatX7rKKK8Xg875jXaRO0twMPtnYDhhgcBaSyAMOnWaJo9mBylk9iF7wCeVA3UjnHwHnrJxm95eTi(WgO2jXk8edeTrw3uJxVoAkEneoOJWoKkvh4OAV70ur7TPckxgYTcpnmPoWCsjziq1wUGHOnjkwjH1HMDGpCDuVli9g)LmNsIWv4HAWMkr5BhlgprGQkp5x4dhmKmEip5DHa65mHsnht0MrUbuiGKzA3lePJG4BfK9Kze2Xyavk8zM1eldK0DN5fhYqCer9M1aXbn6eskKTUxT6HTXgOE5oPGRpIfJal5MGoQvwl5Wxtk(os3ejjxlcHyEu8ISdXdywN0hEwzXONSHzFodLeV2e28hFRJp(wh)p7To6JGKvfHYhiHB6naFanzc9MB3RZCqVn2K18suiaLQbTJMwyPzvmjlPRbnr9)Ijk2mNsNI44GwDhtIUZQMrwIl3YaD(gqOeQSPiufAcI6RGXiZz0YDmKPQUJHI(TU8hzCyWxYy(A639YxL2JV9qUpgjjiwdDFMuIL9OTd9reR1nrYan1App2zwvGoG0n63VP(AA)B7hJd57LrH3xJAVhghEIpo07h0d9U)qh2K0Ca5kjeyqsAZyE3SlaamB2kCSdB5eXm6jSgEdntML7)QnLZyw3y2yIQcXJRtNMnyyoGZr3ttj0jFd1ZS3wzOZehUhApnarN5oupugTnrVg6ETRPCQ41V(nixfPK3GrtV53oel15aQ7n6jn(NPU7Xo7yMWzFRjShpjNNfIIH9(RxigZrKdpoDFs06JHX4fmDjzTwp2f7YKmgHyO)q24sMH)rWfUC4F8DvkvU8eJXvDgGPgkHRfxv)2xX7Il79KT8o393EJZxz7x9i)loB4FUBTxANvw9VM9mUtHobhBu1yUQEx7QExzLWhcvVoAQDUQ4JG7V)]] )
+spec:RegisterPack( "血DK(黑科研)", 202601013, [[Hekili:TV1wVTTrw4Fl9LMMhwTws2jPbP5HU5LvfOybu3xjff1ilIqtkqsfVErbHCtST8TyN1jXBJDBI3g71nRtQrtDQIVK8FzRiL8t5VqNlIIuKAgsQlb7ce)GHmhoNZ35mN57CMZiZLK7R4YwqWaW9LPgl1Lgl5yPsm2yPUsQpLlRXmLbCzlliEtHjHFqryk4VBTt1uOhoJSQqb0K1vROjchGlB(ksYg)zfU89sIjtYLvOIrjvnUSwBCpR13HlBjPcfaK3hOlYL9ZI4pMzUbqWOKzUVqrAYsgx1m3NlRQwWm3Fvr6wanDbzZC)bZCN)ZBdr7n(cR523(OzT)L3CE1h18(73CXAMzSF5HwF3E2B(QM)4Xnx81w1(pOhNdI4jWZ1(BpU1TpZ6P)yRJw(pA)89S(29T)HQ2hTCZxEsZtEmuaB9l2p8q7n31E7hFv8erMAsZmHbENFGIaRdVI9QMzG62qqgOyK4wctvwstsKppY4saueYldGg5)D()HzoR1RdTTZp40gVEz4hia9DNwdAuwZTS9tQB92B)Utx0R8kiOikPmjVwffa)0aHYQk(eARAFV1s738G9SF4ceBUJCBwBER1UNpjwciOzWRBOjDtGF892B36oRzV4gwlCcri4joP8mLlLOGKoqq3)uA(W30CZ5oFRha1ouJno9j2pEdRA)k0ntgcR9WCRo)yMXA1h04SnAD0VAV4YqhR18h26FVNJLE0HnQVK1DpX(rBcbPZt3PQ9px3Xcwy5Z36vUMJ7RzvBEy8KdQN9i0izi)b2l5mc2pATOZF32J(V(E7huRlX(3sBMP5DEL163T52lBF75SM)Ow7SR1ARaT5FR6Sena)abEWp0gAXWx08npnM(cI7NHJjZ4n36f2pzHgNSBJ6WqKhrmM3D6kW)Sr9QTo7fq1C(38m0wU2oPj8mLLGtHixMtjmBZ5hOr96x2C)xI3oIc1SF(pyvVoYrU7zqhj(ze9rmGg1xfQMwVDHghFxRv35pDdemoBERdp78fwJmT2Y5KghVdzXeob7VBxuunjEanobOKrAD2bedWAT)PDT19o14yj23)NSxz2Mp6oeAlO9Kmbg8qUm8(BZCFcMX7ReuU5fnZKYz0wVbUF7yNrVXFj7fJUA5YklPBOJP0H0eYa4N(sC6H2Bt5(CUSIAsganjbUSFKzUcQgjkQPQBWxeaPDtyijEt4mH88IgsQkCzLeNH3qTIyjodyYGWefMMJVSSWKvabLf55TjBqYlnv5rHK5JnZvsqNV9Z1XpWVjObMsqsbo21mZLUZB0fYc(kFIzoYBGyw1tiwrtdYoAM76FMzUKM5(6Vgkfu(kY4DE(f9yCaDdjiLQi2YgNLNIUXXYwgVNVb7fSj6Fyq1HnEVFLWxTVevWes2sO6GUD4ZlRonqJxfA3fLvN2vv40HUk6YuveBXqwHfvLKrs5kdaCHzvLnkLOSime6AWqLjgZVwCr7NYAnkCvjQQkxqDALEwBGgqOWmUQUIoGhk8P0r6n5ydMIZxPyXEQ0kLD1yEyPCanCGbsLm5IgwQehvwSI2myvYKZkCv6jIHSR)sExkdcfSoPZRfUcZxrdU5EAjLcEdn7ELJo7s4YVhged9sZcPtSWSUs2RHKXPsd7IkVchdh6ulFuiv6oKqe5D8Gi6CqdkCcMhIHJHoj2qWXWcjbCi0P5CzWWYtqPaFbGOWme2lSMiz86DUz4WvukPkptilr(KoUEg6uGrauSm)EPm6KFbQPHAixk)E48TZwLIophdPZpTaSQfVzT9j1qzYOg8eNW0umlxAq0K)WWudaXf11eNkiPxtfU(rA12DDihCxLsgW9my0BV3WDaN9aqcgieDyd2ao5bJQCKJ3aox6eQrhS9KnDicA)o50rPMZ)ha3(D2PPZD3)PMCaDFI4X7cX(pvrA65dcWxMIHycnbqCk1m9yupZwA6PaciMRe40uoNzlnD69WkMjGwgNUwOZhtR6AS3Mx4wcsYOzzMdoeD5tN3mcwbl9aMIC2xTUlNpnDUVEkWGoSR1T)IS)XqOmw60zQIU0thUvmotYLYaJetwsTICcKyUfaRLov5Pja3(bRvtOG)Zm7ocwh0jc8J4lhPv(sQAk8Qfrh8ckhOkmqrdffQiBW508oN3Dk4HZ4lQba)DGxmyWQXCD1jcOBCcplsaiVcACuSuzv8dny1uUW3X7VVhJ7FdF7qIb5aS(1H3idjrqE1kiVKQMHKrLcyULqR5loAZJdS7PH0eDIb8g38QioVssa5cjqHDyn0gdEhZrcUlvUdIudD(bsSnpqbmLKd9EAx5ikilZt(dEuRIjnmMNCTGcQyVvuQdIHdZqAkaoul5eruVQLHWff6hOvyrA6T70nENtznGO6u5fC370Nl74LlO00rn0fVw5IgsczNbzV9lsUmwkJWK6vz03FILt3ek(Kwa2gg7ehQrSmBe9qHA2Gea)Hl84J)WfE0xWGQd7dx4rGqWELMPt7eyTMEj3Z1q1FJok2ijgLEDO9)H487m7QLFmUILy28qg3Cs4XsX52OyCFjHE88qoBI)GgCbIKzsDv2tQl)T2oK8GXaix3bhrVpSbAXOthtd)Uzgb(V40RvgxDtCbaD)w4TKTJ)Ioj5irDXO054hvmI6OAhWtNHUFa)OTtLDanDw3(b0VF68xN7)GobEy7Mho7wzCPrrOHPHVVWJM6FI)(GyFOVtjGJJE6Hi44E)H7ald9F(JOSmmQ2ZhW9ZSq8WSKrpEd42dTw9bYTpQzTc4(PNMlwU)rnUdSmqpdx)xIUdO7teZ(EwyCnCX6Ewcnrt0oROzO3ZseBGDi3Zc9KfbKsFDdi0zV7PCc6gyEHemVRPik9iCHemUnQHvxVI8Drnqxir7o0()R9wlgLtsRqq6rm9pVK)G)UoWFO3zrFWEtpFXO5lycJQnPNFA45pD1g9Sk993E2O81zlCr6ERBmAvuCeyK)(2glHIx8IW3O2EW97zrj2FzzdRFebyYUw3jzPqlpcBrtu2keJgYeLnFdbe5FZjJEYmOWjoN9LrVAgcoM4C2ygnErlgnyNrRqcdTb2zr9BNcoH90cAkqjPZLT1Z3Z6EO)pTS(PtTMB3lqUT0lyvBZw7S)5BxT1EZ2OE1ghVvRfEM1s734TVW((V(3Q(nMzAEWbjhR1oRaNBJ6R6()Z0gR24STTxzHgN80luAgDSbCb8mmZ4xBKchIO2UCmvMDT1Tw6Xen1445NOr9NzVuv0)YNy1HFlUS6LbIOeCzlRPwusg9F5kYfX97p]] )
+
+spec:RegisterPack( "冰DK(PVP)", 202601011, [[Hekili:DR1AVTTrw7FlffqjbPRI816nW2a7UDFbwxGUfq7UFus0u0weHwuGIkgzHHGDZRTLJTJtQDUv7uh3eFjxStqAsRJSJZ)LDfjL(u(lSNzgkPHKZqrkl32D1hcIjN5CBoZZ5zoCs0vI)wI4Pf0Ls8vDhR7(J1vSUI2D391xpFEI46xlNuI45eeVIW4W)jRWeW)(1)JVg9SRPOkKgn38Qf0eHNNi(OfKv0)lztmklb2BFDdJnNKyIVQ)eXZiNoTezKs5fteFOa(R4iFHKGEMIP(YSYJNr)Yft9)PPMxVykWQkM6VNv(QsA5fukM63vmLXCVQ2gB8fFj(LgZUN5BNX8nNuB6VZAT9SwOuXrm)Xxz8WDmV3pz90Ywl8oJsph94uGv3hwaMpOC1R)EJN80QVDXlzU)ogpypZhpT5Bx06hpY6OnbbS(BmV7RmV32MBS5LXte7UfhPvUr9FGiW6GwSxU4iGULZNmDbbLKtklPKUyQ)1CFl4qRSK5sZqBi1hQ(KQjZiKnTe9qxyrpdvxqrkREu9mAqumP6yj1ZiKpVGMSq2OszfgvPPa2BMQxFMkVBrJTwR6T2R28lzCWcKqXhpUKTL8Odn(W1)4Xlql7mQtQiND8KJQiKx3TqNF9Ap(MgZ9AJ5pIilhZSq2XL0qZvuvjTRPwB7TRT9hq2Zl)2gMXF4V(NnV5UgL(jx2GISyMrv1Yk5w))8Zn25UGqQw(Ln9Lzx26Up3CMBzE9DVuT9N1863UU4gx5A5YenTCEjH8ULL1DpX6EZwB97yE35bPu54hzU5QgL(ziHG8kNcjOHLgcS68pZ4g7v5WBqsJTU((1LzRsQQ)R4iqEpznYA)7ADNTHmRUIcwEP5mw52g3CriWrYZF40MLoWCJYqYYfjQZCHvbJP4iDdJNeIRT6jKDvq8hgYAZap4I0Rkx06OVhKuXr6bPJ120y)7x547BmBP6BgnEfkFQ2M7ErJvwU2(Rz(J3X8gpX69p9I0Rlb3)sexroVEEeguURMlzEi8Qib)1xHH0SdXj(JjIlQjRdjwcjI)jftLwvp6yimJKJjbGfr1LfVcmZeXfe1LvZMiUS41sQRwqmtcDabRvIAufv10jZPimEbjVYI88K511KVIesE9WvECY1IumfSfnP9ZZJFW596fAstiiNfE9Gft1BXutnfdRZ1yUqDzrgKwHSs5Jkwqtd2bvm1Wdvmvx2ccH4sEFJNFbkFukVUmSTte7G96xaJVp2c)HXi8FDRV23m8lMXAiTErVFUgJNL2rlm2yrVIScgRycbXmYaiwHC43bRaYIjZPoPKgzDO3ynvkj00uNFEi15yAss)tKshtD86k0pe9MA2XRrQEGGRAkxkPkSQoMI6K89PFFBjy7C2y(eS6kwGKCtbuiVusyetKhpB(4nSJ1fYoku)9kOXNuqBcvTOPvNmlL0D)ESw4df5rle)J9oA41fYMrv5AmFFtJqDufK8r84qANpWLhT7bVOBUsLpAblqp)CleqLp(vD4oVyzCTn(qiExv9bbLy68rDQdvZe9B4IP63bylrtuzUHaBHb(r9NlLpPWvfKvqIPyk4v(TzjeqlEu5a(j4qaC4IECKasTLLj1VFMu4GC8gg9QYbDIBtwq1fYHzBemCOqQUEOuN0eeWw0StoPKqo4Hif7lLPCs6rhpJAbLOiXCvjSwevbs6aSvunbWSscBSsd5TcPVwtL18nyDWhaZTfpqGsmZam8rl0tkNfKtcuThmrWrlObfI(VvEGbOGtWqnPYXGZelPHTiFPgXz2ypBScAxRD4Y0w16cbcthJWuiaF60eMchitiimfqEnNvCgcbVOqWzie8G(vSUCW2G3gvKc2M)qwIO3wwIqh1PUXekO0ezT(eMqolGpG2oirBz(IAMrsqrpt0CI6Ksu9rJwbom69O9i5uXp0FetNYQpkFruqrjj5psIAwaPLbjjnYevRa8jPS5HAA(JRQlOnoueue2W6axVLYhxAsRqoDwiVbwkII(d9sklNukR0eY13a1tiKVGAloZiUKkQqlaEt2AWbCVqUqOwsHAgyVbwc298Hu6xtsuDIrfArPFSHdJnpQJfUkgzxe3(L(NbJLJtkiUKMh(j(Kd3PyzP7oT23yH7DHXOz)inQAb0gBvnDz9cPBr4GFNxbVWLEOrBAmHqThVBcmM7qwtXsQNKd(ZwqyYLCPWHiVkVUAwPMb2M7N9nWYdVGgQSfHtAb4mvGsioQirfvH6fczhVGIDnt(X12spTi2pEwHjBgXaSRGqfxmds(OTlqMxDc02KQWMiuztxa2vIxN6IgJNEMTkQ67hAauglKukQioNztNebGgeV83Ih44)5B8Sh3G5I8zIrX)SwD(uXqF0SoXPMc7j16GNAkehylCNAkehhZ)V5zKa11YwKq5XVdZH6c0P2igGaa2NwsuaFk)WC0TZGdogIJ4fIdogIJK9R4bhdbogJDQ8p3h)89W0PBpQ03g6gceP27SQo6EAiBmDBOooDp1Ngx3P417xNODBXTD3tbYmtkOLfqBYNiE193X4234Jh)DgV8yJz3(CoowX5mkDVQBTxTnMU6oZu5WPRuED77RWhoWCT39VN(BkoI1lEr3v3AjqcvoCzZ1EP5sZy9D))MRUCL3VH5sZx5ONCoHS6Yq5NXbZpFgjfLZHNyXrmlDlJBSjrXvkp3avo8zM3yA0DXbRw8OapPGo4ejIBS6TnU1wOdaQogu6nr8p9tbNnG)kocA0DWlvesCN6lwewi8UCrH39yEjJqViex0OMdpqx2i7HhOVkt7CHJCk)GE7AQFPJCn7t5fpYP06ix(iBrE6Vasoeuqdtb4sif(KqVxgj0td7fscnN25sjHM3P9IjfoFM)4bRV09nwyzJ5NZ4jZZzmJqaQZhTrFTU4qxYzdQ(m5XgYB7SyptNW9nMjJgyXE(nRgHM7N4UOweUf08pqu5WJmo5zw38LasVXkpUfXcWoOAkb9Jz00yKD2S9od2tF1TeirS29FTXbLizbwL3LwsU754NH624qoQ(5sY9fRzc(cRAE39dPCB0tjKCD1qMgcgNUhsblksMpGwzuAEZL)HGnnbvSh688NdpupeHzVzneYd3MxsgxZUip1uC7GmrpglFNkVFvsYrW0dPzW(NVXyTVvB)Ox5b97TXOUt0IXFYUj84AQ9BNj5a2bds5TmXLm(MxyTXJ4RRg1HiPvSRnfHs79ARDZ9pQs5Tm2(2wL3bRDR3SR50BBS(3xDRP5RVMTC1Lx1DSiE4aZvkuDD1Ty6RLlTU3(fGL2gB(CITWARiVPr1SvVtlIFTtD46R3h8iRfEkX65RhuFvdTcye6Bvq0fudNGi2UPk7sYtNFLAtVPtxqueTRLUjT4kiCB6Bexn8DWUSJs011XAdHRbvVN7iGPI5g2Kfbw3yckEmbNS8O2uWM(xe34FDtV7aScZv2IqwzXfQuUmdfs2qmUMCoQvT6E1WiVQfRe2qTLxbo2JVldZwcOOri950oWiUyql7wl3i0ZOt0SNQJoj3y6S6(CD)Hy2)PVGT8ACtwWBVPpxoZH38UReWX342QeSX7PaK7PfXNRXsDpMMVkjNyJPR9877TCTdvt3Ue2A1BhAJqDy)HhQ3g5qewSv)WpxB9tyRnhC)zRoxnNnIVhUQ(I9l2bD0YY)GX8LR8Hhc8MBdNLv)zBeBF3bwZSpBH2SbFEejJUso8qDfHv3iHNhAXt12rmYGnc1R3akrAFufsEWc0htdWMGyK1DEae1G)0VmyEPfEBmjYTo)NW8KItnfNgroC)xGkZH64vNMLUHhQ)ySLaJ(MXsq0TRAOy0IEWEBnAPdcJCqlBiI6hF26O3GszXpYHPtit2EqNnMByWoX56otx(4XOUk59G980wJp9esvmtiI4iKFEozhd2ljXH1hXBWEVqKZZoleMe9UIUUGTt96Ty6xqIx1D3X4BxY6(BIi3IZadGB6CbHTBY1X88MWUaYxFSJwEFLRQL4Kr6ciazgRJEiQNPV9zvFZ7aYm8to7KLqWgIJ6i(SR4mQAczNP3sk(yjbfDIQWYPsoqIDmNXSg8D8XkdiRNMJVtqlHKAH75w1tGDxLj1Kifu9XypJkRge57UUAyN)5zBGtnfhl8co1yxocDolNpuJUP7bnJuuNmCsPDRJEab3MJl8lCr(67TBwPVdSJcbE4TS9PwOdu)qX4w(x5WvTE9jqm2C93yT7ln)(zm24vvE)hifq4WCjyA1Xx(isa(sfEj74e1cXWBMFW4jl7x0TXNSSnyaXuGNEYv94QgaUBewhSL1TMZppPt0syqBB9CJzN1)AnUBDnTXpaZCWwWvK07Gaqv0blrhMNGABYoKmXWqn8uqo0wz)2JziXNiMV5cp18opU1gUdtKKKr1EMqRCw9tI08lwMshO9rmAwadf1j50XVTa2o1zdnUw1uGa4OSzUz7vuFQYglCyAoH3h9ZD4ZMGtgLDNZNFXARZmhY1nTYJXWLgf)wHqe8zeJTwk8a0gegc8xyYp85jeU8WGW3jSsCGyu7zAYFGBq70ZBGiTtpPbkqgA(cm01PMNGnfbM7Tdl1a81CkX)5]] )
+spec:RegisterPack( "血DK(PVP)", 202601011, [[Hekili:TR1wVTTrw4Fl7lB2cJvrsX2jBqBEOOVSQabfq7UpsQruJKicfPaVydVOGqUj2r2oUoj2XoxCIRBBCCsJB8M201XYj()YUIKsp1)c7zMr0IIuKu2wbizr0dgwZmNVZL5CBMrCP4(BCzlG0XCxoDY0JNmvYujsNESlKCCUS6tvfZLTks4kOsW)iJQa)9R(hFfzSPKuqfi0QPyOkaJZLnVHOK(FvMlF)a88PhdwBvSa3LbKllwOaMTsSMax2pBa)yM5lWi9YM5(szXsL1VOzUpxsrPGzoqQmZ93LfNaRQHKmZ9NnZ1(LR3AZAFXxsN0AMTTF102)6BBx7(oRSTZC1nZy)l7A9WTSx73CE6(oZ9AR6)ez4CGupgfa77TFRR(gRF8PTE1cN1ENTSU322)qn7xTGZV0WPXgaap4xTxDx71ES96BCrkHu11mtCQH7hackp8c7fnZa8wuJVGbsIFsrSeOE)NzVTzoRLUH9nM2RG4Uu9jv4lJKlG9U05wiWs1rsyz9etGQuvuvuGppX4LalJYl1L0BUhy2A)8dA(6fG)HP()(b1btL1mly)D7zD4v)9dMZlEfqYcIYL4vnKX8tIrvvK9bAR6pYA(TDE(w2REDMuDeUo1N1APB5dXYyKQoVMUQ4vW(LVdVARRTK9ClBD9gmq8syfK6v4vk2xnJ5qyT4UT(5DpI92VSHZQR5N9tPPJvfr(aWzHVP5R)x(KCRV)ropyExakjnv1YjkiQHrA(LCNvFRZAZ0(b3bmca5np47S3yzR6)BWhInffK48zC)yMbCRzBho7SQZDEm44KkbWLv2WAN728G7AntDQBSVn0ry7cw1NfcigXA2DT2DAyM2B8eZmPb6bxmNg7y9Tlyv)3y07XGFwMnK9LrS3PrZ93K9fZmNJq83(eGS2l)wgLV42a(TxzAyGrCA8i7hwRdnadTxAtZmJseyQz05zRzT0pqjlOZYiml)XX406vxZE)B2(7VMZDUx7AnA92BXcSSxFUE3hUFO6xZdFiqmtoCACp2(fzFNs)Lg35j32EUfB(MdHekU7)2VCZGCWRDYhOG9P1t26So3DdNv)j2k6YHrdWH40B3pCzLe101i5NRorvEni6ucdF7Y009DCl5(CUScQIupDUS)bZCfu0tuuvrtNVigsKMqxu4kaLCzrc6IkYCzffMIxxXqOmNoKDpoOOXG8vLqLmWbXInENyCcENlu8cjO6pAMRmcYtYgxJoWFkOwOIRGeLHP)uZCJAM7R)6(iD(wZN4IfBrK8AAjemuvHKdM5U0NzMlvhGivJyZF04FIhDeRPlczueOk4OrzWcxhJrF6ZkIEFBStUyeLnRFlj(n9XdvyIPwfWoWSdJxvzsSkVcO3fLuMSlROfJ6YOZhkJIgg2oSGIOebLlCkexOMMKE5evfaxOpfCvglPFU0vA)lHYhVE8DP3qdZdROIgH4ujhiQ9BdzoWJNKoEEdvWDAsr5c9ymcwONYWWZQez98(fahAexA3yYW9sDdT7B0YLaDRNGtVYevlImH27XkcJtEuKWZKo80IudBTiW2rKPlFpwrcSDeEc3asjJdHkLgYLvKMksT4eQcJ2Jk4pDuQWtthqfcusmDe4gEw54ZNgi1v6KUJJ14rtGeLil2mhmvYqRlKk8u6byWOded6TIrQWtLFcuXZfUIKo8S(bG5cHkUPdpvEFv7GIjPBGK(Jg0rvPOhEk2bhDV2aCfwDBFfKshEgqikVkwprPYkgsjiWmbMYfbffjOwNCcve4nZdwLcqacQWuEm4hndLhHNFYVeF(bYVPSIQm5ORqrxahGf6SM3PLI)GT39bOFLWnK9N48yvnSkvIISD2qOMQzfnuNk6(phKwLITZOHu(T4BVDGYIfB7TXMR69X6TbACi8eHFG14q4b8FW04q4jAoDnoeBlUdwGvSvvJOl0OZh0BtaHNKAyw3tNW3IidPULlCjOcCso(IQy8)e7vqISuqphyf4)yEtbdodK5j58QQqhm6Ya9IL3Z(kGKK4zFHNCRvS7UIN9AdKcGGoHL1Gc1rxSqhPwcQSlG007PyvS4tR3QAuvVFLtgyueeIUEcRxdESmUIORh(5og4JuI5Em8EKDwC7r900VlON2CdBD5nkwSVRXO6Xqaz9P0NArdmcDUMswNpQybLk5rX05t8r7uLdqtJCnCjiMJUselPM7KX2y0PJzDAPYdZcpCHItVne6dTaDlgrKbfT8kKeBLjVNefkQ82rJ8oNlcDL7UtgD)wdRwR19h2Fk9a8FXBJ6pDV7Ptg0SxEZelkGZRyqsUQOQlQBuiMD2JV46nVBVKn831dkaKtVCc8f8HrNJM739WF9YQWxJPRCF4owp9bctPPdIyxNOU52JXjQ)1o8w2mspKEbOx3EpG0tRtESRqdhi5sgsKNnpg3NtaFIX2xsgnzxlguhBqoRPqzc(KmqqeG7je74DrfrO3oDOKcMUpLYB9EVu2LVK6BdcJFF8qUF8bQ(4duDApb)76hOkGNiQpnKM(DIF1G9AwNYZX63IGGKHfWci618CCEsSGQw0qpmBnjQ3e84Cw6tUz01b4DZ1bmy3ty)3gI66aI6uHd377XFudTHsxJ2W6MGcCLwrMsCyRIdrfjWvADmUV1J5gXLEhSpWeH8U3IZq62Cn)4Rv9XxR6)dFTkOr(jrQYq)uACzBTZww3AEYpVUxCG1mp(mhDdrNXQ(AT2C72RxR1wt3CVAn3)bTU(ZSMF7Mh(Z2R86)BTVXmJZZF(4T28ga1n3Br7vEb53K49VM9Yl28nRBFJR3SXpEg3FIMNHsGzM(XVJUbHbKNJgdprY6I8vqLaZLwzSKKlVTRFtR53GX4M7p7fAU3ZSNVg53omLT0vbwodDWOXL1A5BzDZnj3WLsrOhjUSuth3)l]] )
+spec:RegisterPack( "邪DK(PVP)", 202601011, [[Hekili:DRv3VTT1v8)w2lnTiyQsk2oPbR9HH(YCbckG22JK6kQRKicfPa5Lrqffe2jZ2YFK4My74Myp4yehhBp7wVMgp)vs)FztKu6P8VWoxsrlkjEjPmKl6MFWW6(XV75CUN7VZhYCP4(ZCzYJiyU7Koz6XsMkzQePtp6nt(zCzi1QG5YubjCxur4pKrLHF)1)1VMownjfuE6E1u0vfGX5YKtxuI8NK5YfeGJnYyWARGf4Ud8hLeZNh7UsSMaxMppM)ym(xIrKsgz)kzXILi32i7FrUKIunJSGyr)G49WQAijJS)EJSTU)EwtE0x(votAo1owVDsRF(9TM452lVJ9S1ng36nhA(332A1JS39u7zpXS()GoCwqSh1baRNDAZh8oZT2T5BN)tToyBZNTJ1lNW6TZB)MZSpBdaG1(zRNEO1QVYA9nUTZgD0xJXJsp8(bGW5m8d7TnghoBrn(86ij(QIyP8gz)3t)eJSMlUG1ct6xq8wkPQcFjKCES)Lo789TucscltsOjaxAfX8AevX7ItGLr5K6S1T21EY3Bn7sMZCMRU)HZR3gVxCS5V8GpC(S(btfJQikxShuSw(iZz)Pl2FRFA9MBoHlOnF3(whCwJt30E)TTE6m9axXsk6s8fuXYFtTEWS1l3W8WJBT)52ZF)gN8pDbVl9sVCzfz(Ii1Ik1K6tXwCFZL3YEJ3y(Gfbq6F7LrAeSkVsbEhHqJ1XBU1RnpU(f6M1Hh34KPm)Hxyp7UEktrPAvkLiVOggP1RCy)03BV6uTwBfhLVEJZFH1glzw)FbUsUt5asuUoE)ymo4D7EXyFWtTx5vG)tQeWfWctAF2bMpAEZ6h54n7I919F9(PU3dMZmFR1oYy80W2CvdRh9AVTDHwB9KvmFY(GaBV(UwpBfhH8gWoSRpT5Ip2EVvnx8LUhKNf(6a2nNykQ5A61mgFe6IxEdZd((gN)9Mtv3f(92XET3FDZPp08WjBCY8T241x3CXh26GLTEZkwZTL972n(2cUmsIAenkTuL7vHxdClLWWNUJdlx7BbU)ixgbvr4MweXL53zKnVcjrbvfncFbmqFKGikCxyNCzqcerfzUmIc14jk6cL4iaPwuqLtsrjpFfjurDC)y5oE7xEu8Ubt8y4d9rgzlHa2b3X1Cg4J7xluXLrIYW0)bJSJyK9B)2aKUEwZN4HL7Iu1LXAje0vH3IeJSFXNBKnvBGOKWUZFX4FIpDeRreHxucok4iHzWyRJrOpbSIWV3g9YlgHzZcAjrFPpgtHbmQIc8vuQsjIaTQGKs1oa5A4fueLOOCZ4Gs7lOKjzHYTyIso9cfsabOvKq0nMiVsvzpxe2gnppTaV8(cJSJ1LVIRHRJL5Zyknre7kONfUIqW(XW06o5oe48DeWUppQiMk5Wug77Tu6qpB2mzxIZ(Jd3erVjdXg5ry0pBqOAqOeOxcLyyCj7Qcqcu85XcOAoYjBI5lNCg2fDqNpBEZ(Gom(A6098o2pfwQKx1VOtXM5n(ks6RCPKnLCFszFSRJK0BCSgp6EirjkmgzHPys7MIn7D0h4TydlB6CW0vb3ob7e0DFpSd6ckksuQ9eQi4qbpquEAs95R15m6mJZzejjDWjX)rmeah)ZU2IFp0Be)NX(XWjxn2m1bEx1VXMgKpzVEneufh0zZf3lg3kwoiLuuLPvFuvugWbocIBES50v1i)pBAS(9M7aGo4pbROSw4Pig8MZbf5JvDKOqZSJXUD0Sc6Q1cpvSOFgoMVlVEQ9m88ZC847TAv9kXXjbx2n5q6Y4Rc1EddgAwCxIqvdJqQ9h5pswJbrehW0MytemWbZdpQn7NOXpyxQR8GDSF9hTt)iSJ9WMeimh(aNRlLPZbIulxJsrskDr4icvmkG0L6qr6T6YIWDdeoa)ny)YvO0FLWijsPeveiUrFg1pTdyRPZdepGfXzWWP(6gRr9z5eqss8UFGN20c3wxW72JvkPpOtyzniez4eKeWGbXufqqj3(jOJeFNymQ6vibrHgBueecNd1nkppwgxw07L6nga8rkrYKcXgPrmHmyCFwCr6m97sb504UggUJdGG5gtoaI3yJq7Ut5gLxflOuohkIO8oInSwnAVvCkh3xavxszVzd3j3bOUt3Oh46lxKqCZDqlNcepsReTD1DAuqBMv)Z5HqNxvDMmCx9Hw(RStyiMPN2R(fu6UmZkL0777qVY7LokP)85W5u0PmCkQerIE(iU0zFz0rnd8wShz4MjzE5fBQW0jdSCGEJSub(yeji2dU(ORDNsJaIyhZEhAVqn7SOv9hrjcJTFa62p1hiDfNZF2KevKCrDj63JwO21l15eHTVOmQAhlgqXhNspekrXNsza(LEfm0(rIJiczvqqaZu72o4JP0)od3QgxzMg2ioc9VfRx6)7B7)G0I74vBNJceuQgPVsuTbOKXHrLubuMXa07ObSTJH9Tb0jtlFPD4VoE2v4fDzfrul9WTP7dJRLR6MZpGv4oaL09RDHN5Iz9Hb9vn9RTS6ZIgVUsXQizVXhGocpaKDdshHztxn0YOoKMz)BRochs7XhcDeoKgJF5qNrZ(cVV2dNopdzsvfPkdzXOXLP5bBB(45(W5p38hp3CQxDTUkG5AM1xT5M70A9jAU9KnoEIgNUwZz2ZCUDA8l)G1YN8FM4(gJBV)(PBU5cacno(Hwl)J0)7uE(FZAPh24DRBTWmnoBRRHKjI8LrfbXxRews6AoB0yCR6FN5CB4EWnoD6B1449SMBc6)ywohRZQanrNakbxgZLES53TjTIALcqeBUmoQc3)9]] )
+
+
 spec:RegisterPackSelector( "blood", "鲜血(IV)", "|T135770:0|t 鲜血",
     "如果你在|T135770:0|t鲜血天赋中投入的点数多于其他天赋，将会为你自动选择该优先级。",
     function( tab1, tab2, tab3 )
@@ -2451,9 +2689,8 @@ spec:RegisterStateExpr("pestilence_ready", function()
 end)
 
 spec:RegisterStateExpr("shouldPestilence", function()
-    -- 泰坦重铸版修复：检查内部冷却
-    local now = GetTime()
-    if now - lastPestilenceTime < PESTILENCE_INTERNAL_CD then
+    -- 检查目标是否有疾病（必须有疾病才能传染）
+    if not ( dot.frost_fever.ticking and dot.blood_plague.ticking ) then
         return false
     end
     
@@ -2462,12 +2699,22 @@ spec:RegisterStateExpr("shouldPestilence", function()
         return false
     end
     
-    -- 检查目标是否有疾病（必须有疾病才能传染）
-    if not ( dot.frost_fever.ticking and dot.blood_plague.ticking ) then
+    -- 泰坦重铸版修复：检查内部冷却（缩短到1.5秒，更积极传染）
+    local now = GetTime()
+    if now - lastPestilenceTime < 1.5 then
         return false
     end
     
-    -- 单目标不需要传染
+    -- 疾病雕文检查：有雕文时可以刷新主目标疾病（即使单目标）by Kiro 20260101
+    if glyph.disease.enabled then
+        -- 有疾病雕文：检查主目标疾病是否需要刷新（剩余时间<6秒）
+        local needRefresh = dot.frost_fever.remains < 6 or dot.blood_plague.remains < 6
+        if needRefresh then
+            return true
+        end
+    end
+    
+    -- 单目标且没有疾病雕文时不需要传染
     local enemies = active_enemies or 1
     if enemies <= 1 then
         return false
@@ -2476,22 +2723,31 @@ spec:RegisterStateExpr("shouldPestilence", function()
     -- 使用实时检查：计算缺少疾病的敌人数量
     local missingCount = countEnemiesMissingDisease()
     
-    -- 如果没有敌人缺少疾病，不需要传染
-    if missingCount == 0 then
-        return false
+    -- 如果有敌人缺少疾病，需要传染
+    if missingCount > 0 then
+        return true
     end
     
-    return true
+    -- 备用逻辑：如果 NamePlate 检测失败，但有多个敌人且最近没传染过
+    -- 每8秒允许一次传染刷新（确保疾病不会掉）
+    if enemies >= 2 and (now - lastPestilenceTime) > 8 then
+        return true
+    end
+    
+    return false
 end)
 
 -- 判断传染逻辑结束。
 
 -- 新增death_runes函数，对可用死亡符文计数，不是通用的death_runes.current等函数。by 风雪20250411
+-- 修复：使用状态预测系统中的buff来计算死亡符文，而不是直接调用游戏API by 哑吡 20251228
+-- 这样可以确保在APL模拟执行技能后，死亡符文数量能正确更新
 
 spec:RegisterStateExpr("death_runes", function()
     local count = 0
+    -- 使用状态预测系统中的buff来计算死亡符文
     for i = 1, 6 do
-        if GetRuneType(i) == 4 and select(3, GetRuneCooldown(i)) then
+        if buff[ "death_rune_" .. i ].up then
             count = count + 1
         end
     end
@@ -2521,9 +2777,45 @@ end)
 -- ==================== 泰坦重铸版APL支持 ====================
 -- 新增状态表达式支持APL条件判断 by 泰坦优化版
 
+-- 检测是否双持武器
+spec:RegisterStateExpr("is_dual_wield", function()
+    -- 检查副手是否有武器
+    return off_hand.size > 0
+end)
+
+-- 检测是否双手武器
+spec:RegisterStateExpr("is_two_handed", function()
+    return main_hand.two_handed
+end)
+
 -- 检查宠物是否存活
 spec:RegisterStateExpr("pet_active", function()
     return pet.ghoul.active or pet.gargoyle.active
+end)
+
+-- 宠物身上的食尸鬼狂乱buff剩余时间
+spec:RegisterStateExpr("pet_ghoul_frenzy_remains", function()
+    -- 检查宠物是否存在
+    if not UnitExists("pet") or UnitIsDead("pet") then
+        return 0
+    end
+    
+    -- 在宠物身上搜索食尸鬼狂乱buff
+    for i = 1, 40 do
+        local buffName, _, _, _, buffDuration, buffExpires, buffCaster, _, _, spellId = UnitBuff("pet", i)
+        if not buffName then break end
+        -- 检查是否是食尸鬼狂乱 (Ghoul Frenzy) - spell ID 63560
+        if spellId == 63560 or buffName == "Ghoul Frenzy" or buffName == "食尸鬼狂乱" then
+            if buffExpires and buffExpires > 0 then
+                return max(0, buffExpires - GetTime())
+            else
+                -- 如果expires为0但有buff，返回默认30秒
+                return 30
+            end
+        end
+    end
+    
+    return 0
 end)
 
 -- 符文总数
@@ -2551,6 +2843,230 @@ spec:RegisterStateExpr("pet_health_pct", function()
     end
     -- 计算血量百分比：(当前血量 / 最大血量) * 100
     return (UnitHealth("pet") / UnitHealthMax("pet")) * 100
+end)
+
+
+-- ==================== 智能符文优化系统 ====================
+-- 最大化DPS输出的符文管理策略 by 智能优化版 20251227
+
+-- 获取指定符文类型的冷却剩余时间（返回最短的那个）
+spec:RegisterStateExpr("blood_rune_cd", function()
+    local cd1 = blood_runes.expiry[1] - state.query_time
+    local cd2 = blood_runes.expiry[2] - state.query_time
+    return max(0, min(cd1, cd2))
+end)
+
+spec:RegisterStateExpr("frost_rune_cd", function()
+    local cd1 = frost_runes.expiry[1] - state.query_time
+    local cd2 = frost_runes.expiry[2] - state.query_time
+    return max(0, min(cd1, cd2))
+end)
+
+spec:RegisterStateExpr("unholy_rune_cd", function()
+    local cd1 = unholy_runes.expiry[1] - state.query_time
+    local cd2 = unholy_runes.expiry[2] - state.query_time
+    return max(0, min(cd1, cd2))
+end)
+
+-- 获取所有符文中最快刷新的时间
+spec:RegisterStateExpr("next_rune_in", function()
+    local times = {}
+    for i = 1, 2 do
+        if blood_runes.expiry[i] > state.query_time then
+            table.insert(times, blood_runes.expiry[i] - state.query_time)
+        end
+        if frost_runes.expiry[i] > state.query_time then
+            table.insert(times, frost_runes.expiry[i] - state.query_time)
+        end
+        if unholy_runes.expiry[i] > state.query_time then
+            table.insert(times, unholy_runes.expiry[i] - state.query_time)
+        end
+    end
+    if #times == 0 then return 0 end
+    table.sort(times)
+    return times[1]
+end)
+
+-- 符文即将浪费检测：如果符文快刷新但已有可用符文，应该先消耗
+spec:RegisterStateExpr("blood_rune_wasting", function()
+    -- 如果已有2个鲜血符文可用，且有符文即将刷新，就是浪费
+    if blood_runes.current >= 2 then return true end
+    -- 如果有1个可用，且另一个在1.5秒内刷新
+    if blood_runes.current >= 1 then
+        local cd = blood_rune_cd
+        if cd > 0 and cd < 1.5 then return true end
+    end
+    return false
+end)
+
+spec:RegisterStateExpr("frost_rune_wasting", function()
+    if frost_runes.current >= 2 then return true end
+    if frost_runes.current >= 1 then
+        local cd = frost_rune_cd
+        if cd > 0 and cd < 1.5 then return true end
+    end
+    return false
+end)
+
+spec:RegisterStateExpr("unholy_rune_wasting", function()
+    if unholy_runes.current >= 2 then return true end
+    if unholy_runes.current >= 1 then
+        local cd = unholy_rune_cd
+        if cd > 0 and cd < 1.5 then return true end
+    end
+    return false
+end)
+
+-- 任意符文即将浪费
+spec:RegisterStateExpr("any_rune_wasting", function()
+    return blood_rune_wasting or frost_rune_wasting or unholy_rune_wasting
+end)
+
+-- 符能即将溢出检测（超过100时应该消耗）
+spec:RegisterStateExpr("runic_power_overflow", function()
+    return runic_power.current >= 100
+end)
+
+-- 符能高位检测（超过80，应该考虑消耗）
+spec:RegisterStateExpr("runic_power_high", function()
+    return runic_power.current >= 80
+end)
+
+-- 智能死亡符文使用判断：何时应该用死亡符文替代特定符文
+-- 原则：当特定符文充足时保留死亡符文，当特定符文不足时使用死亡符文
+spec:RegisterStateExpr("should_use_death_for_blood", function()
+    -- 没有鲜血符文但有死亡符文时使用
+    if blood_runes.current == 0 and death_runes > 0 then return true end
+    -- 鲜血符文即将浪费时不用死亡符文
+    if blood_rune_wasting then return false end
+    return false
+end)
+
+spec:RegisterStateExpr("should_use_death_for_frost", function()
+    if frost_runes.current == 0 and death_runes > 0 then return true end
+    if frost_rune_wasting then return false end
+    return false
+end)
+
+spec:RegisterStateExpr("should_use_death_for_unholy", function()
+    if unholy_runes.current == 0 and death_runes > 0 then return true end
+    if unholy_rune_wasting then return false end
+    return false
+end)
+
+-- 符文对齐检测：检查是否有多个符文同时可用（爆发窗口）
+spec:RegisterStateExpr("rune_pairs_ready", function()
+    local pairs = 0
+    if blood_runes.current >= 2 then pairs = pairs + 1 end
+    if frost_runes.current >= 2 then pairs = pairs + 1 end
+    if unholy_runes.current >= 2 then pairs = pairs + 1 end
+    return pairs
+end)
+
+-- 全符文就绪（6符文爆发窗口）
+spec:RegisterStateExpr("all_runes_ready", function()
+    return blood_runes.current >= 2 and frost_runes.current >= 2 and unholy_runes.current >= 2
+end)
+
+-- 符文效率评分：评估当前符文状态的效率（0-100）
+-- 高分意味着符文利用率高，低分意味着有浪费
+spec:RegisterStateExpr("rune_efficiency", function()
+    local score = 100
+    -- 每个满的符文对扣分（浪费冷却时间）
+    if blood_runes.current >= 2 then score = score - 15 end
+    if frost_runes.current >= 2 then score = score - 15 end
+    if unholy_runes.current >= 2 then score = score - 15 end
+    -- 符能溢出扣分
+    if runic_power.current >= 130 then score = score - 20 end
+    -- 死亡符文过多扣分（应该使用）
+    if death_runes >= 4 then score = score - 10 end
+    return max(0, score)
+end)
+
+-- 应该使用符能技能（防止溢出）
+spec:RegisterStateExpr("should_dump_runic_power", function()
+    -- 符能超过100必须消耗
+    if runic_power.current >= 100 then return true end
+    -- 符能超过80且没有符文可用时消耗
+    if runic_power.current >= 80 and runes_available == 0 then return true end
+    return false
+end)
+
+-- 智能技能优先级辅助：判断是否应该优先使用某类符文技能
+-- 返回应该优先消耗的符文类型："blood", "frost", "unholy", "death", "none"
+spec:RegisterStateExpr("priority_rune_type", function()
+    -- 优先消耗即将浪费的符文
+    if blood_rune_wasting then return "blood" end
+    if frost_rune_wasting then return "frost" end
+    if unholy_rune_wasting then return "unholy" end
+    -- 死亡符文过多时优先消耗
+    if death_runes >= 4 then return "death" end
+    -- 否则返回当前最多的符文类型
+    local b, f, u = blood_runes.current, frost_runes.current, unholy_runes.current
+    if b >= f and b >= u then return "blood" end
+    if f >= b and f >= u then return "frost" end
+    return "unholy"
+end)
+
+-- 符文冷却同步度：检测符文冷却是否同步（便于爆发）
+-- 返回0-1，1表示完全同步
+spec:RegisterStateExpr("rune_sync_score", function()
+    local cds = {}
+    for i = 1, 2 do
+        local bcd = blood_runes.expiry[i] - state.query_time
+        local fcd = frost_runes.expiry[i] - state.query_time
+        local ucd = unholy_runes.expiry[i] - state.query_time
+        if bcd > 0 then table.insert(cds, bcd) end
+        if fcd > 0 then table.insert(cds, fcd) end
+        if ucd > 0 then table.insert(cds, ucd) end
+    end
+    if #cds < 2 then return 1 end
+    table.sort(cds)
+    -- 计算冷却时间的标准差
+    local sum = 0
+    for _, cd in ipairs(cds) do sum = sum + cd end
+    local avg = sum / #cds
+    local variance = 0
+    for _, cd in ipairs(cds) do variance = variance + (cd - avg)^2 end
+    local stddev = math.sqrt(variance / #cds)
+    -- 标准差越小，同步度越高
+    return max(0, 1 - stddev / 5)
+end)
+
+-- 爆发窗口检测：是否处于适合爆发的状态
+spec:RegisterStateExpr("burst_window", function()
+    -- 至少4个符文可用
+    if runes_available < 4 then return false end
+    -- 符能充足
+    if runic_power.current < 40 then return false end
+    -- 有重要buff时
+    if buff.bloodlust.up or buff.heroism.up then return true end
+    if buff.unholy_frenzy.up then return true end
+    if buff.dancing_rune_weapon.up then return true end
+    -- 符文同步度高时
+    if rune_sync_score > 0.7 and runes_available >= 5 then return true end
+    return false
+end)
+
+-- 保守模式：是否应该保留符文（等待爆发窗口）
+spec:RegisterStateExpr("conserve_runes", function()
+    -- 如果有符文即将浪费，不保守
+    if any_rune_wasting then return false end
+    -- 如果大招快好了，保留符文
+    if cooldown.summon_gargoyle.remains > 0 and cooldown.summon_gargoyle.remains < 10 then return true end
+    if cooldown.dancing_rune_weapon.remains > 0 and cooldown.dancing_rune_weapon.remains < 10 then return true end
+    return false
+end)
+
+-- 疾病刷新优先级：是否应该优先刷新疾病
+spec:RegisterStateExpr("disease_refresh_priority", function()
+    -- 疾病不存在，最高优先级
+    if not dot.frost_fever.ticking or not dot.blood_plague.ticking then return true end
+    -- 疾病即将消失（<3秒）
+    if diseases_min_remains < 3 then return true end
+    -- 有瘟疫打击天赋且疾病<6秒时刷新
+    if talent.epidemic.enabled and diseases_min_remains < 6 then return true end
+    return false
 end)
 
 

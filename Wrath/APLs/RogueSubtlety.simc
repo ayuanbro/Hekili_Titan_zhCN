@@ -1,0 +1,79 @@
+## Rogue: Subtlety - 敏锐盗贼
+## 泰坦时空特别版
+## 核心循环: 暗影之舞 > 出血 > 割裂 > 剔骨
+
+## 战前准备
+actions.precombat+=/stealth
+actions.precombat+=/premeditation,if=talent.premeditation.enabled
+actions.precombat+=/potion
+
+## 默认动作
+actions+=/call_action_list,name=init
+## 治疗药水 - 低血量时使用
+actions+=/best_healing_potion,if=health.pct<35
+## 打断
+actions+=/kick
+## 潜行/暗影之舞状态
+actions+=/run_action_list,name=stealth,if=stealthed.all
+## AOE循环
+actions+=/run_action_list,name=aoe,if=active_enemies>3
+## 单体循环
+actions+=/run_action_list,name=st
+## 后备技能 - 低等级时使用
+actions+=/sinister_strike
+actions+=/auto_attack
+
+## 初始化变量
+actions.init+=/variable,name=rupture_pending,value=combo_points.current>=4&(!debuff.rupture.up|debuff.rupture.remains<3)
+actions.init+=/variable,name=eviscerate_pending,value=combo_points.current>=4&debuff.rupture.up&debuff.rupture.remains>6
+
+## 潜行/暗影之舞起手
+actions.stealth+=/premeditation,if=talent.premeditation.enabled&combo_points.current<3
+actions.stealth+=/garrote,if=!debuff.garrote.up
+actions.stealth+=/ambush,if=talent.find_weakness.enabled
+actions.stealth+=/cheap_shot,if=!talent.find_weakness.enabled
+
+## 单目标循环
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/kick,use_off_gcd=1
+## 暗影之舞 - 爆发
+actions.st+=/shadow_dance,if=talent.shadow_dance.enabled&energy.current>=80&combo_points.current<=1
+## 预谋 - 快速攒星
+actions.st+=/premeditation,if=talent.premeditation.enabled&combo_points.current<3&cooldown.shadow_dance.remains>10
+## 消失 - 配合伏击
+actions.st+=/vanish,if=talent.overkill.enabled&energy.current>=60&combo_points.current<=1&cooldown.shadow_dance.remains>30
+## 准备 - 重置技能
+actions.st+=/preparation,if=talent.preparation.enabled&cooldown.vanish.remains>60&cooldown.shadow_dance.remains>60
+## 暗影步 - 接近目标
+actions.st+=/shadowstep,if=talent.shadowstep.enabled
+## 冷血配合终结技
+actions.st+=/cold_blood,use_off_gcd=1,if=talent.cold_blood.enabled&combo_points.current>=4
+## 切割维护
+actions.st+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1
+actions.st+=/slice_and_dice,if=buff.slice_and_dice.remains<2&combo_points.current>=1
+## 破甲（如果需要）
+actions.st+=/expose_armor,if=settings.maintain_expose&combo_points.current>=4&!debuff.major_armor_reduction.up
+## 割裂 - 维护DOT
+actions.st+=/rupture,if=combo_points.current>=4&(!debuff.rupture.up|debuff.rupture.remains<3)
+## 剔骨 - 消耗星
+actions.st+=/eviscerate,if=combo_points.current>=4&debuff.rupture.up&debuff.rupture.remains>6
+## 出血攒星 - 敏锐主要攒星技能
+actions.st+=/hemorrhage,if=talent.hemorrhage.enabled&combo_points.current<4
+## 背刺攒星 - 无出血天赋时
+actions.st+=/backstab,if=!talent.hemorrhage.enabled&combo_points.current<4
+## 鬼魅攻击 - 有天赋时
+actions.st+=/ghostly_strike,if=talent.ghostly_strike.enabled&combo_points.current<4&!debuff.ghostly_strike.up
+## 后备技能
+actions.st+=/sinister_strike
+
+## AOE 循环
+actions.aoe+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1
+## 暗影之舞AOE
+actions.aoe+=/shadow_dance,if=talent.shadow_dance.enabled&energy.current>=80
+## 刀扇 - AOE主要技能
+actions.aoe+=/fan_of_knives,if=combo_points.current<4
+## 割裂 - 维护DOT
+actions.aoe+=/rupture,if=combo_points.current>=4&!debuff.rupture.up
+## 剔骨 - 消耗星
+actions.aoe+=/eviscerate,if=combo_points.current>=4

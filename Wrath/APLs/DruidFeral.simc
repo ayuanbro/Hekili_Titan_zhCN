@@ -1,64 +1,188 @@
-actions.precombat+=/mark_of_the_wild,if=!up&!buff.gift_of_the_wild.up
-actions.precombat+=/thorns,if=!up
-actions.precombat+=/cat_form,if=!up&!buff.dire_bear_form.up
+## Druid: Feral - 野性德鲁伊 (猫德最优输出APL)
+## 泰坦重铸服 WotLK 3.4.x
+## 
+## 核心循环优先级:
+## 起手: 精灵火(OOC) > 裂伤 > 野蛮咆哮 > 斜掠 > 撕碎至5星 > 割裂 > 狂暴 > 撕碎+补斜掠 > 野蛮咆哮 > 撕碎至狂暴结束
+## 循环: 斜掠(2T9优先) > 撕碎(清晰必打) > 野蛮咆哮 > 五星割裂
+## 
+## 套装效果:
+## T1 2件套: 斜掠/凶猛撕咬能量-5
+## T1 4件套: 狂暴+3秒
+## T9 2件套: 斜掠伤害提升，优先级提高
+## T10 2件套: 割裂能量-10
+## T10 4件套: 斜掠暴击提升
+
+## ==========================================
+## 战前准备
+## ==========================================
+actions.precombat+=/mark_of_the_wild,if=!buff.mark_of_the_wild.up&!buff.gift_of_the_wild.up
+actions.precombat+=/thorns,if=!buff.thorns.up
+actions.precombat+=/cat_form,if=!buff.cat_form.up&!buff.dire_bear_form.up
 actions.precombat+=/potion
+
+## ==========================================
+## 主循环入口
+## ==========================================
+actions+=/auto_attack
 actions+=/use_items
-actions+=/best_healing_potion,if=health.pct<35
-actions+=/potion
-actions+=/hyperspeed_acceleration,use_off_gcd=1,if=set_bonus.tier7feral_4pc=1&(buff.tigers_fury.up|cooldown.tigers_fury.remains>=15)
-actions+=/run_action_list,name=bearweave,if=buff.dire_bear_form.up&bearweaving_enabled
-actions+=/run_action_list,name=bear_tank_aoe,if=buff.dire_bear_form.up&!bearweaving_enabled&active_enemies>4&bear_mode_tank_enabled
-actions+=/run_action_list,name=bear_tank,if=buff.dire_bear_form.up&!bearweaving_enabled&bear_mode_tank_enabled
-actions+=/run_action_list,name=cat_aoe,if=buff.cat_form.up&active_enemies>2
+actions+=/potion,if=buff.berserk.up|target.time_to_die<30
+actions+=/run_action_list,name=bear_tank,if=buff.dire_bear_form.up&bear_mode_tank_enabled
+actions+=/run_action_list,name=cat_aoe,if=buff.cat_form.up&active_enemies>=3
+actions+=/run_action_list,name=cat_opener,if=buff.cat_form.up&time<15&!debuff.rip.up
 actions+=/run_action_list,name=cat,if=buff.cat_form.up
-actions+=/cat_form,if=!up
-actions.cat+=/tigers_fury,use_off_gcd=1,if=energy.current<30-(buff.clearcasting.up&15|0)
-actions.cat+=/faerie_fire_feral,if=!glyph.omen_of_clarity.enabled&!debuff.armor_reduction.up&target.outside2
-actions.cat+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&!buff.clearcasting.up&(target.outside2|buff.berserk.up&ff_during_berserk|!buff.berserk.up&energy.current<87)&(!rip_now|energy.current<action.rip.spend)&can_spend_ff
-actions.cat+=/berserk,if=!wait_for_tf&debuff.rip.up&!buff.clearcasting.up
-actions.cat+=/savage_roar,if=!buff.savage_roar.up
-actions.cat+=/savage_roar,if=debuff.rip.up&buff.savage_roar.up&buff.savage_roar.remains-(rip_maxremains+settings.rip_leeway)<=0&rip_maxremains+settings.min_roar_offset<=sr_new_duration&!buff.savage_roar.remains>=ttd
-actions.cat+=/rip,if=rip_now
-actions.cat+=/ferocious_bite,if=settings.ferociousbite_enabled&energy.current<67&!buff.clearcasting.up&(bite_at_end|bite_before_rip)&(!buff.berserk.up|bite_during_berserk)
-actions.cat+=/mangle_cat,if=!debuff.mangle.up&ttd>1&!wait_for_ff
-actions.cat+=/rake,if=buff.clearcasting.up&!debuff.bleed.up&ttd>9
-actions.cat+=/rake,if=!up&!buff.clearcasting.up&(should_rake|!debuff.bleed.up)&ttd>9&!wait_for_ff
-actions.cat+=/faerie_fire_feral,if=!glyph.omen_of_clarity.enabled&!debuff.armor_reduction.up&energy.current<=90
-actions.cat+=/dire_bear_form,if=should_bearweave
-actions.cat+=/gift_of_the_wild,if=should_flowerweave&mana.pct>settings.min_weave_mana&energy.current<42
-actions.cat+=/shred,if=!wait_for_ff&(excess_e>=action.shred.spend|buff.clearcasting.up|buff.berserk.up|(cooldown.faerie_fire_feral.remains<=1&energy.current>77|energy.current=100))
-actions.cat_aoe+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&!buff.clearcasting.up&(buff.berserk.up&ff_during_berserk|!buff.berserk.up&energy.current<87)&can_spend_ff
-actions.cat_aoe+=/tigers_fury,use_off_gcd=1,if=energy.current<30-(buff.clearcasting.up&15|0)
-actions.cat_aoe+=/berserk,if=energy.current>60&cooldown.tigers_fury.remains>=15
-actions.cat_aoe+=/savage_roar,if=!up&ttd>1+latency
-actions.cat_aoe+=/mangle_cat,if=(set_bonus.idol_of_the_corruptor=1|set_bonus.idol_of_mutilation=1)&combo_points.current=0&buff.savage_roar.remains<=1
-actions.cat_aoe+=/shred,if=set_bonus.idol_of_mutilation=1&combo_points.current=0&buff.savage_roar.remains<=1&(ttd>buff.savage_roar.remains+1+latency)
-actions.cat_aoe+=/rake,if=!set_bonus.idol_of_mutilation=1&combo_points.current=0&buff.savage_roar.remains<=1&(ttd>buff.savage_roar.remains+1+latency)
-actions.cat_aoe+=/swipe_cat,if=excess_e>=action.swipe_cat.spend|buff.clearcasting.up
-actions.cat_aoe+=/gift_of_the_wild,if=should_flowerweave&mana.pct>settings.min_weave_mana&energy.current<45
-actions.cat_aoe+=/faerie_fire_feral,if=!glyph.omen_of_clarity.enabled&!debuff.armor_reduction.up
-actions.bearweave+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&!buff.clearcasting.up
-actions.bearweave+=/cat_form,if=should_cat
-actions.bearweave+=/enrage,use_off_gcd=1,if=cooldown.mangle_bear.up
-actions.bearweave+=/maul,use_off_gcd=1,if=!up&!buff.clearcasting.up&rage.current>=action.maul.spend+(cooldown.mangle_bear.up&action.mangle_bear.spend|0)
-actions.bearweave+=/mangle_bear
-actions.bear_tank_init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
-actions.bear_tank_init+=/variable,name=build_lacerate,value=!debuff.lacerate.up|debuff.lacerate.stack<5
-actions.bear_tank_init+=/variable,name=build_lacerate_cost,op=setif,if=variable.build_lacerate,value=action.lacerate.spend*(5-debuff.lacerate.stack),value_else=0
-actions.bear_tank_init+=/variable,name=maintain_lacerate,value=!variable.build_lacerate&debuff.lacerate.remains<8&debuff.lacerate.remains<variable.time_to_die
-actions.bear_tank_init+=/variable,name=maintain_lacerate_cost,op=setif,if=variable.maintain_lacerate,value=action.lacerate.spend,value_else=0
-actions.bear_tank_init+=/variable,name=emergency_lacerate,value=debuff.lacerate.up&debuff.lacerate.remains<4.5&debuff.lacerate.remains<variable.time_to_die
-actions.bear_tank+=/call_action_list,name=bear_tank_init
-actions.bear_tank+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&!buff.clearcasting.up
-actions.bear_tank+=/enrage,use_off_gcd=1,if=time<10
+actions+=/cat_form,if=!buff.cat_form.up
+
+## ==========================================
+## 猫形态起手式 (前15秒专用)
+## ==========================================
+## 1. 精灵火触发清晰预兆
+actions.cat_opener+=/faerie_fire_feral,if=!debuff.faerie_fire_feral.up|buff.clearcasting.down
+
+## 2. 裂伤(撕裂debuff) - 必须先上
+actions.cat_opener+=/mangle_cat,if=!debuff.mangle.up
+
+## 3. 野蛮咆哮 - 1星即可开
+actions.cat_opener+=/savage_roar,if=!buff.savage_roar.up&combo_points.current>=1
+
+## 4. 斜掠 - 上DOT
+actions.cat_opener+=/rake,if=!debuff.rake.up
+
+## 5. 猛虎之怒 - 能量不足时使用
+actions.cat_opener+=/tigers_fury,use_off_gcd=1,if=energy.current<40&!buff.berserk.up
+
+## 6. 精灵火补能量 - 能量不足时触发OOC
+actions.cat_opener+=/faerie_fire_feral,if=energy.current<35&combo_points.current<5&cooldown.faerie_fire_feral.up
+
+## 7. 撕碎至5星
+actions.cat_opener+=/shred,if=combo_points.current<5&(behind_target|!should_use_claw)
+actions.cat_opener+=/claw,if=combo_points.current<5&should_use_claw&!behind_target
+
+## 8. 五星割裂
+actions.cat_opener+=/rip,if=combo_points.current=5&!debuff.rip.up
+
+## 9. 狂暴 - 割裂上好后立即开
+actions.cat_opener+=/berserk,if=debuff.rip.up&(buff.tigers_fury.up|cooldown.tigers_fury.remains>10)
+
+## 10. 狂暴期间补斜掠
+actions.cat_opener+=/rake,if=buff.berserk.up&debuff.rake.remains<3
+
+## 11. 狂暴期间撕碎至5星
+actions.cat_opener+=/shred,if=buff.berserk.up&combo_points.current<5&(behind_target|!should_use_claw)
+actions.cat_opener+=/claw,if=buff.berserk.up&combo_points.current<5&should_use_claw&!behind_target
+
+## 12. 狂暴期间5星野蛮咆哮
+actions.cat_opener+=/savage_roar,if=buff.berserk.up&combo_points.current=5&buff.savage_roar.remains<10
+
+## 13. 继续撕碎直到狂暴结束
+actions.cat_opener+=/shred,if=buff.berserk.up&(behind_target|!should_use_claw)
+actions.cat_opener+=/claw,if=buff.berserk.up&should_use_claw&!behind_target
+
+## ==========================================
+## 猫形态循环式 (稳定输出)
+## ==========================================
+
+## === 第一优先级: 清晰预兆必须立即消耗 ===
+## 清晰预兆触发时，无论任何情况只打撕碎
+actions.cat+=/shred,if=buff.clearcasting.up&(behind_target|!should_use_claw)
+actions.cat+=/claw,if=buff.clearcasting.up&should_use_claw&!behind_target&combo_points.current<5
+
+## === 第二优先级: 猛虎之怒 ===
+actions.cat+=/tigers_fury,use_off_gcd=1,if=energy.current<30&!buff.berserk.up
+
+## === 第三优先级: 精灵火护甲削减 ===
+actions.cat+=/faerie_fire_feral,if=!debuff.faerie_fire_feral.up&!debuff.armor_reduction.up
+
+## === 第四优先级: 野蛮咆哮维持 ===
+## 没有野蛮咆哮时，1星即开
+actions.cat+=/savage_roar,if=!buff.savage_roar.up&combo_points.current>=1
+## 野蛮咆哮即将结束时，优先补（但要保证割裂不断）
+actions.cat+=/savage_roar,if=buff.savage_roar.remains<3&combo_points.current>=1&(debuff.rip.remains>6|!debuff.rip.up)
+
+## === 第五优先级: 五星割裂 ===
+## 割裂不存在时，5星立即上
+actions.cat+=/rip,if=combo_points.current=5&!debuff.rip.up&target.time_to_die>10
+## 割裂即将结束时，5星刷新（卡点补）
+actions.cat+=/rip,if=combo_points.current=5&debuff.rip.remains<2&target.time_to_die>10
+
+## === 第六优先级: 狂暴 ===
+## 猛虎之怒期间或CD较长时使用
+actions.cat+=/berserk,if=buff.tigers_fury.up|cooldown.tigers_fury.remains>15
+
+## === 第七优先级: 凶猛撕咬 (五星溢出时) ===
+## p.s.五星溢出，buff都还有一定时间时，无脑撕咬+补斜掠填充
+## 五星割裂存在时，满豆直接打撕咬
+actions.cat+=/ferocious_bite,if=combo_points.current=5&debuff.rip.up&buff.savage_roar.up
+## 割裂>7秒 且 野蛮咆哮>7秒 时可以撕咬（更保守的条件作为备选）
+actions.cat+=/ferocious_bite,if=combo_points.current=5&debuff.rip.remains>7&buff.savage_roar.remains>7
+## 狂暴期间更激进地使用撕咬
+actions.cat+=/ferocious_bite,if=buff.berserk.up&combo_points.current=5&debuff.rip.remains>5&buff.savage_roar.remains>5
+
+## === 第八优先级: 裂伤(撕裂debuff) ===
+actions.cat+=/mangle_cat,if=!debuff.mangle.up&target.time_to_die>1
+
+## === 第九优先级: 斜掠 ===
+## 有2T9时斜掠优先级更高，结束后卡点补
+actions.cat+=/rake,if=!debuff.rake.up&target.time_to_die>9
+actions.cat+=/rake,if=debuff.rake.remains<3&target.time_to_die>9&(set_bonus.tier9feral_2pc=1|set_bonus.tier10feral_4pc=1)
+## 无2T9时，斜掠剩余<3秒也要补
+actions.cat+=/rake,if=debuff.rake.remains<3&target.time_to_die>9
+
+## === 第十优先级: 精灵火触发清晰预兆 (能量低时) ===
+## 能量较低时用精灵火触发OOC
+actions.cat+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&energy.current<35&cooldown.faerie_fire_feral.up&!buff.clearcasting.up
+
+## === 第十一优先级: 填充技能 ===
+## 2T9优先斜掠，无则优先撕碎
+## 连击点<5时攒星
+actions.cat+=/shred,if=combo_points.current<5&(behind_target|!should_use_claw)
+actions.cat+=/claw,if=combo_points.current<5&should_use_claw&!behind_target
+
+## 连击点=5时等终结技，但如果能量>80会溢出就继续打
+actions.cat+=/shred,if=combo_points.current=5&energy.current>80&(behind_target|!should_use_claw)
+actions.cat+=/claw,if=combo_points.current=5&energy.current>80&should_use_claw&!behind_target
+
+## ==========================================
+## 猫形态AOE循环 (3+目标)
+## ==========================================
+## 1. 精灵火触发清晰预兆
+actions.cat_aoe+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&!buff.clearcasting.up&cooldown.faerie_fire_feral.up
+
+## 2. 清晰预兆立即消耗
+actions.cat_aoe+=/swipe_cat,if=buff.clearcasting.up
+
+## 3. 裂伤debuff
+actions.cat_aoe+=/mangle_cat,if=!debuff.mangle.up
+
+## 4. 野蛮咆哮
+actions.cat_aoe+=/savage_roar,if=!buff.savage_roar.up&combo_points.current>=1
+actions.cat_aoe+=/savage_roar,if=buff.savage_roar.remains<5&combo_points.current>=3
+
+## 5. 斜掠攒星（AOE时也要保持）
+actions.cat_aoe+=/rake,if=combo_points.current<5&!debuff.rake.up
+
+## 6. 猛虎之怒
+actions.cat_aoe+=/tigers_fury,use_off_gcd=1,if=energy.current<30&!buff.berserk.up
+
+## 7. 狂暴
+actions.cat_aoe+=/berserk,if=buff.tigers_fury.up|cooldown.tigers_fury.remains>15
+
+## 8. 横扫至空能
+actions.cat_aoe+=/swipe_cat,if=buff.savage_roar.up
+
+## 9. 能量低时精灵火触发清晰
+actions.cat_aoe+=/faerie_fire_feral,if=glyph.omen_of_clarity.enabled&energy.current<25&cooldown.faerie_fire_feral.up
+
+## 10. 无限横扫
+actions.cat_aoe+=/swipe_cat
+
+## ==========================================
+## 熊坦单目标
+## ==========================================
+actions.bear_tank+=/faerie_fire_feral,if=!debuff.faerie_fire_feral.up
+actions.bear_tank+=/enrage,use_off_gcd=1,if=rage.current<20
 actions.bear_tank+=/berserk
-actions.bear_tank+=/maul,use_off_gcd=1,if=rage.current>action.maul.spend+variable.build_lacerate_cost+variable.maintain_lacerate_cost+action.mangle_bear.spend
-actions.bear_tank+=/lacerate,if=variable.emergency_lacerate
 actions.bear_tank+=/mangle_bear
-actions.bear_tank+=/faerie_fire_feral
-actions.bear_tank+=/lacerate,if=variable.build_lacerate|variable.maintain_lacerate
+actions.bear_tank+=/lacerate,if=!debuff.lacerate.up|debuff.lacerate.stack<5
+actions.bear_tank+=/lacerate,if=debuff.lacerate.remains<4
 actions.bear_tank+=/swipe_bear,if=rage.current>60
-actions.bear_tank_aoe+=/enrage,use_off_gcd=1,if=time<10
-actions.bear_tank_aoe+=/berserk
-actions.bear_tank_aoe+=/maul,cycle_targets=1,use_off_gcd=1,if=rage.current>60
-actions.bear_tank_aoe+=/swipe_bear,cycle_targets=1
+actions.bear_tank+=/maul

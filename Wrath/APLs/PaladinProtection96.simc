@@ -1,37 +1,55 @@
+## Paladin: Protection - 防护骑士优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 969循环 (正义之盾/正义之锤 > 奉献/神圣之盾/审判)
+
+## 战前准备
 actions.precombat+=/righteous_fury,if=talent.improved_righteous_fury.enabled
-actions.precombat+=/retribution_aura,if=!up&settings.maintain_aura&assigned_aura.retribution_aura
-actions.precombat+=/concentration_aura,if=!up&settings.maintain_aura&assigned_aura.concentration_aura
-actions.precombat+=/crusader_aura,if=!up&settings.maintain_aura&assigned_aura.crusader_aura
-actions.precombat+=/devotion_aura,if=!up&settings.maintain_aura&assigned_aura.devotion_aura
-actions.precombat+=/fire_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.fire_resistance_aura
-actions.precombat+=/frost_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.frost_resistance_aura
-actions.precombat+=/shadow_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.shadow_resistance_aura
-actions.precombat+=/blessing_of_kings,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_kings
-actions.precombat+=/blessing_of_might,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_might
-actions.precombat+=/blessing_of_sanctuary,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_sanctuary
-actions.precombat+=/blessing_of_wisdom,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_wisdom
+actions.precombat+=/retribution_aura,if=!buff.retribution_aura.up&settings.maintain_aura&assigned_aura.retribution_aura
+actions.precombat+=/concentration_aura,if=!buff.concentration_aura.up&settings.maintain_aura&assigned_aura.concentration_aura
+actions.precombat+=/crusader_aura,if=!buff.crusader_aura.up&settings.maintain_aura&assigned_aura.crusader_aura
+actions.precombat+=/devotion_aura,if=!buff.devotion_aura.up&settings.maintain_aura&assigned_aura.devotion_aura
+actions.precombat+=/fire_resistance_aura,if=!buff.fire_resistance_aura.up&settings.maintain_aura&assigned_aura.fire_resistance_aura
+actions.precombat+=/frost_resistance_aura,if=!buff.frost_resistance_aura.up&settings.maintain_aura&assigned_aura.frost_resistance_aura
+actions.precombat+=/shadow_resistance_aura,if=!buff.shadow_resistance_aura.up&settings.maintain_aura&assigned_aura.shadow_resistance_aura
+actions.precombat+=/blessing_of_kings,if=!buff.blessing_of_kings.up&settings.maintain_blessing&assigned_blessing.blessing_of_kings
+actions.precombat+=/blessing_of_might,if=!buff.blessing_of_might.up&settings.maintain_blessing&assigned_blessing.blessing_of_might
+actions.precombat+=/blessing_of_sanctuary,if=!buff.blessing_of_sanctuary.up&settings.maintain_blessing&assigned_blessing.blessing_of_sanctuary
+actions.precombat+=/blessing_of_wisdom,if=!buff.blessing_of_wisdom.up&settings.maintain_blessing&assigned_blessing.blessing_of_wisdom
 actions.precombat+=/seal_of_vengeance,if=buff.seal.remains<360
 actions.precombat+=/sacred_shield,if=buff.sacred_shield.remains<=0
 actions.precombat+=/holy_shield
 actions.precombat+=/potion
 actions.precombat+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold
 actions.precombat+=/judgement_of_light
+
+## 默认动作
 actions+=/seal_of_command,if=buff.seal.down&active_enemies>1
 actions+=/seal_of_vengeance,if=buff.seal.down&active_enemies=1
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
 actions+=/avenging_wrath
 actions+=/use_items
 actions+=/potion
 actions+=/hyperspeed_acceleration,use_off_gcd=1
+## 制裁之锤 - 斩杀阶段
 actions+=/hammer_of_wrath,if=target.health.pct<=20&(action.shield_of_righteousness.time_since<?action.hammer_of_the_righteous.time_since)<settings.min_six_delay
+## 969循环判断
 actions+=/run_action_list,name=nine,if=(action.shield_of_righteousness.time_since<?action.hammer_of_the_righteous.time_since)<settings.min_six_delay-settings.max_wait_for_six&!(cooldown.hammer_of_the_righteous.up&cooldown.shield_of_righteousness.up)
 actions+=/run_action_list,name=six
+## 后备技能 - 低等级时使用
+actions+=/judgement_of_light
+actions+=/seal_of_righteousness,if=buff.seal.down
+actions+=/auto_attack
+
+## 6秒技能 (正义之盾/正义之锤)
 actions.six+=/hammer_of_the_righteous,if=active_enemies>1&cooldown.shield_of_righteousness.remains<=settings.min_six_delay+settings.max_wait_for_six
 actions.six+=/shield_of_righteousness,if=cooldown.hammer_of_the_righteous.remains<=settings.min_six_delay+settings.max_wait_for_six
 actions.six+=/hammer_of_the_righteous,if=cooldown.shield_of_righteousness.remains<=settings.min_six_delay+settings.max_wait_for_six
+
+## 9秒技能 (奉献/神圣之盾/审判等)
 actions.nine+=/consecration,if=!buff.active_consecration.up&active_enemies>3
 actions.nine+=/holy_shield,if=aggro|debuff.training_dummy.up
-actions.nine+=/divine_plea,if=!buff.devine_plea.up&(glyph.divine_plea.enabled|(mana.percent<settings.divine_plea_threshold))
+actions.nine+=/divine_plea,if=!buff.divine_plea.up&(glyph.divine_plea.enabled|(mana.percent<settings.divine_plea_threshold))
 actions.nine+=/consecration,if=!buff.active_consecration.up&active_enemies>1
 actions.nine+=/avengers_shield,if=active_enemies>1
 actions.nine+=/judgement_of_wisdom,if=!debuff.judgement.up
@@ -41,3 +59,5 @@ actions.nine+=/holy_wrath,if=(target.is_demon|target.is_undead)&((settings.squee
 actions.nine+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold
 actions.nine+=/judgement_of_light
 actions.nine+=/sacred_shield,if=active_dot.sacred_shield=0
+## 后备技能
+actions.nine+=/seal_of_righteousness,if=buff.seal.down

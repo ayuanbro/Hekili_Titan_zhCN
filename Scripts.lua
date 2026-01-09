@@ -295,8 +295,11 @@ local function space_killer(s)
 end
 
 -- Convert SimC syntax to Lua conditionals.
+-- 2026-01-01: 修复 str 为布尔值时调用 :trim() 报错的问题
+-- 错误信息: attempt to index local 'str' (a boolean value)
 local function SimToLua( str, modifier )
     -- If no conditions were provided, function should return true.
+    if type( str ) == "boolean" then return tostring(str) end
     if not str or type( str ) == "number" then return str end
 
     local orig = str
@@ -660,8 +663,8 @@ do
         if type( conditions ) ~= "string" then return end
 
         local recheck
-
-        conditions = conditions:gsub( " +", "" )
+        conditions = conditions:gsub( " or ", "|" )
+        conditions = conditions:gsub( " +", "" ) --这句就是2.0之后出问题的根本原因
         conditions = self:EmulateSyntax( conditions, true )
 
         local exprs = self:SplitExpr( conditions )

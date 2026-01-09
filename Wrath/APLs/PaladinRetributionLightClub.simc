@@ -2,75 +2,198 @@
 # Paladin: Retribution - LightClub Discord Optimized
 # 来源: https://discord.gg/lightclubclassic
 # 优化日期: 2025-01
-actions.precombat+=/retribution_aura,if=!up&settings.maintain_aura&assigned_aura.retribution_aura
-actions.precombat+=/concentration_aura,if=!up&settings.maintain_aura&assigned_aura.concentration_aura
-actions.precombat+=/crusader_aura,if=!up&settings.maintain_aura&assigned_aura.crusader_aura
-actions.precombat+=/devotion_aura,if=!up&settings.maintain_aura&assigned_aura.devotion_aura
-actions.precombat+=/fire_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.fire_resistance_aura
-actions.precombat+=/frost_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.frost_resistance_aura
-actions.precombat+=/shadow_resistance_aura,if=!up&settings.maintain_aura&assigned_aura.shadow_resistance_aura
-actions.precombat+=/blessing_of_kings,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_kings
-actions.precombat+=/blessing_of_might,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_might
-actions.precombat+=/blessing_of_sanctuary,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_sanctuary
-actions.precombat+=/blessing_of_wisdom,if=!up&settings.maintain_blessing&assigned_blessing.blessing_of_wisdom
+
+## ==================== 战前准备 ====================
+## 光环维护
+actions.precombat+=/retribution_aura,if=!buff.retribution_aura.up&settings.maintain_aura&assigned_aura.retribution_aura
+actions.precombat+=/concentration_aura,if=!buff.concentration_aura.up&settings.maintain_aura&assigned_aura.concentration_aura
+actions.precombat+=/crusader_aura,if=!buff.crusader_aura.up&settings.maintain_aura&assigned_aura.crusader_aura
+actions.precombat+=/devotion_aura,if=!buff.devotion_aura.up&settings.maintain_aura&assigned_aura.devotion_aura
+actions.precombat+=/fire_resistance_aura,if=!buff.fire_resistance_aura.up&settings.maintain_aura&assigned_aura.fire_resistance_aura
+actions.precombat+=/frost_resistance_aura,if=!buff.frost_resistance_aura.up&settings.maintain_aura&assigned_aura.frost_resistance_aura
+actions.precombat+=/shadow_resistance_aura,if=!buff.shadow_resistance_aura.up&settings.maintain_aura&assigned_aura.shadow_resistance_aura
+
+## 祝福维护
+actions.precombat+=/blessing_of_kings,if=!buff.blessing_of_kings.up&settings.maintain_blessing&assigned_blessing.blessing_of_kings
+actions.precombat+=/blessing_of_might,if=!buff.blessing_of_might.up&settings.maintain_blessing&assigned_blessing.blessing_of_might
+actions.precombat+=/blessing_of_sanctuary,if=!buff.blessing_of_sanctuary.up&settings.maintain_blessing&assigned_blessing.blessing_of_sanctuary
+actions.precombat+=/blessing_of_wisdom,if=!buff.blessing_of_wisdom.up&settings.maintain_blessing&assigned_blessing.blessing_of_wisdom
+
+## 圣印和神圣恳求
 actions.precombat+=/seal_of_vengeance,if=buff.seal.remains<360
 actions.precombat+=/divine_plea,if=mana.percent<settings.divine_plea_threshold
+
+## ==================== 主循环 ====================
+## 初始化变量
 actions+=/call_action_list,name=init
+
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
+
+## 饰品和药水
 actions+=/use_items
 actions+=/potion
+
+## 超速加速（工程手套）
 actions+=/hyperspeed_acceleration,use_off_gcd=1
+
+## 清算之手（雕文效果，非仇恨目标时使用）
 actions+=/hand_of_reckoning,use_off_gcd=1,if=!settings.hor_macros&glyph.reckoning.enabled&(debuff.training_dummy.up|!aggro)
+
+## 强大buff即将消失时优先十字军打击
 actions+=/crusader_strike,if=buff.formidable.up&buff.formidable.remains<2
+
+## 多目标切换AOE循环
 actions+=/run_action_list,name=cleave,if=active_enemies>1
+
+## 斩杀阶段（目标血量<20%）
 actions+=/run_action_list,name=execute,if=active_enemies=1&variable.execute_phase
+
+## 单体循环
 actions+=/run_action_list,name=single
+## 后备技能 - 低等级时使用
+actions+=/judgement_of_light
+actions+=/seal_of_righteousness,if=buff.seal.down
+actions+=/auto_attack
+
+## ==================== 变量初始化 ====================
 actions.init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
 actions.init+=/variable,name=execute_phase,value=target.health.pct<20
+
+## ==================== AOE/Cleave 循环 ====================
+## 确保圣印激活
 actions.cleave+=/seal_of_command,if=buff.seal.down
+
+## 复仇之怒 - 爆发CD（圣印叠满5层后使用）
 actions.cleave+=/avenging_wrath,if=((((variable.time_to_die*0.9)-20)>action.avenging_wrath.cooldown)|(target.health.pct<=20))&(!buff.seal_of_vengeance.up|dot.holy_vengeance.stack>4)
+
+## 智慧审判 - 蓝量不足时优先
 actions.cleave+=/judgement_of_wisdom,if=mana.percent<(settings.judgement_of_wisdom_threshold/3)
+
+## 神圣风暴 - T10 2件套优先
 actions.cleave+=/divine_storm,if=set_bonus.tier10ret_2pc=1
+
+## 奉献 - 3+目标时使用
 actions.cleave+=/consecration,if=!moving&!buff.active_consecration.up&active_enemies>2
+
+## 十字军打击 - 核心技能
 actions.cleave+=/crusader_strike
+
+## 神圣风暴 - AOE核心
 actions.cleave+=/divine_storm
+
+## 愤怒之锤 - 斩杀技能
 actions.cleave+=/hammer_of_wrath
+
+## 奉献 - 蓝量充足时使用
 actions.cleave+=/consecration,if=!moving&!buff.active_consecration.up&mana.percent>(settings.judgement_of_wisdom_threshold/4)
+
+## 智慧审判 - 中等蓝量时
 actions.cleave+=/judgement_of_wisdom,if=mana.percent<(settings.judgement_of_wisdom_threshold/2)
+
+## 神圣恳求 - 蓝量不足
 actions.cleave+=/divine_plea,if=mana.percent<(settings.divine_plea_threshold/2)
+
+## 神圣愤怒 - 对恶魔/亡灵有效
 actions.cleave+=/holy_wrath,if=(target.is_demon|target.is_undead)&active_enemies>2&mana.percent>(settings.judgement_of_wisdom_threshold/1.8)
+
+## 驱邪术 - 战争艺术触发时
 actions.cleave+=/exorcism,if=buff.the_art_of_war.up&(cooldown.crusader_strike.remains<?cooldown.divine_storm.remains)>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/1.7)
+
+## 审判填充
 actions.cleave+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold
 actions.cleave+=/judgement_of_light
+
+## 神圣恳求
 actions.cleave+=/divine_plea,if=mana.percent<settings.divine_plea_threshold
+
+## 神圣愤怒填充
 actions.cleave+=/holy_wrath,if=(target.is_demon|target.is_undead)&mana.percent>(settings.judgement_of_wisdom_threshold/1.7)
+
+## ==================== 斩杀阶段 ====================
+## 确保圣印激活
 actions.execute+=/seal_of_vengeance,if=buff.seal.down
+
+## 复仇之怒 - 斩杀阶段立即使用
 actions.execute+=/avenging_wrath,if=(!buff.seal_of_vengeance.up|dot.holy_vengeance.stack>4)
+
+## 智慧审判 - 蓝量极低时
 actions.execute+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold/2.5
+
+## 愤怒之锤 - 斩杀核心（非T10 2件套或非高滚模式）
 actions.execute+=/hammer_of_wrath,if=set_bonus.tier10ret_2pc=0|!settings.highroll
+
+## 审判
 actions.execute+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold
 actions.execute+=/judgement_of_light
+
+## 神圣风暴 - T10 2件套高滚模式优先
 actions.execute+=/divine_storm,if=set_bonus.tier10ret_2pc=1&settings.highroll
+
+## 十字军打击
 actions.execute+=/crusader_strike
+
+## 神圣风暴 - T10 2件套
 actions.execute+=/divine_storm,if=set_bonus.tier10ret_2pc=1
+
+## 愤怒之锤 - T10 2件套高滚模式
 actions.execute+=/hammer_of_wrath,if=set_bonus.tier10ret_2pc=1&settings.highroll
+
+## 奉献 - 目标存活时间>4秒
 actions.execute+=/consecration,if=!buff.active_consecration.up&variable.time_to_die>4
+
+## 神圣风暴填充
 actions.execute+=/divine_storm
+
+## 神圣恳求
 actions.execute+=/divine_plea,if=mana.percent<(settings.divine_plea_threshold/2)
+
+## 驱邪术 - 战争艺术触发
 actions.execute+=/exorcism,if=buff.the_art_of_war.up&(next_primary_at<?cooldown.hammer_of_wrath.remains)>settings.primary_slack
+
+## 神圣恳求填充
 actions.execute+=/divine_plea,if=mana.percent<settings.divine_plea_threshold&(next_primary_at<?cooldown.hammer_of_wrath.remains)>settings.primary_slack
+
+## 神圣愤怒
 actions.execute+=/holy_wrath,if=(target.is_demon|target.is_undead)&(next_primary_at<?cooldown.hammer_of_wrath.remains)>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/1.4)
+
+## ==================== 单体循环 ====================
+## 确保圣印激活
 actions.single+=/seal_of_vengeance,if=buff.seal.down
+
+## 复仇之怒 - 战斗时间足够长时使用
 actions.single+=/avenging_wrath,if=((variable.time_to_die*0.9-20)>action.avenging_wrath.cooldown)&(!buff.seal_of_vengeance.up|dot.holy_vengeance.stack>4)
+
+## 审判 - 维护debuff和回蓝
 actions.single+=/judgement_of_wisdom,if=mana.percent<settings.judgement_of_wisdom_threshold
 actions.single+=/judgement_of_light
+
+## 十字军打击 - 三真理圣契叠层
 actions.single+=/crusader_strike,if=set_bonus.libram_of_three_truths&buff.formidable.count<5
+
+## 神圣风暴 - T10 2件套高滚模式
 actions.single+=/divine_storm,if=set_bonus.tier10ret_2pc=1&settings.highroll
+
+## 十字军打击 - 核心技能
 actions.single+=/crusader_strike
+
+## 神圣风暴
 actions.single+=/divine_storm
+
+## 神圣恳求
 actions.single+=/divine_plea,if=mana.percent<settings.divine_plea_threshold
+
+## 驱邪术 - 对恶魔/亡灵优先（战争艺术触发）
 actions.single+=/exorcism,if=(target.is_demon|target.is_undead)&buff.the_art_of_war.up&next_primary_at>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/4)
+
+## 奉献 - GCD空闲时使用
 actions.single+=/consecration,if=!buff.active_consecration.up&next_primary_at>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/3)
+
+## 驱邪术 - 战争艺术触发
 actions.single+=/exorcism,if=buff.the_art_of_war.up&next_primary_at>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/3.5)
+
+## 神圣愤怒 - 对恶魔/亡灵
 actions.single+=/holy_wrath,if=(target.is_demon|target.is_undead)&next_primary_at>settings.primary_slack&mana.percent>(settings.judgement_of_wisdom_threshold/1.4)
+
+## 圣光闪现 - 战争艺术触发时可选治疗
 actions.single+=/flash_of_light,if=settings.fol_on_aow&buff.the_art_of_war.up&next_primary_at>primary_slack&!buff.divine_plea.up&cooldown.exorcism.remains>6

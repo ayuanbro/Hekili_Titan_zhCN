@@ -1,37 +1,75 @@
-﻿actions.precombat+=/blood_presence,if=buff.presence.down
+## Death Knight: Blood DPS - 血DK输出优化版
+## 泰坦时空特别版 - 修复双疾病检查 20251228
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/blood_presence,if=buff.presence.down
 actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环 ====================
 actions+=/mind_freeze
 actions+=/best_healing_potion,if=health.pct<35
-actions+=/call_action_list,name=opener,strict=1,if=time<15&action.heart_strike.casts<6
-actions+=/icy_touch,if=!dot.frost_fever.ticking
-actions+=/plague_strike,if=!dot.blood_plague.ticking
-actions+=/pestilence,if=dot.frost_fever.ticking&dot.blood_plague.ticking&(dot.frost_fever.remains<3|dot.blood_plague.remains<3)&glyph.disease.enabled&prev_gcd.1.pestilence=0
-actions+=/use_items
-actions+=/potion,if=buff.dancing_rune_weapon.up|target.time_to_die<30
-actions+=/unholy_frenzy,if=cooldown.dancing_rune_weapon.remains<3|buff.dancing_rune_weapon.up
-actions+=/berserking,if=buff.dancing_rune_weapon.up
-actions+=/blood_fury,if=buff.dancing_rune_weapon.up
-actions+=/hyperspeed_acceleration,if=buff.dancing_rune_weapon.up
-actions+=/dancing_rune_weapon,if=runic_power>=60
-actions+=/heart_strike,if=blood_runes.current>=1
-actions+=/death_strike,if=frost_runes.current>=1&unholy_runes.current>=1
-actions+=/death_strike,if=death_runes>=2
-actions+=/death_coil,if=runic_power>=80
-actions+=/death_coil,if=buff.dancing_rune_weapon.up&runic_power>=40
-actions+=/death_coil,if=!buff.dancing_rune_weapon.up&runic_power>=60
-actions+=/blood_tap,if=blood_runes.current=0&(frost_runes.current=0|unholy_runes.current=0)
-actions+=/empower_rune_weapon,if=blood_runes.current=0&frost_runes.current=0&unholy_runes.current=0&runic_power<30
-actions+=/horn_of_winter,if=runic_power<80
-actions.opener+=/icy_touch,if=!dot.frost_fever.ticking
-actions.opener+=/plague_strike,if=!dot.blood_plague.ticking
-actions.opener+=/heart_strike
-actions.opener+=/heart_strike
-actions.opener+=/dancing_rune_weapon,if=runic_power>=60
-actions.opener+=/unholy_frenzy
-actions.opener+=/use_items
-actions.opener+=/death_strike
-actions.opener+=/empower_rune_weapon,if=blood_runes.current=0
-actions.opener+=/heart_strike
-actions.opener+=/heart_strike
-actions.opener+=/blood_tap
-actions.opener+=/heart_strike
+
+## 智能循环切换
+actions+=/call_action_list,name=burst,if=burst_window|cooldown.dancing_rune_weapon.ready|buff.dancing_rune_weapon.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+## 先上疾病
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+## 以下必须双疾病
+actions.burst+=/use_items,if=has_diseases
+actions.burst+=/potion,if=has_diseases&(buff.dancing_rune_weapon.up|target.time_to_die<30)
+actions.burst+=/unholy_frenzy,if=has_diseases&(cooldown.dancing_rune_weapon.remains<3|buff.dancing_rune_weapon.up)
+actions.burst+=/berserking,if=has_diseases&buff.dancing_rune_weapon.up
+actions.burst+=/blood_fury,if=has_diseases&buff.dancing_rune_weapon.up
+actions.burst+=/hyperspeed_acceleration,if=has_diseases&buff.dancing_rune_weapon.up
+actions.burst+=/dancing_rune_weapon,if=has_diseases&runic_power>=60
+actions.burst+=/death_coil,if=has_diseases&runic_power_overflow
+actions.burst+=/heart_strike,if=has_diseases&blood_runes.current>=1
+actions.burst+=/death_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.burst+=/death_strike,if=has_diseases&death_runes>=2
+actions.burst+=/death_coil,if=has_diseases&buff.dancing_rune_weapon.up&runic_power>=40
+actions.burst+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<30
+
+## ==================== 单体循环 ====================
+
+## === 先上疾病 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## === 以下必须双疾病 ===
+actions.single+=/death_coil,if=has_diseases&runic_power_overflow
+
+## === 爆发CD ===
+actions.single+=/use_items,if=has_diseases
+actions.single+=/unholy_frenzy,if=has_diseases&(cooldown.dancing_rune_weapon.remains<3|buff.dancing_rune_weapon.up)
+actions.single+=/berserking,if=has_diseases&buff.dancing_rune_weapon.up
+actions.single+=/blood_fury,if=has_diseases&buff.dancing_rune_weapon.up
+actions.single+=/dancing_rune_weapon,if=has_diseases&runic_power>=60
+
+## === 核心输出 - 心脏打击 ===
+actions.single+=/heart_strike,if=has_diseases&blood_runes.current>=1
+
+## === 死亡打击 ===
+actions.single+=/death_strike,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/death_strike,if=has_diseases&death_runes>=2
+
+## === 符能消耗 ===
+actions.single+=/death_coil,if=has_diseases&runic_power>=80
+actions.single+=/death_coil,if=has_diseases&buff.dancing_rune_weapon.up&runic_power>=40
+actions.single+=/death_coil,if=has_diseases&runic_power>=60&runes_available=0
+
+## === 符文恢复 ===
+actions.single+=/blood_tap,if=has_diseases&runes_available=0
+actions.single+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<30
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0

@@ -1,0 +1,102 @@
+## Warrior: Fury PVP - 狂暴战士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 爆发 > 持续压制 > 控制
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/battle_shout
+actions.precombat+=/berserker_stance
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/best_healing_potion,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=bloodsurge,value=buff.bloodsurge.up
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/enraged_regeneration,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/shield_wall,if=health.pct<25&enemy_burst_active&equipped.shield
+actions.pvp_defensive+=/defensive_stance,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/spell_reflection,if=target.casting&enemy_burst_active
+actions.pvp_defensive+=/berserker_rage,if=debuff.fear.up|debuff.sap.up
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/pummel,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/pummel,if=target_cast_priority>=80
+actions.pvp_interrupt+=/pummel,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/intimidating_shout,if=target_is_healer&target_dr_fear<3
+actions.pvp_cc+=/intercept,if=target_dr_stun<3&stance.berserker
+actions.pvp_cc+=/hamstring,if=!target.debuff.hamstring.up
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/pummel,use_off_gcd=1
+## 姿�?
+actions.pvp_st+=/berserker_stance,if=!stance.berserker
+## 爆发窗口
+actions.pvp_st+=/death_wish,if=variable.pvp_burst_window
+actions.pvp_st+=/recklessness,if=variable.pvp_burst_window
+## 血涌消�?
+actions.pvp_st+=/slam,if=variable.bloodsurge
+## 嗜血
+actions.pvp_st+=/bloodthirst
+## 旋风�?
+actions.pvp_st+=/whirlwind,if=rage.current>=25
+## 英勇打击
+actions.pvp_st+=/heroic_strike,if=rage.current>=60
+## 斩杀
+actions.pvp_st+=/execute,if=target.health.pct<20
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/berserker_stance,if=!stance.berserker
+actions.st+=/death_wish
+actions.st+=/recklessness
+actions.st+=/slam,if=buff.bloodsurge.up
+actions.st+=/bloodthirst
+actions.st+=/whirlwind,if=rage.current>=25
+actions.st+=/heroic_strike,if=rage.current>=60
+actions.st+=/execute,if=target.health.pct<20

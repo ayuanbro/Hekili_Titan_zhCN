@@ -1,0 +1,125 @@
+## Druid: Feral PVP - 野性德鲁伊 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 控制 > 爆发 > 持续压制
+## Requirements: 5.1, 5.3
+
+## ============================================================================
+## 战前准备
+## ============================================================================
+
+actions.precombat+=/mark_of_the_wild
+actions.precombat+=/cat_form
+actions.precombat+=/prowl
+actions.precombat+=/potion
+
+## ============================================================================
+## 默认动作
+## ============================================================================
+
+actions+=/call_action_list,name=init
+actions+=/best_healing_potion,if=health.pct<35
+## PVP 防守优先
+actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|health.pct<50)
+## PVP 打断优先
+actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
+## PVP 控制优先
+actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
+## 潜行起手
+actions+=/run_action_list,name=stealth,if=buff.prowl.up
+## PVP 单目�?
+actions+=/run_action_list,name=pvp_st,if=in_pvp
+## PVE 回退
+actions+=/run_action_list,name=st
+
+## ============================================================================
+## 初始化变�?
+## ============================================================================
+
+actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
+actions.init+=/variable,name=need_fb,value=combo_points.current>=5&(buff.savage_roar.remains<3|debuff.rip.remains<3)
+
+## ============================================================================
+## PVP 防守优先�?
+## ============================================================================
+
+actions.pvp_defensive+=/barkskin,if=health.pct<50&enemy_burst_active
+actions.pvp_defensive+=/survival_instincts,if=health.pct<30&enemy_burst_active
+actions.pvp_defensive+=/bear_form,if=health.pct<25&enemy_burst_active
+actions.pvp_defensive+=/frenzied_regeneration,if=buff.bear_form.up&health.pct<40
+actions.pvp_defensive+=/dash,if=health.pct<30&!enemy_burst_active
+actions.pvp_defensive+=/healthstone,if=health.pct<25
+actions.pvp_defensive+=/health_potion,if=health.pct<30
+
+## ============================================================================
+## PVP 打断优先�?
+## ============================================================================
+
+actions.pvp_interrupt+=/skull_bash,if=target_is_healer&target.casting
+actions.pvp_interrupt+=/maim,if=target_is_healer&target.casting&combo_points.current>=3&cooldown.skull_bash.remains>0
+actions.pvp_interrupt+=/skull_bash,if=target_cast_priority>=80
+actions.pvp_interrupt+=/skull_bash,if=target.casting
+
+## ============================================================================
+## PVP 控制优先�?
+## ============================================================================
+
+actions.pvp_cc+=/maim,if=target_is_healer&target_dr_stun<3&combo_points.current>=4
+actions.pvp_cc+=/cyclone,if=target_is_healer&target_dr_disorient<3&!buff.cat_form.up
+actions.pvp_cc+=/bash,if=target_dr_stun<3&buff.bear_form.up
+actions.pvp_cc+=/entangling_roots,if=!target.debuff.entangling_roots.up&target_dr_root<3
+
+## ============================================================================
+## 潜行起手
+## ============================================================================
+
+actions.stealth+=/pounce,if=in_pvp&target_dr_stun<3
+actions.stealth+=/ravage
+
+## ============================================================================
+## PVP 单目标循�?
+## ============================================================================
+
+actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
+actions.pvp_st+=/use_items,use_off_gcd=1
+actions.pvp_st+=/skull_bash,use_off_gcd=1
+## 猫形�?
+actions.pvp_st+=/cat_form,if=!buff.cat_form.up
+## 野蛮咆哮维护
+actions.pvp_st+=/savage_roar,if=!buff.savage_roar.up&combo_points.current>=1
+actions.pvp_st+=/savage_roar,if=buff.savage_roar.remains<3&combo_points.current>=5
+## 爆发窗口
+actions.pvp_st+=/tigers_fury,if=variable.pvp_burst_window&energy.current<40
+actions.pvp_st+=/berserk,if=variable.pvp_burst_window
+## 撕裂维护
+actions.pvp_st+=/rip,if=combo_points.current>=5&(!debuff.rip.up|debuff.rip.remains<3)
+## 凶猛撕咬 - 斩杀
+actions.pvp_st+=/ferocious_bite,if=combo_points.current>=5&target.health.pct<25
+## 凶猛撕咬 - 溢出
+actions.pvp_st+=/ferocious_bite,if=combo_points.current>=5&buff.savage_roar.remains>5&debuff.rip.remains>5
+## 耙击
+actions.pvp_st+=/rake,if=!debuff.rake.up|debuff.rake.remains<3
+## 撕碎/爪击攒星 - 根据连击点和位置选择
+actions.pvp_st+=/claw,if=combo_points.current<5&!behind_target
+actions.pvp_st+=/shred,if=combo_points.current<5&behind_target
+## 后备攒星技能
+actions.pvp_st+=/claw,if=combo_points.current<5
+
+## ============================================================================
+## PVE 单目标循�?(回退)
+## ============================================================================
+
+actions.st+=/potion,use_off_gcd=1
+actions.st+=/use_items,use_off_gcd=1
+actions.st+=/cat_form,if=!buff.cat_form.up
+actions.st+=/savage_roar,if=!buff.savage_roar.up&combo_points.current>=1
+actions.st+=/tigers_fury,if=energy.current<40
+actions.st+=/berserk
+actions.st+=/rip,if=combo_points.current>=5&(!debuff.rip.up|debuff.rip.remains<3)
+actions.st+=/savage_roar,if=buff.savage_roar.remains<3&combo_points.current>=5
+actions.st+=/ferocious_bite,if=combo_points.current>=5&target.health.pct<25
+actions.st+=/rake,if=!debuff.rake.up|debuff.rake.remains<3
+## 撕碎/爪击攒星 - 根据连击点和位置选择
+actions.st+=/claw,if=combo_points.current<5&!behind_target
+actions.st+=/shred,if=combo_points.current<5&behind_target
+## 后备攒星技能
+actions.st+=/claw,if=combo_points.current<5

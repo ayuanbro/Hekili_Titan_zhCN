@@ -505,6 +505,12 @@ spec:RegisterAuras( {
         duration = 15,
         max_stack = 1,
     },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
+    },
 } )
 
 -- Glyphs
@@ -559,6 +565,7 @@ spec:RegisterAbilities( {
         texture = 136066,
 
         handler = function ()
+            applyBuff( "abolish_disease" )
         end,
     },
 
@@ -577,6 +584,7 @@ spec:RegisterAbilities( {
         texture = 135883,
 
         handler = function ()
+            -- 治疗目标和自己，无需状态变化
         end,
 
         copy = { 48119, 48120 },
@@ -598,6 +606,7 @@ spec:RegisterAbilities( {
         texture = 135887,
 
         handler = function ()
+            -- AOE治疗，无需状态变化
         end,
     },
 
@@ -616,6 +625,7 @@ spec:RegisterAbilities( {
         texture = 135935,
 
         handler = function ()
+            -- 驱散疾病，无需状态变化
         end,
     },
 
@@ -634,9 +644,10 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 135954,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            -- 即时自我治疗，无需状态变化
         end,
     },
 
@@ -647,6 +658,7 @@ spec:RegisterAbilities( {
         cast = 0,
         cooldown = 0,
         gcd = "spell",
+        aura = "devouring_plague",
 
         spend = 0.25,
         spendType = "mana",
@@ -699,9 +711,10 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 237563,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            applyBuff( "dispersion" )
         end,
     },
 
@@ -722,6 +735,7 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 神圣赞美诗，引导治疗
         end,
     },
 
@@ -761,6 +775,7 @@ spec:RegisterAbilities( {
         texture = 135994,
 
         handler = function ()
+            applyBuff( "fade" )
         end,
     },
 
@@ -778,9 +793,10 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 135902,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            applyBuff( "fear_ward" )
         end,
     },
 
@@ -799,6 +815,7 @@ spec:RegisterAbilities( {
         texture = 135907,
 
         handler = function ()
+            -- 快速治疗，无需状态变化
         end,
 
         copy = { 9472, 9473, 9474, 10915, 10916, 10917, 25233, 25235, 48070, 48071 },
@@ -819,6 +836,7 @@ spec:RegisterAbilities( {
         texture = 135913,
 
         handler = function ()
+            -- 强效治疗术，无需状态变化
         end,
 
         copy = { 10963, 10964, 10965, 25314, 25210, 25213, 48062, 48063 },
@@ -839,9 +857,10 @@ spec:RegisterAbilities( {
         startsCombat = false,
         texture = 237542,
 
-        toggle = "cooldowns",
+        toggle = "defensives",
 
         handler = function ()
+            applyBuff( "guardian_spirit" )
         end,
     },
 
@@ -860,6 +879,7 @@ spec:RegisterAbilities( {
         texture = 135915,
 
         handler = function ()
+            -- 治疗术，无需状态变化
         end,
 
         copy = { 2055, 6063, 6064 },
@@ -880,6 +900,7 @@ spec:RegisterAbilities( {
         texture = 135972,
 
         handler = function ()
+            applyDebuff( "target", "holy_fire" )
         end,
 
         copy = { 15262, 15263, 15264, 15265, 15266, 15267, 15261, 25384, 48134, 48135 },
@@ -900,6 +921,7 @@ spec:RegisterAbilities( {
         texture = 135922,
 
         handler = function ()
+            -- 神圣新星，AOE伤害和治疗
         end,
 
         copy = { 15430, 15431, 27799, 27800, 27801, 25331, 48077, 48078 },
@@ -920,6 +942,7 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 希望圣歌，引导恢复法力
         end,
     },
 
@@ -978,6 +1001,7 @@ spec:RegisterAbilities( {
         texture = 135929,
 
         handler = function ()
+            -- 次级治疗术，无需状态变化
         end,
 
         copy = { 2052, 2053 },
@@ -1020,6 +1044,7 @@ spec:RegisterAbilities( {
         toggle = "cooldowns",
 
         handler = function ()
+            -- 召唤光明之泉
         end,
     },
 
@@ -1038,6 +1063,7 @@ spec:RegisterAbilities( {
         texture = 136170,
 
         handler = function ()
+            -- 法力燃烧，消耗目标法力
         end,
     },
 
@@ -1056,6 +1082,7 @@ spec:RegisterAbilities( {
         texture = 135739,
 
         handler = function ()
+            -- 群体驱散
         end,
     },
 
@@ -1074,6 +1101,9 @@ spec:RegisterAbilities( {
         texture = 136224,
 
         handler = function ()
+            if talent.shadow_weaving.rank == 3 then
+                addStack( "shadow_weaving" )
+            end
         end,
 
         copy = { 8102, 8103, 8104, 8105, 8106, 10945, 10946, 10947, 25372, 25375, 48126, 48127 },
@@ -1094,11 +1124,12 @@ spec:RegisterAbilities( {
         texture = 136206,
 
         handler = function ()
+            -- 精神控制，控制人形生物
+            applyDebuff( "target", "mind_control" )
         end,
     },
 
-
-    -- Assault the target's mind with Shadow energy, causing 45 Shadow damage over 3 sec and slowing their movement speed by 50%.
+    -- Mind Flay: Assault the target's mind with Shadow energy, causing 45 Shadow damage over 3 sec and slowing their movement speed by 50%.
     mind_flay = {
         id = 15407,
         cast = function () return class.auras.mind_flay.duration end,
@@ -1135,6 +1166,7 @@ spec:RegisterAbilities( {
         end,
 
         handler = function ()
+            -- 精神鞭笞引导结束
         end,
 
         copy = { 17311, 17312, 17313, 17314, 18807, 25387, 48155, 48156 }
@@ -1174,6 +1206,7 @@ spec:RegisterAbilities( {
         end,
 
         handler = function ()
+            -- 精神灼烧引导结束
         end,
 
         copy = { 53023 },
@@ -1194,6 +1227,8 @@ spec:RegisterAbilities( {
         texture = 135933,
 
         handler = function ()
+            -- 安抚心灵，减少敌人攻击范围
+            applyDebuff( "target", "mind_soothe" )
         end,
     },
 
@@ -1212,6 +1247,8 @@ spec:RegisterAbilities( {
         texture = 135934,
 
         handler = function ()
+            -- 心灵视界，查看目标视野
+            applyBuff( "mind_vision" )
         end,
 
         copy = { 10909 },
@@ -1362,6 +1399,7 @@ spec:RegisterAbilities( {
         texture = 135943,
 
         handler = function ()
+            -- 治疗祷言，群体治疗
         end,
 
         copy = { 996, 10960, 10961, 25316, 25308, 48072 },
@@ -1382,6 +1420,8 @@ spec:RegisterAbilities( {
         texture = 135944,
 
         handler = function ()
+            -- 愈合祷言，跳跃治疗
+            applyBuff( "prayer_of_mending" )
         end,
 
         copy = { 48112, 48113 },
@@ -1447,6 +1487,8 @@ spec:RegisterAbilities( {
         toggle = "interrupts",
 
         handler = function ()
+            -- 心灵恐慌，恐惧并缴械目标
+            applyDebuff( "target", "psychic_horror" )
         end,
     },
 
@@ -1466,6 +1508,8 @@ spec:RegisterAbilities( {
         toggle = "interrupts",
 
         handler = function ()
+            -- 心灵尖啸，AOE 恐惧
+            applyDebuff( "target", "psychic_scream" )
         end,
 
         copy = { 8124, 10888, 10890 },
@@ -1486,6 +1530,8 @@ spec:RegisterAbilities( {
         texture = 135953,
 
         handler = function ()
+            -- 恢复，HOT 治疗
+            applyBuff( "renew" )
         end,
 
         copy = { 6074, 6075, 6076, 6077, 6078, 10927, 10928, 10929, 25315, 25221, 25222, 48067, 48068 },
@@ -1506,6 +1552,7 @@ spec:RegisterAbilities( {
         texture = 135955,
 
         handler = function ()
+            -- 复活术，复活死亡玩家，非战斗技能
         end,
 
         copy = { 2010, 10880, 10881, 20770, 25435, 48171 },
@@ -1527,6 +1574,8 @@ spec:RegisterAbilities( {
         toggle = "interrupts",
 
         handler = function ()
+            -- 束缚亡灵，控制亡灵目标
+            applyDebuff( "target", "shackle_undead" )
         end,
 
         copy = { 9485, 10955 },
@@ -1590,6 +1639,7 @@ spec:RegisterAbilities( {
         texture = 136149,
 
         handler = function ()
+            -- 暗言术：灭，对目标造成伤害，如果目标未死则反噬自己
         end,
 
         copy = { 32996, 48157, 48158 },
@@ -1602,6 +1652,7 @@ spec:RegisterAbilities( {
         cast = 0,
         cooldown = 0,
         gcd = "spell",
+        aura = "shadow_word_pain",
 
         spend = 0.22,
         spendType = "mana",
@@ -1675,6 +1726,7 @@ spec:RegisterAbilities( {
         texture = 135924,
 
         handler = function ()
+            -- 惩击，神圣伤害技能
         end,
 
         copy = { 591, 598, 984, 1004, 6060, 10933, 10934, 25363, 25364, 48122, 48123 },
@@ -1705,6 +1757,7 @@ spec:RegisterAbilities( {
         cast = function() return 1.5 * haste end,
         cooldown = 0,
         gcd = "spell",
+        aura = "vampiric_touch",
 
         spend = 0.16,
         spendType = "mana",
@@ -1724,7 +1777,7 @@ spec:RegisterAbilities( {
 
     },
 
-    -- 自动攻击 - 后备技能（牧师用惩击代替）
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
     auto_attack = {
         id = 6603,
         cast = 0,
@@ -1732,10 +1785,33 @@ spec:RegisterAbilities( {
         gcd = "off",
 
         startsCombat = true,
-        texture = 135641,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
 
         handler = function()
         end
+    },
+
+    -- 狮心 - 人类种族技能
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
     },
 } )
 
@@ -1746,7 +1822,15 @@ end )
 -- Expressions
 spec:RegisterStateExpr( "flay_over_blast", function()
     local currentSP = GetSpellBonusDamage( 6 ) or 0
-    local vttimer = select( 4, GetSpellInfo( 48160 ) ) or 1500
+    -- 使用 APIWrapper 获取法术信息
+    local APIWrapper = ns.APIWrapper or (Hekili and Hekili.APIWrapper)
+    local vttimer = 1500
+    if APIWrapper and APIWrapper.GetSpellInfo then
+        local spellInfo = APIWrapper.GetSpellInfo( 48160 )
+        vttimer = spellInfo and spellInfo.castTime or 1500
+    elseif GetSpellInfo then
+        vttimer = select( 4, GetSpellInfo( 48160 ) ) or 1500
+    end
     vttimer = vttimer / 1000
     local currHaste = ( ( 1.5 / vttimer ) - 1 ) * 100
     local latency = select( 4, GetNetStats() ) / 1000
@@ -1796,9 +1880,7 @@ spec:RegisterOptions( {
 
 
 -- Packs
-spec:RegisterPack( "暗影", 20231124, [[Hekili:vN1wVTTnu4FlbfWWg1vXxAU0bR8W2EynpemaTNLeTeDmr0nirfpdeOF77qsDHsIK2UnDffOOjrMN7NZ35JYUlD)hxNqef7(0QfRwVC5QVyT8(f3S4wxh6XmSRtgk4f0ZWVKGIH)3zpkm9a7XhJsrHmXlslZdGp6q6HcsCH1Ze6(YTwK0k)jv(Wt3JrHwbPXxFiLg9IRZ2sse9RjUBvz6pV6lGkZWbUpDJRZEsyiwCsCrqJ5R8)7CcUGw5NLtsZj0Jv(re2FVlnVY)VWVqIiUoShvW9qsYZry43EIhV4e02iCO7V76eacJZjixNxrWpGhBrjXypAQxibx5VXUYhfqjPjwXKKqVDrOJwHL5i2JQ8F7Tk)Pv(XPVcwGhUxv5hMsTcXVczf4HEzrONlXw54yejPOYFMRJqHSqQ)HCPqQqRdUTC3olssco3BxAqzHvzwRdWmzbp14Dinp0ldSvNj3u5V06gU7z(GpOkAPKGx8yjLk)pcPzOGLeCSxC0EwwaS(cZWpu5VOtvcFBhbNeYu2N1QmipZCSM0(u()4POMWdJyffRck0ax5drMidOXlGp)o4aZAtPg0f7WRnOSnT6A2WiRlRZcVB0gES60RO4msoja0BzW(UQKCvamvaQGwxFmgER78L(AM5j3AkrBQH2C38DxAZG9W4bQeSolV0xH((Tri2qoRcXlp54SiCcPyFmoH2RFF94guUWmN6EZJy67F6uO0yitJFzGgla0lhZzT(LA9WfmaOfwR6m9beHhflxOYO1yb6AD(u789GtiL0NDI(q5XUrGfb7rqQjQ5Zn5lSiB6z4pAaDAZd6H0VQUnPUArYXCmtJtjlxmQkdYXnKEOzWqxKIBdwC82CuGq96boVQzdJkixWlHJLxMr9i7GZQynXewjR4b7vC7OhtDOrKHScXikhPyPEqRHYRcryPEKMyucYkddCjsOI2JBLYzHeGuqEb73z1Dq57qLruvl1Bejaff5j(dpgxabJapbrgsIO)HxvBKOSa7bUtCHS(AwQ1COSuXp7DIHzvgDLCsM4K7rc(b1B3sZJR8ja9H8uAnrITLpdJePL0oZS)ilEZW4qigcWrybPdHtMUBN3ZbHSy34EeMYEf7HtWXaHj(22LDMiVmrB(jicaaXQ2nCosxZ4IxPYYXa5VTiJ1QUuZGC3taYF8wmqRJXsudAntol4NjNbfQqcumWEfSjqkxi(Kl)ZYYrhHbN0DYFSCpOKOMj7iux6bqB85hWdPeAziwRf7Fc52TXkXm3OHGE8vy18a1cVPVhIJUzg862tnFqBBOmscFu7kacC)auVcmk3Cz(7IYYWsQce3GJqS4rr5pJH7xaHZfHbd4C)RxFv4CNs4(gcq)uy3BSd7BGk)W(RrTtcUOksUNkF9dHRSbCVrm5)g85FrU(YP508Rhj)3xwHdP()otkCij)lm3EnS1S51siHPOcMDTgywd8Rplxq24Vl8x1J7FE8x1VZ(S4VAG(8fXFLZ)uXYW0m2v5OY9fISm73IaNGFhpmpnrZHzbM)fwghFSPnE9IfTibc0h5cexH1S0KFSInQN2vQv)EmkIU3klGYNlxTq2i4)fhusXEz7rfcgHGgFTov08Q)(m7cD5Sybqk)ACgq0bhYX8e2w8(9kSQEKXNmDhH5eFO59a(Bv(1VyWh)a)noEoVhs(z7ZUS6r4HCTwZyT6rH5lSAjX(r7R74CoNSZwfnu1Y1J(yROJ5Jorpxu1kwffXw9RLe6qZmGIQsl1b(1Q)ren3SCHAHhIWXuXvqtRMyIx3RRi)P42EThfoWWB3nN1UzZgRKpv7n6KFyJUbfFbxndoFNk63dC1WMaPOcoSMRYnx6MC2lLfyWvReHMGanZC9XVF40IkUowtY8RSCK)FJYHpcWU6snwSShVqjMZfclHsmNp3Bpvh(Zea7z2BVng15eMOhgrTrgHTSz1IMi4p4PIoLksnGABxDPinzFVcbgIXZRMgFLCAmkBz28Eu(SxoFenq77MlVVZ246oUViwknzQjU9BGlamX0bEWw40Qi()XAcYZuezsC4zoJQf(pSqHC9PJFEPLD26jY34JBAjwmrPVyVwBq0Luox35QAg6tMovlBA7B04i3DdmhOxoWtvk4gqUzAu5svz6owVAlq2DjTPdOz)2B6PyVzTQoI(laUAmt6lX51Sq4surVb(te(xVAsZ40qObv9nDJ1x2i7Pkc1(Wj6u5ewzQt7PvbDP)WT0p5htIQ6g7BBXvDQ3t0iUyVHgBPS)DmqtZ3wkmouN8nIVotH1LQe9jDuN(bv))j8yRFDHWJdKtcr6NjAJc)Ba897o0SX2QZC7B)MJF8iGT2tQ1Ba9)HflfcZ(wRAYN6IXn2lSwnVahy8uNq5Q)s7MmQpV7lSBI(A8g7P1cQ7RPRDkH73t1RQpDcfziJ)DTZzCV9fVZrfC0fTyyeWVsabTa)gNA0FyJa)WD7lP7tZDDCkHhNuwuWVGU7)n]] )
-
-spec:RegisterPack( "暗影(黑科研)", 202512261, [[Hekili:vJ1YUTTrx4NLSjWgfHvxSStds8IURzrqbyxtYrdhzni8gihkhbeq4wJKkNuuyJ2)4Ej1nErIttCHBBqlCsZLhMFtr73IEMHusuuKusPTOiagwudpZ5(8D(gPuv5tuK1rmIY1QvPwJQ1QTSuLAvwP2skYSUoefzhe(6O1GhSqMW)7)D7g(QFDHZ(ZDIoyNOh81lYLORHnsNRjpBFxmiLICtFQb7JSuAMr9nQcs5qWkxRHICBQUojwgIhwr(JDPep2Lc0KBJ0Txpq7cbAXgmARdcpU3jV8Bc)I7fTvVGR2)z)s4p8O(7(hr)0lI265H9EkFz(gIfQ)w3T)Z(FGCp44W3Sz4RFs0xEeO4WTp(0934SdF5jp)UNEWJc0wfw7Bpm6t)9O790ODVLybWKN(4n6F)JUu0UFVyLOF71rpCVZ27NJoCV498MnH9C29)8OE3wr2G6X8eXp1Andc801ejwIfQPbrx5dvKXUugXLIuK7GGpGLLyutIkZwvNsc0U8vc0qyg12sYKAPR2Ya1vs33fXxkq7M3mqBHant7oGfc0oFG25c00Tzs6Koqohwu1XaTMprYLyIOwEbAqLjwH8S74cPWG6rHoyt)wTKOwwex1w2yFpjFNHoa3KEIIJ662U6QoGTgzYlhOvvQHW9kxWvZlAzu81v5jLaT3lqZa6ASWDhlogklpaQpNzyOQvzKQI9TwuILoxzlvOYG8m3XgK2xq8Nifni8iiErrYJbNuc0GiloduGxaVFfqGfhMslrxCHRxIYU8qDTy2iBuwNhEnkm841PoithQlfd61h3EuvkDvamfg5XsQpLgE1h5lJRzUNSCzj6YAOlVBEL5Tz4kzJhOsW7SuT7a99nnG3fxHeLhxIJbXI612KyXgRFV(KnOInZDQlw(rSI7FgPWuhd5A8dYOrpaivU8S24L6IHl4aqvKQnY0RJOIOOAL8mAcwqrToxy457msKkPV4u6dtFSBcWcCBeKAmg8(Y8fEKTWm4pfa6mmpumK(5sAtsQwuxIaZS0tjvRmrvg2NWqfdnpWqddcIztxeEonx2DlmAw40jXCh3pIhfX9DynxFhMkTf8ICgECEEH0B1RutyNIrAhOX8aY0jiMa)OAXqzz3FE4evlg)XezHKCia)flwCtZYPYz6uG1IRh)zUAe4n5CQpLQ5nnGp0c5BWYJrWGDJrggQXFrLtKiMoHAmDlQvCZxXTeTjidwBjhmlgpkf4rtGmLk)9ICGnlX5RN2399iQGQm9g31JhioqOK9oUeIcbF72TAPUgwNhHd3r7U8SLdHOdHgMyqIjYKrffxm46PdrLyrmbkHIH3P0URVvHzmSbGNM7mHzz3je4e1ohxc22Sjk3QxUy5TSDnLGpTMGNb8IzN0fh)qmniHsvHifftbQeGIYXbMADNL0uMtoX2HpCGL2aXWr8NmGdGIPgeHJXCbWzEFPUVPz3b4x1Ruzi1igYDnclnsMqHjfQ0lNtID6UsI6ZC8PwL0gHCdc2NruDAJ8sAksAVYl6Tm6QIxhpLgzax5IzGo8ii3Y7o(BXnAwq27cXLACkXtCqEEG1hl0nr3qDC1jVsUJogW66)KRuukL)3I7pKDQ0ehXIjaNtIEA5R)viONd2BEtDfxF4TWNFh5ottNY07E3S4FwQOzVVXmnGzoSwUmrZEFJ5mJ)(ak(GFHKuin5bexVaG4jO6NhK585vP9N5dDT8BemBKMlMOWmrAEPzJTlSqNeoYP)5(wh5YN0dGe97TD4D(XWJEz4TE4jV42no54N0)oBC6MVkS3UNU)J))B8zbxfmKpRTTRIC4xTt427Z5Hz3IYNClmHYFn]] )
+spec:RegisterPack( "暗影(黑科研)", 20260110, [[Hekili:vNvBVTT1v4FlgfqqgXrHsQ2oRq0aBadylFiBaAFMu0KxzreksbskNAadcVfKy5KL0eSMy3fN0eG060204(YAqQtC8pMjkk)VyN7LVtEVusPjROffjku3Zl3ZlpNNdLqvH)MqtfjBKWfRXvBjUQv5QWvLBjU6cnT3OhsOzpj5ljTg8bDPUWFo6NUX4dVl(XBOziPGf3YOVPm8vN(Q74DWDCV(99E0N69vVy0oBj0C1(QA2)zDHvZBf4)QwdKUhsw4Ilk0SJQIcY)KilzHMJp5Zg(YVE013A8voE4R3Z9Qd8o6GtV6n9o(5UF(rdp6w)j0Lu1uh9974(pVN3odCh8IHhV))DR)HZfCUWF1ufzz)roTA2rsX4YoToRtRr)7DDp(7925a3xoaRqIuoxy0p(DUp4lhT7l8(QJ825NDh8n4hJfW)qJ25gJ(X7cN7rV09KR4(MV27whck292VC8J360N96H)8ngFWx60Af4zF2Z8(7)K39(gVDVk5bGjh)0TgT)HFK3U3N8eVF4nEFXdp9HFR3ZEOVmNCfqMt3FBVbxtOPMQLTfjOQQVMgc(0fjPiKU0QAifH)GqtztvBKPQKqZ1LG)cECfB1UirBdrfvKtRg8oTKKTvn0R0vvxrSTM0gvu6BkHFKtRn30PvzNwDnwhSGtRsoTMZPLIHDff06qIeEOypnP16JQyI6kPQB50AEHM(keNAsFibBiLY0bxTF72vu11rMITnK7BvPFVihaBslsYr8YgMkI9aBfBYgoTQwzrI7v8bxH2T1wv(sI4GItRZ40sdk80L3i19i6S4lq9zmcdznUyv57BTvr6kyL9HmvgeNXowyyVm5)jHOWRhscNuQyzd9CoTGBMFeGHxaF)YWbMpkKwGUWhUEbkRrKUMp7nloQJVElY86HZtRl1TNQPQmO3(YDIZsjZcGPKLSSdYpfE9Qh7lP1m2twQOaDrf0fxnV8SwmWN9(azcCLLOX6qD)QAW35NHiPhtupnKUQvNUiD7u171ZxGseg7uNV4wm21pXkmrBiwJ)UmA0cqHBwCulDQMnCbgaIRsTytFzjvYTOkhnJgGfWQ05Sr93zorIG(8tOomzBxoWc5osqOrl87lYxW3SYtH)Wa0jkoWgsFUGYKGSLQjIGzwyxsvUCzzqoIHydnhAOOlbQ7QMsYZO5YknXOSHtNlCUdnGyW3HJz2VNTOAB4SugEucNiTwHVgXoSrAZAKKazkijBc(rv2qzzLNgorv24pDL0LQ0dbKI0T9lAwkrmtrfO8yAH)mwne8gkD9jun(yNp5XS6cMk9jSXEzBP(A204mekOSKMMO))qet1WNWHOp1ovD)Yt2fnDqsA2DQ0t22hXkb8YQaDlr83tIsg2bxV6jD7(wirqvDTYC5(WKhkq20NGKQWIB0UT4AYk4ByKeD2ahp7HqkWvtgPH8P6KrfStxy9SosePJ6cKgjJ3tODZ(6mJyYAaIl1PgtJ0bu8cH3lo52ZejB0DvjQPxQJdABy2Tc8365OQaFXuWBtrfAcqIw4gCBIIiadKVRNP0gqFPr7KFDYs8eIwmdlF1zCzqBK2tW5SvT7RGyAX0NizHtELumHSSiTK5MbKpzIPYg1Oai1IrmxAs1)2bnNus9g9WJrTtAaFGB8N0aOkY8veXXSnHXy4(tL(D7UrisFDoUisK2sMRHStI5tuyqbBYhtP(zYUsG6ZaJuJlPrqFmsUVnsSxhjlK)DpOnRWc)CnXaQ75ZaSAHKmlUW)xeZXSf5ugXjVbCxe9ddweqSzzOhmy5JftRIMltD(Aip0FvwYQWEU3InQY2XLRvYFLakb3jfVEVSYcLzn04HqwO6TWN)nYwKtMe5V9216Dl58SBGnvdsMbRrLBE2nWMXi(5a06W3zucKgAGV1za(wWYptLlK04uXyNfe1I3rA6wJGn3MPAnIc2IzwwJyrHPAnILMittB8EQMyAcaYZOb3296FU7HV29QFXWJU2IrVqw3b7o(XpL8Ywb913UJHPqt3)1DCV9JXCvnARIh7)bFGtRz4nXIp(0(2yjN99)BKf)UKjMAWEU7Ct3TVM7t225c(bqRkrKYpd)5I5wVGABEA8WPlxkUYrIMN8Dj2eVPRyA8HJ0ptg3zntg(4uTumUwK(ZXQUrvo6cNfMcRI5yc)X4MIFwyQ60xT34N)e3R)0HhVF05HtLD33fW8n5X8QdsX)WR8U3UJV5HJ(U)JFb3X3cxpT9NavJdp(eVp9PjvhLfEXUEm32g1xm55Jw(n5dd984NWyz2fsS8lF1KcKzdt)BLpJzS)KgAELjlQ)wP(He3BFlOE3VJNes8E8ZhEYdgT1RgT)oJ27nEp5OK6JGNeMgCh8a3dUb0X6(j7bXW4mhoItY7(G9(wnbI)cKLf4lZAPLsWclZV5M5xvzcMi1Ifbgj3cjnQXfEb(9)L)iCliGlXA2pWc6oAMgLGm)5PiqwWFsDEHVivggfpLBHume5RUqowJ8lVqYbH8fohK4l(tRkvUOvbAa7luQOdScVVttBpHZeWNEEk3Seu(XodnMaRWrrU0S3NUWsBE28(d9Xgrmokr1x4RZ8sehuMw3zUac9LkxMj5B(fz4ilVi0mWwoWtPkydqU5zOYQ0I0XCkyMG4JdALZWkFZnzZiVrDAvePhQmxEI3ZIZptdzMffNcgycbLZvRuytwwadAvtXn7ZwJ8Ksnb(WeQFj8BXQJ5PPbOX(WrSvjhlbZ2g8lXrzAtrfG0C9uJEU5D9U)Zh9OTZIE7pBJHVtTljpCw4VKo00fKmlefFEkwprMnnDPG0jO6)Fcch5xZiiCg5sG79RjMgf)lZqI35dakSSAkNXNU449poBK9su6LzXLSjlkcJ)fndJNSUJn45QuBblKCHNAckN(pOBPC15X)yULyNJBWxoqqw)eUrDje)UmBvD2jOOcI4)IMSLV2(D0KnAGuZ04NCJxOctWC8sH9sSp8B94fk9D0CDYBkb)Yre(Fp]] )
 
 spec:RegisterPackSelector( "discipline", "none", "|T135987:0|t 暗影",
     "如果你在|T135987:0|t戒律天赋中投入的点数多于其他天赋，将会为你自动选择该优先级。",

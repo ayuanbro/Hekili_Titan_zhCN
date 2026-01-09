@@ -1,20 +1,39 @@
+## Hunter: Survival - 生存猎人优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 爆炸射击 > 黑箭 > 瞄准射击 > 稳固射击
+
+## 战前准备
 actions.precombat+=/aspect_of_the_dragonhawk
-actions.precombat+=/hunters_mark,if=down
+actions.precombat+=/hunters_mark,if=debuff.hunters_mark.down
 actions.precombat+=/potion
 actions.precombat+=/steady_shot
-actions+=/hunters_mark,if=down
+
+## 默认动作
+actions+=/hunters_mark,if=debuff.hunters_mark.down
+## 爆发期
 actions+=/rapid_fire
 actions+=/call_of_the_wild
 actions+=/kill_command
 actions+=/potion
 actions+=/use_items
+## 爆炸射击 - 最高优先级，不要覆盖DOT
 actions+=/explosive_shot,if=debuff.explosive_shot.down
+## 黑箭 - 单体BOSS大范围移动时优先使用
 actions+=/black_arrow,if=settings.black_arrow_on_moving&target.moving_long&active_enemies=1
+## 爆炸陷阱 - 近战范围
 actions+=/explosive_trap,if=target.within10
+## 猛禽一击 - 近战范围核心技能
+actions+=/raptor_strike
+## AOE
 actions+=/multishot,if=active_enemies>2
 actions+=/volley,if=active_enemies>2
+## 斩杀
 actions+=/kill_shot
+## 瞄准射击
 actions+=/aimed_shot
+## 毒蛇钉刺维护
 actions+=/serpent_sting,if=debuff.stings.down
+## 冰冻陷阱（可选）
 actions+=/frost_trap,if=target.within10
+## 稳固射击填充
 actions+=/steady_shot

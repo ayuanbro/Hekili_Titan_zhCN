@@ -1,0 +1,269 @@
+## Hunter: Beast Mastery - 泰坦重铸服兽王猎人APL
+## 版本: 2026年1月3日改动后
+## 
+## 改动要点:
+## - 狂野怒火: 宠物伤害加成从50%降至40%
+## - 志趣相投: 宠物伤害+25%，特殊技能爆击伤害+30%，体型+50%
+## - 雄鹰射击: 新技能，召唤雄鹰追踪目标18秒，最多2只，可移动施放
+## - 野兽戒律: 新增狂野怒火/胁迫/宠物特殊技能CD缩短30%
+## - 驭兽者: 新增宠物特殊技能爆击回复1%法力
+## - 豪猪诱饵: 新终极天赋，召唤豪猪AOE攻击15秒，25秒CD
+##
+## 核心理念: "召唤流" - 通过豪猪诱饵和雄鹰射击配合狂野怒火爆发窗口
+
+## ============================================
+## 战前准备 (precombat)
+## ============================================
+## 龙鹰守护 (Aspect of the Dragonhawk)
+## 用途: 提供攻击强度和闪避加成
+## 时机: 战斗开始前激活，保持全程
+actions.precombat+=/aspect_of_the_dragonhawk
+
+## 猎人印记 (Hunter's Mark)
+## 用途: 增加对目标的远程攻击强度
+## 时机: 战斗开始前施放，确保目标有印记debuff
+## 条件: 目标没有猎人印记时施放
+actions.precombat+=/hunters_mark,if=debuff.hunters_mark.down
+
+## ============================================
+## 主循环 (actions)
+## ============================================
+
+## 沉默射击 (Silencing Shot)
+## 用途: 打断敌人施法
+## 时机: 敌人施法时立即使用，最高优先级打断技能
+actions+=/silencing_shot
+
+## 胁迫 (Intimidation)
+## 用途: 宠物眩晕目标，可用于打断
+## 时机: 敌人施法时使用，作为沉默射击的备用打断
+## 条件: 目标正在施法
+actions+=/intimidation,if=debuff.casting.up
+
+## 猎人印记维护 (Hunter's Mark)
+## 用途: 确保战斗中印记不断
+## 时机: 印记消失时立即补上
+## 条件: 目标没有猎人印记
+actions+=/hunters_mark,if=debuff.hunters_mark.down
+
+## 治疗药水 (Best Healing Potion)
+## 用途: 紧急回血保命
+## 时机: 血量低于35%时使用
+## 条件: 生命值百分比<35%
+actions+=/best_healing_potion,if=health.pct<35
+
+## ============================================
+## 移动施法优化 (Requirements 4.2, 4.4)
+## ============================================
+## 雄鹰射击 - 移动中施放 (Eagle Shot - Moving)
+## 用途: 移动时不浪费GCD，持续输出
+## 时机: 移动中且雄鹰数量<2时使用
+## 条件: 正在移动 且 雄鹰数量<2
+## 说明: 雄鹰射击是唯一可移动施放的输出技能，移动时最佳选择
+actions+=/eagle_shot,if=moving&buff.eagle.stack<2
+
+## 雄鹰射击 - 刷新 (Eagle Shot - Refresh)
+## 用途: 确保雄鹰持续追踪目标，不中断伤害
+## 时机: 雄鹰即将消失（剩余<3秒）时刷新
+## 条件: 雄鹰剩余时间<3秒 且 已有雄鹰 且 雄鹰数量<2
+## 说明: 提前刷新避免雄鹰消失导致伤害断档
+actions+=/eagle_shot,if=buff.eagle.remains<3&buff.eagle.stack>0&buff.eagle.stack<2
+
+## ============================================
+## 爆发准备阶段 - 召唤物优先 (Requirements 1.2, 1.3, 4.1, 4.3)
+## ============================================
+## 饰品使用 (Use Items)
+## 用途: 触发饰品特效，增加爆发伤害
+## 时机: 狂野怒火即将就绪（<2秒）或嗜血期间
+## 条件: 狂野怒火CD<2秒 或 嗜血buff激活
+## 说明: 优先在召唤物之前使用，让召唤物享受饰品加成
+actions+=/use_items,if=cooldown.bestial_wrath.remains<2|buff.bloodlust.up
+
+## 豪猪诱饵 (Porcupine Bait)
+## 用途: 召唤豪猪进行AOE攻击，15秒持续，每2.5秒攻击一次
+## 时机: CD好了就放（25秒CD），配合爆发窗口
+## 条件: 豪猪诱饵CD就绪
+## 说明: 饰品触发后立即召唤，是爆发期的核心召唤物
+actions+=/porcupine_bait,if=cooldown.porcupine_bait.ready
+
+## 雄鹰射击 - 爆发准备 (Eagle Shot - Burst Setup)
+## 用途: 召唤雄鹰追踪目标，持续18秒伤害
+## 时机: 豪猪已召唤后立即施放，确保爆发前2只雄鹰就位
+## 条件: 雄鹰数量<2 且 (豪猪已激活 或 豪猪CD未就绪)
+## 说明: 最多2只雄鹰，配合豪猪形成召唤物矩阵
+actions+=/eagle_shot,if=buff.eagle.stack<2&(buff.porcupine.up|!cooldown.porcupine_bait.ready)
+
+## 雄鹰射击 - 第二只 (Eagle Shot - Second Eagle)
+## 用途: 确保爆发期开始前2只雄鹰都已召唤
+## 时机: 狂野怒火即将就绪（<3秒）时补充第二只雄鹰
+## 条件: 雄鹰数量<2 且 狂野怒火CD<3秒
+## 说明: 爆发前的最后准备，确保召唤物完整
+actions+=/eagle_shot,if=buff.eagle.stack<2&cooldown.bestial_wrath.remains<3
+
+## ============================================
+## 爆发期技能 (Requirements 1.4, 3.2)
+## ============================================
+## 狂野怒火 (Bestial Wrath)
+## 用途: 进入爆发期，宠物伤害+40%，持续18秒
+## 时机: 召唤物部署后激活，确保豪猪和雄鹰享受加成
+## 条件: 豪猪已激活 或 雄鹰数量>=1
+## 说明: 核心爆发技能，配合野兽戒律天赋CD缩短30%
+actions+=/bestial_wrath,if=buff.porcupine.up|buff.eagle.stack>=1
+
+## 急速射击 (Rapid Fire)
+## 用途: 大幅提升攻击速度，增加爆发伤害
+## 时机: 狂野怒火期间使用，或狂野怒火CD>10秒时单独使用
+## 条件: 狂野怒火buff激活 或 狂野怒火CD>10秒
+## 说明: 爆发期核心技能，与狂野怒火叠加效果最佳
+actions+=/rapid_fire,if=buff.bestial_wrath.up|cooldown.bestial_wrath.remains>10
+
+## 野性呼唤 (Call of the Wild)
+## 用途: 召唤额外宠物协助攻击
+## 时机: 狂野怒火期间使用，最大化爆发伤害
+## 条件: 狂野怒火buff激活
+## 说明: 配合狂野怒火使用，增加召唤物数量
+actions+=/call_of_the_wild,if=buff.bestial_wrath.up
+
+## 药水 (Potion)
+## 用途: 使用战斗药水增加属性
+## 时机: 狂野怒火期间使用，配合爆发窗口
+## 条件: 狂野怒火buff激活
+## 说明: 爆发期使用药水最大化收益
+actions+=/potion,if=buff.bestial_wrath.up
+
+## ============================================
+## 斩杀期 (Requirement 1.6)
+## ============================================
+## 斩杀 (Kill Shot)
+## 用途: 对低血量目标造成高额伤害
+## 时机: 目标血量低于20%时优先使用
+## 条件: 目标生命值百分比<20%
+## 说明: 斩杀期最高优先级技能，伤害远超其他技能
+actions+=/kill_shot,if=target.health.pct<20
+
+## ============================================
+## DOT维护 (Requirement 1.7)
+## ============================================
+## 毒蛇钉刺 - 施放 (Serpent Sting - Apply)
+## 用途: 对目标施加持续伤害DOT
+## 时机: 目标没有毒蛇钉刺时施放
+## 条件: 目标没有毒蛇钉刺debuff
+## 说明: 优先级在核心循环之前，确保DOT不断
+actions+=/serpent_sting,if=debuff.serpent_sting.down
+
+## 毒蛇钉刺 - 刷新 (Serpent Sting - Refresh)
+## 用途: 刷新即将消失的DOT
+## 时机: DOT剩余时间<3秒时刷新
+## 条件: 毒蛇钉刺剩余时间<3秒 且 毒蛇钉刺已存在
+## 说明: 提前刷新避免DOT断档，保持持续伤害
+actions+=/serpent_sting,if=debuff.serpent_sting.remains<3&debuff.serpent_sting.up
+
+## ============================================
+## AOE循环调用 - 多目标时切换到AOE优先级
+## ============================================
+## 调用AOE循环 (Call Action List - AOE)
+## 用途: 多目标场景切换到AOE技能优先级
+## 时机: 敌人数量>1时调用
+## 条件: 活跃敌人数量>1
+## 说明: 自动切换到AOE循环，优化多目标输出
+actions+=/call_action_list,name=aoe,if=active_enemies>1
+
+## ============================================
+## AOE循环 (Requirements 2.1-2.5)
+## ============================================
+## 豪猪诱饵 - AOE (Porcupine Bait - AOE)
+## 用途: 召唤豪猪进行20码锥形AOE攻击
+## 时机: 多目标时最高优先级，CD好了就放
+## 条件: 豪猪诱饵CD就绪
+## 说明: AOE场景核心技能，15秒持续，每2.5秒攻击一次
+actions.aoe+=/porcupine_bait,if=cooldown.porcupine_bait.ready
+
+## 雄鹰射击 - AOE (Eagle Shot - AOE)
+## 用途: 多目标时标记高优先级目标
+## 时机: 豪猪已召唤后立即施放
+## 条件: 雄鹰数量<2
+## 说明: 最多2只雄鹰，配合豪猪形成AOE召唤物矩阵
+actions.aoe+=/eagle_shot,if=buff.eagle.stack<2
+
+## 爆炸陷阱 (Explosive Trap)
+## 用途: 对近战范围内敌人造成AOE伤害
+## 时机: 2个以上目标且在10码内
+## 条件: 活跃敌人>2 且 目标在10码内
+## 说明: 高伤害AOE技能，需要目标在近战范围
+actions.aoe+=/explosive_trap,if=active_enemies>2&target.within10
+
+## 乱射 (Multi-Shot)
+## 用途: 对所有目标造成伤害并刷新毒蛇钉刺
+## 时机: 2个以上目标时使用
+## 条件: 活跃敌人>2
+## 说明: 主要AOE伤害技能，同时维护多目标DOT
+actions.aoe+=/multishot,if=active_enemies>2
+
+## 齐射 (Volley)
+## 用途: 持续AOE伤害，覆盖大范围
+## 时机: 3个以上目标时使用
+## 条件: 活跃敌人>3
+## 说明: 大规模AOE场景使用，持续伤害技能
+actions.aoe+=/volley,if=active_enemies>3
+
+## ============================================
+## AOE回退逻辑 (Requirement 2.5)
+## ============================================
+## 杀戮命令 - AOE回退 (Kill Command - AOE Fallback)
+## 用途: AOE技能CD中时的单体填充
+## 时机: AOE技能都在CD中时使用
+## 说明: 单体最高优先级，确保GCD不浪费
+actions.aoe+=/kill_command
+
+## 奥术射击 - AOE回退 (Arcane Shot - AOE Fallback)
+## 用途: AOE技能CD中时的单体填充
+## 时机: 法力充足时使用
+## 条件: 法力值百分比>30%
+## 说明: 中优先级填充技能，消耗法力
+actions.aoe+=/arcane_shot,if=mana.pct>30
+
+## 稳固射击 - AOE回退 (Steady Shot - AOE Fallback)
+## 用途: AOE技能CD中时的填充和回蓝
+## 时机: 其他技能都不可用时使用
+## 说明: 最低优先级填充技能，同时恢复法力
+actions.aoe+=/steady_shot
+
+## ============================================
+## 核心循环 - 单体优先级 (Requirement 1.5)
+## 优先级顺序: 杀戮命令 > 猛禽一击 > 奥术射击 > 稳固射击
+## ============================================
+## 杀戮命令 (Kill Command)
+## 用途: 命令宠物攻击目标，宠物主要伤害来源
+## 时机: CD好了就放，最高优先级核心技能
+## 说明: 受狂野怒火和志趣相投天赋加成，是主要伤害来源
+actions+=/kill_command
+
+## 猛禽一击 (Raptor Strike)
+## 用途: 近战范围内造成额外伤害
+## 时机: 目标在近战范围内且CD就绪时使用
+## 条件: 目标在近战范围内且猛禽一击CD就绪
+## 说明: 近战范围内优先使用，比奥术射击优先级高
+actions+=/raptor_strike,if=target.in_range&cooldown.raptor_strike.ready
+
+## 奥术射击 (Arcane Shot)
+## 用途: 消耗法力造成即时伤害
+## 时机: 法力充足（>30%）时使用
+## 条件: 法力值百分比>30%
+## 说明: 中优先级技能，法力不足时跳过
+actions+=/arcane_shot,if=mana.pct>30
+
+## 稳固射击 (Steady Shot)
+## 用途: 填充GCD并恢复法力
+## 时机: 其他技能都不可用时使用
+## 说明: 最低优先级填充技能，同时恢复法力值
+actions+=/steady_shot
+
+## ============================================
+## 法力管理
+## ============================================
+## 稳固射击 - 回蓝 (Steady Shot - Mana Recovery)
+## 用途: 紧急回蓝
+## 时机: 法力低于20%时优先使用
+## 条件: 法力值百分比<20%
+## 说明: 法力严重不足时强制使用稳固射击回蓝
+actions+=/steady_shot,if=mana.pct<20

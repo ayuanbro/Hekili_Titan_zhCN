@@ -1,41 +1,86 @@
-﻿actions.precombat+=/blood_presence,if=buff.presence.down
+## Death Knight: Frost DPS (Unholy Subspec) - 冰霜DK邪恶系优化版
+## 泰坦时空特别版 - 修复双疾病检查 20251228
+## ========================================
+
+## ==================== 战前准备 ====================
+actions.precombat+=/blood_presence,if=buff.presence.down
 actions.precombat+=/horn_of_winter,if=buff.horn_of_winter.down
+actions.precombat+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## ==================== 主循环 ====================
 actions+=/mind_freeze
 actions+=/best_healing_potion,if=health.pct<35
-actions+=/call_action_list,name=opener,strict=1,if=time<12&action.obliterate.casts<4
-actions+=/icy_touch,if=!dot.frost_fever.ticking
-actions+=/plague_strike,if=!dot.blood_plague.ticking
-actions+=/pestilence,if=dot.frost_fever.ticking&dot.frost_fever.remains<5&glyph.disease.enabled&prev_gcd.1.pestilence=0
-actions+=/use_items
-actions+=/potion,if=buff.unbreakable_armor.up|target.time_to_die<30
-actions+=/berserking,if=cooldown.unbreakable_armor.remains<2|buff.unbreakable_armor.up
-actions+=/blood_fury,if=buff.unbreakable_armor.up
-actions+=/hyperspeed_acceleration,if=buff.unbreakable_armor.up
-actions+=/unbreakable_armor
-actions+=/blood_tap,if=prev_off_gcd.unbreakable_armor
-actions+=/howling_blast,if=buff.freezing_fog.up
-actions+=/obliterate,if=frost_runes.current>=1&unholy_runes.current>=1
-actions+=/obliterate,if=death_runes>=2
-actions+=/obliterate,if=(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
-actions+=/blood_strike,if=blood_runes.current>=1
-actions+=/frost_strike,if=runic_power>=80
-actions+=/frost_strike,if=buff.killing_machine.up
-actions+=/frost_strike,if=runic_power>=40&frost_runes.current=0&unholy_runes.current=0
-actions+=/raise_dead,if=!pet.ghoul.active
-actions+=/empower_rune_weapon,if=frost_runes.current=0&unholy_runes.current=0&blood_runes.current=0&runic_power<30
-actions+=/horn_of_winter,if=runic_power<80
-actions.opener+=/icy_touch,if=!dot.frost_fever.ticking
-actions.opener+=/plague_strike,if=!dot.blood_plague.ticking
-actions.opener+=/unbreakable_armor
-actions.opener+=/blood_tap
-actions.opener+=/use_items
-actions.opener+=/berserking
-actions.opener+=/blood_fury
-actions.opener+=/obliterate
-actions.opener+=/frost_strike,if=buff.killing_machine.up|runic_power>=80
-actions.opener+=/blood_strike
-actions.opener+=/empower_rune_weapon
-actions.opener+=/obliterate
-actions.opener+=/obliterate
-actions.opener+=/frost_strike
-actions.opener+=/raise_dead
+
+## 智能循环切换
+actions+=/call_action_list,name=burst,if=burst_window|buff.unbreakable_armor.up
+actions+=/call_action_list,name=single
+
+## ==================== 爆发序列 ====================
+## 先上疾病
+actions.burst+=/icy_touch,if=!dot.frost_fever.ticking
+actions.burst+=/plague_strike,if=!dot.blood_plague.ticking
+## 以下必须双疾病
+actions.burst+=/use_items,if=has_diseases
+actions.burst+=/potion,if=has_diseases&(buff.unbreakable_armor.up|target.time_to_die<30)
+actions.burst+=/berserking,if=has_diseases&(cooldown.unbreakable_armor.remains<2|buff.unbreakable_armor.up)
+actions.burst+=/blood_fury,if=has_diseases&buff.unbreakable_armor.up
+actions.burst+=/hyperspeed_acceleration,if=has_diseases&buff.unbreakable_armor.up
+actions.burst+=/unbreakable_armor,if=has_diseases
+actions.burst+=/blood_tap,if=has_diseases&prev_off_gcd.unbreakable_armor
+actions.burst+=/frost_strike,if=has_diseases&buff.killing_machine.up&runic_power>=40
+actions.burst+=/howling_blast,if=has_diseases&buff.freezing_fog.up
+actions.burst+=/frost_strike,if=has_diseases&runic_power_overflow
+actions.burst+=/obliterate,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.burst+=/obliterate,if=has_diseases&death_runes>=2
+actions.burst+=/obliterate,if=has_diseases&(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+actions.burst+=/blood_strike,if=has_diseases&blood_runes.current>=1
+actions.burst+=/frost_strike,if=has_diseases&runic_power>=60
+actions.burst+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<30
+
+## ==================== 单体循环 ====================
+
+## === 先上疾病 ===
+actions.single+=/icy_touch,if=!dot.frost_fever.ticking
+actions.single+=/plague_strike,if=!dot.blood_plague.ticking
+## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
+
+## === 以下必须双疾病 ===
+
+## === 杀戮机器（绝不浪费）===
+actions.single+=/frost_strike,if=has_diseases&buff.killing_machine.up&runic_power>=40
+
+## === 冰封迷雾 ===
+actions.single+=/howling_blast,if=has_diseases&buff.freezing_fog.up
+
+## === 符能溢出保护 ===
+actions.single+=/frost_strike,if=has_diseases&runic_power_overflow
+actions.single+=/frost_strike,if=has_diseases&runic_power>=100
+
+## === 爆发CD ===
+actions.single+=/use_items,if=has_diseases
+actions.single+=/berserking,if=has_diseases
+actions.single+=/blood_fury,if=has_diseases
+actions.single+=/unbreakable_armor,if=has_diseases&buff.unbreakable_armor.down
+actions.single+=/blood_tap,if=has_diseases&prev_off_gcd.unbreakable_armor
+
+## === 核心输出 - 湮灭 ===
+actions.single+=/obliterate,if=has_diseases&frost_runes.current>=1&unholy_runes.current>=1
+actions.single+=/obliterate,if=has_diseases&death_runes>=2
+actions.single+=/obliterate,if=has_diseases&(frost_runes.current>=1|unholy_runes.current>=1)&death_runes>=1
+
+## === 鲜血打击 ===
+actions.single+=/blood_strike,if=has_diseases&blood_runes.current>=1
+
+## === 冰霜打击 ===
+actions.single+=/frost_strike,if=has_diseases&runic_power>=80
+actions.single+=/frost_strike,if=has_diseases&runic_power>=40&runes_available=0
+
+## === 宠物管理 ===
+actions.single+=/raise_dead,if=!pet.ghoul.active&cooldown.raise_dead.ready
+
+## === 符文恢复 ===
+actions.single+=/empower_rune_weapon,if=has_diseases&runes_available=0&runic_power<30
+
+## === 填充 ===
+actions.single+=/horn_of_winter,if=runic_power<80&runes_available=0

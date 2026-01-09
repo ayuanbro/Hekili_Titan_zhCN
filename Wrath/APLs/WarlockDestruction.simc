@@ -1,29 +1,57 @@
+## Warlock: Destruction - 毁灭术士优化版
+## 泰坦时空特别版 - 优化手法
+## 核心循环: 献祭 > 混乱之箭 > 燃烧 > 痛苦 > 焚烧
+
+## 战前准备
 actions.precombat+=/fel_armor,if=buff.armor.down|buff.armor.remains<180
 actions.precombat+=/summon_imp,if=!pet.active
 actions.precombat+=/life_tap,if=glyph.life_tap.enabled&buff.life_tap.down
 actions.precombat+=/potion
+
+## 默认动作
+## 治疗药水 - 低血量时使用
 actions+=/best_healing_potion,if=health.pct<35
 actions+=/run_action_list,name=st,if=active_enemies<2
 actions+=/run_action_list,name=aoe,if=active_enemies>1
 actions+=/run_action_list,name=life,if=health.pct<25
+
+## 单目标循环
+## 诅咒
 actions.st+=/group_curse,if=debuff.my_curse.down&curse_grouped
+## 献祭 - 最高优先级DOT
 actions.st+=/immolate,if=!ticking|dot.immolate.remains<1
+## 燃烧 - 献祭存在时使用
 actions.st+=/conflagrate
+## 诅咒
 actions.st+=/solo_curse,if=debuff.my_curse.down
+## 生命分流BUFF
 actions.st+=/life_tap,if=glyph.life_tap.enabled&buff.life_tap.down
+## 混乱之箭 - 核心技能
 actions.st+=/chaos_bolt
+## 痛苦维护
 actions.st+=/corruption,if=!ticking|dot.corruption.remains<2
 actions.st+=/potion
 actions.st+=/use_items
+## 地狱火
 actions.st+=/inferno,if=target.time_to_die<=60&mana.pct>20&inferno_enabled|target.health.pct<40&inferno_enabled
+## 移动时痛苦
 actions.st+=/corruption,line_cd=6,if=moving
+## 生命分流
 actions.st+=/life_tap,if=moving&mana.pct<80|mana.pct<10
+## 焚烧填充
 actions.st+=/incinerate
+## 末日诅咒 - 长战斗
 actions.st+=/curse_of_doom,if=target.time_to_die>60&debuff.my_curse.down
+## 痛苦诅咒 - 中等战斗
 actions.st+=/curse_of_agony,if=target.time_to_die<60&target.time_to_die>30
+
+## AOE 循环
+actions.aoe+=/life_tap,if=mana.pct<30|glyph.life_tap.enabled&buff.life_tap.remains<5
 actions.aoe+=/shadowflame,cycle_targets=1,if=active_enemies>3&target.distance<10
 actions.aoe+=/seed_of_corruption,cycle_targets=1,if=active_enemies>3&!ticking
 actions.aoe+=/immolate,cycle_targets=1,if=!ticking
 actions.aoe+=/corruption,line_cd=6,cycle_targets=1,if=moving
+
+## 低血量自救
 actions.life+=/death_coil
 actions.life+=/drain_life

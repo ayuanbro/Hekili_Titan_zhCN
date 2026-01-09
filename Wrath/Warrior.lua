@@ -195,10 +195,13 @@ spec:RegisterTalents( {
 -- Auras
 spec:RegisterAuras( {
     my_battle_shout = {
+        id = 47436,
         duration = function() return 120 * ( 1 + talent.booming_voice.rank * 0.25 ) end,
         max_stack = 1,
         generate = function( t )
-            for i, id in ipairs( class.auras.battle_shout.copy ) do
+            -- 战斗怒吼的所有等级ID
+            local battle_shout_ids = { 2048, 5242, 6192, 6673, 11549, 11550, 11551, 25289, 27578, 47436 }
+            for i, id in ipairs( battle_shout_ids ) do
                 local name, _, count, _, duration, expires, caster = FindUnitBuffByID( "player", id, "PLAYER" )
 
                 if name then
@@ -216,6 +219,7 @@ spec:RegisterAuras( {
             t.applied = 0
             t.caster = "nobody"
         end,
+        copy = { 2048, 5242, 6192, 6673, 11549, 11550, 11551, 25289, 27578, 47436, "battle_shout" },
     },
     anger_management = {
         id = 12296,
@@ -285,10 +289,13 @@ spec:RegisterAuras( {
         max_stack = 1,
     },
     my_commanding_shout = {
+        id = 47440,
         duration = function() return 120 * ( 1 + talent.booming_voice.rank * 0.25 ) end,
         max_stack = 1,
         generate = function( t )
-            for i, id in ipairs( class.auras.commanding_shout.copy ) do
+            -- 命令怒吼的所有等级ID
+            local commanding_shout_ids = { 469, 45517, 47439, 47440 }
+            for i, id in ipairs( commanding_shout_ids ) do
                 local name, _, count, _, duration, expires, caster = FindUnitBuffByID( "player", id, "PLAYER" )
 
                 if name then
@@ -306,6 +313,7 @@ spec:RegisterAuras( {
             t.applied = 0
             t.caster = "nobody"
         end,
+        copy = { 469, 45517, 47439, 47440, "commanding_shout" },
     },
     -- Stunned.
     concussion_blow = {
@@ -610,6 +618,12 @@ spec:RegisterAuras( {
         alias = { "demoralizing_shout", "demoralizing_roar" },
         aliasMode = "first",
         aliasType = "debuff",
+    },
+    -- 狮心 - 人类种族技能buff
+    lions_heart = {
+        id = 20599,
+        duration = 15,
+        max_stack = 1,
     },
 } )
 
@@ -2103,7 +2117,46 @@ spec:RegisterAbilities( {
         buff = "berserker_stance",
 
         handler = function()
+            -- 旋风斩造成伤害，无需额外状态变化
         end
+    },
+
+    -- 自动攻击 - 后备技能（只在没有其他技能可用时由APL推荐）
+    auto_attack = {
+        id = 6603,
+        cast = 0,
+        cooldown = 0,
+        gcd = "off",
+
+        startsCombat = true,
+        texture = function()
+            return GetInventoryItemTexture("player", 16) or 135641
+        end,
+
+        handler = function()
+        end
+    },
+
+    -- 狮心 - 人类种族技能
+    -- 使你的爆击几率提高15%，持续15秒。3分钟冷却
+    lions_heart = {
+        id = 20599,
+        cast = 0,
+        cooldown = 180,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 304711,
+
+        toggle = "cooldowns",
+
+        usable = function()
+            return IsSpellKnown(20599), "requires human race"
+        end,
+
+        handler = function()
+            applyBuff( "lions_heart" )
+        end,
     },
 } )
 
@@ -2289,10 +2342,121 @@ spec:RegisterSetting("debuffs_footer", nil, {
     name = "\n\n\n"
 })
 
+spec:RegisterSetting("weaving_header", nil, {
+    type = "header",
+    name = "Weave设置(狂怒专用)"
+})
+
+spec:RegisterSetting("weaving_enabled", false, {
+    type = "toggle",
+    name = "启用Weave",
+    desc = "启用后，在合适的时机切换姿态使用撕裂/压制",
+    width = "full",
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.weaving_enabled = val
+    end
+})
+
+spec:RegisterSetting("weave_cooldown_threshold", 1.5, {
+    type = "range",
+    name = "Weave冷却阈值",
+    desc = "当嗜血和旋风斩冷却时间都大于此值时才考虑Weave",
+    width = "full",
+    min = 0,
+    softMax = 5,
+    step = 0.1,
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.weave_cooldown_threshold = val
+    end
+})
+
+spec:RegisterSetting("weave_rage_threshold", 60, {
+    type = "range",
+    name = "Weave怒气阈值",
+    desc = "当怒气低于此值时才考虑Weave",
+    width = "full",
+    min = 0,
+    softMax = 100,
+    step = 1,
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.weave_rage_threshold = val
+    end
+})
+
+spec:RegisterSetting("weave_health_threshold", 25, {
+    type = "range",
+    name = "Weave血量阈值",
+    desc = "当目标血量高于此百分比时才考虑Weave",
+    width = "full",
+    min = 0,
+    softMax = 100,
+    step = 1,
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.weave_health_threshold = val
+    end
+})
+
+spec:RegisterSetting("rend_refresh_time", 3, {
+    type = "range",
+    name = "撕裂刷新时间",
+    desc = "当撕裂剩余时间低于此值时刷新",
+    width = "full",
+    min = 0,
+    softMax = 10,
+    step = 0.5,
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.rend_refresh_time = val
+    end
+})
 
 spec:RegisterSetting("weaving_footer", nil, {
     type = "description",
     name = "\n\n\n"
+})
+
+spec:RegisterSetting("execute_header", nil, {
+    type = "header",
+    name = "斩杀阶段设置(狂怒专用)"
+})
+
+spec:RegisterSetting("execute_slam_prio", true, {
+    type = "toggle",
+    name = "斩杀阶段嗜血猛击优先",
+    desc = "启用后，斩杀阶段嗜血猛击触发时优先使用",
+    width = "full",
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.execute_slam_prio = val
+    end
+})
+
+spec:RegisterSetting("execute_bloodthirst_enabled", true, {
+    type = "toggle",
+    name = "斩杀阶段使用嗜血",
+    desc = "启用后，斩杀阶段低怒气时使用嗜血填充",
+    width = "full",
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.execute_bloodthirst_enabled = val
+    end
+})
+
+spec:RegisterSetting("execute_whirlwind_enabled", true, {
+    type = "toggle",
+    name = "斩杀阶段使用旋风斩",
+    desc = "启用后，斩杀阶段多目标时使用旋风斩",
+    width = "full",
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.execute_whirlwind_enabled = val
+    end
+})
+
+spec:RegisterSetting("execute_queueing_enabled", true, {
+    type = "toggle",
+    name = "斩杀阶段英勇打击泄怒",
+    desc = "启用后，斩杀阶段高怒气时使用英勇打击泄怒",
+    width = "full",
+    set = function( _, val )
+        Hekili.DB.profile.specs[ 1 ].settings.execute_queueing_enabled = val
+    end
 })
 
 
@@ -2312,16 +2476,13 @@ spec:RegisterOptions( {
     potion = "speed",
 
     package = "狂怒(黑科研)",
-    usePackSelector = true
+    usePackSelector = false
 } )
 
-spec:RegisterPack( "狂怒(黑科研)", 20251226, [[Hekili:fF1tZnTru8pl9sNKdvJLDcqNb4qp1YbUyolzzPfB1O)1vsXKomE8ajeN)GJdfssj02eGoaPn2de3aeNaFyWRK9P(vOVDx5efHTtNPd0dXZg)(9EVFV)URLeLUMuwnfpK0vtNk9KIPtNrqm1KzsFoPSEZ4GKY6OOoLsb4GLIj8z4s3kOY9gRx7vdF2QHBD)XPiMXWwrJAjxBFSkGskBEFDdVVZskFCZN6cPtbGCqQsxvukBrDnnehcYvvkB33)ZDEZoblwP7TpQZHBqMRA4bpR3C3n8OgKF7Gohu7BrtPBOh8YfilVw4cvjv3VZrp6dvUv5Ru(kCgrwCtGuHVy)GfQ8Hk179KA92CNpuzvU3ffPiffOghSaekpSvq1n4EK8UDcR1mYAPJWmX1etXfeU8MK5BZHgSs9WNEqVkT7(Uv)7dxMS4wK5(DoaoVjhwHm3EGOET3OBJNcN7T(UGPjR0K6PD3G8ONtE8VYu8pjZ9sYDEn5UTcwF)ER3k8HZM3Vq5CbvxRCosZd7oFRGkGDFkPXEbB2QZr1ae9wVrVhVb4GWAVG0y)UZVt3TxMCN9inEyueKPFuUvRW7)Qt4A9MH3)5K61age8QTdE0cDBDyWc)ehwWTNJCN)QZBwIhHu8RSdP5BZB76c1cs1)aui4bvJ8Xer(GuF2WNDxOVGu)qUNIamPqWs7bzfiqy5iWrbRTBy7zPm)X16(KBfS4dcQ96GFz7oT3NBmqvPSg6UEUSEt01v8n8GJxvS)hEszrwk5nqAsFJuwFxKCPI6gizvfxpDRcSElfvpDBlORv3dBlN32MApgw7RFD5cQAmuQyDpewxH5hQj8uWfqEY6UYqZUh01gZN9nPJVPjYiohaGzgm56RtEdBBnmBo6eFs)FbvFmgz5vo3flNBYuFefbtpXa4qry2eddsinzfvvKbcRWfCksn5Ojvre2wxv21dRpfAujNtt0lFPY5CrE0uTRWp4J8rWjzVIyKBrBdTY5(YY5OUyAKmYczQJClNdurKpMJ1D4EhCGs)Jaxp3O5QQbsz6pXK8YmsEkwD(bZQ49n59b646BPHWYrqywNlraDdhBGZkytBSGMDjlMWXIKgPhxQRhSRL3iuo3nV5XM4uGWitfDlxoSX5gBScyBFhOL1mp0vWcKjzs4TZcgOPrgSIWyFLiOZ4CZNuTlEP(6rN3hpY4r2WYrvhcSVaWK5CNpL44NuBIZpAs7c)7sAcMkFVDKAYyKMpZCc(odpdXZFdl1eL)Orrm2PHu8kkxs3TiLBF9OBZClQ4rjjVxXUuCwxWygNIcjrieVMZ40jo84y5)Pc0PM3iV(vbRCVEB(GG1Mh2hd3qvVzWUT7CW2DE7sbZ((Y5c3SrWwZhSrtQ1PjlXu0vWdknzOygp1WIB2ooxFGmXQePtmqjoKT4d3wr5WKFD85G0jyg1pPpl)qrk7G1THVzggx9W(Ob6Rika7tGBsS8Df80ryXu0IccpL8eoQ93W9r0iZawEZSSxrDSRxIf2Itm62t4EoSrjDlT4bsu9VKoysRlW7Cg4QnQdoJReWi1PmqUUwWFFurjrJD8XWKdf9LRAdlBHH246ECLdivMumwnKL)JQPya56ZpGCn6givF49NjYZN5kQJV7iAbVgY0gU5W3Bq74vCIT)6KD8FIM6JVAdw7PyO)J0epJDSGBi74oj4uCD1lybVDGPJGQTPPIL2Xg5KzaZzKZdvw4HrCKhhB9LMuvgIy3ANqmLEPtn6wW4oCeKooS)ZeMsSSoqZVTjOU0WFSzIosypNLkkrqhTwaUwIlwk6DKd8znjtqFgRsd)vRFEs6dUIpKh8E6ftXhMz1UPHCofxSFMzjfSfDcM(stfFVIWBtYY)9GDEZZHF1htrP)5d]] )
+spec:RegisterPack( "武器(黑科研)", 20251231, [[Hekili:9MvwZXTXr4FlUCLuKrHBrSulLKljvv8BHpOx2uvEdyNfyixeIJ1dainD5AlQytXBgRdQttBX4OdBhsjrDyArTY)ycbWY)fUNzW9cShUOJe5EmhD)1909x3dOOG4FtSQcYglELYJxUIq5jekjCHkccLfRAVqtSy1Mi5zrZaFWaPdV6T3JDV3tPdVGMjsHUDlthImmLy16oQA2)vdX65itHjRCEyTnXYIxrqSAdvffmFLylzXQ)DeHOAs(Ow1(leDRw1gRvnUQ8w5UEF9Ih)U725930D536T66EVC7wt59YN7UZJ9UZB8)(36V6p7UYp6V6kST9X()498U1r(B)iytUBCB64tDYd2272lFYsB63EFqhU)NNCY3TvN2pUvTZak62FV3olY)4n2UZ39pBnvRPU0a)pamp8q3F5l4qRZZEL3D36Jgob4E4HDEYxEYDFJ3(VgG3X)YoEBC1aSu7YjWR7JAF8BVM7ZFrN2)x2mt4VXdCx(ib3Tw3DL3WgY7OD9w8gDw)fURVS3QGt7Or8o6(DAVV3l)syIrb8YmyU6gP84)HrZtNNLVQqjpf1BU0k(V9ju)xS26S8R827Ow1UuSFegLJkWWIa(QB6V7(uLCWUEF9QCb4((Laa2AQp8dho3vNx)tGZ299)G)wpBKkvDF3INCWv7Sv7)C5QUBU7XhUP)v3B0H8iW7Hl7U814sMAHx7GtU16JX9hJXnYX4w1yCWpM))ElyoV122BRF6mC39zIS3WffStURjANC5e8wGoc9Z(BSdSJEdK0IZ9NFP)d3COWtW3cKtpXZWE44(IVXBXN4DR34)G1O4)6Tp(W94rXR9Gtw(FXJrV)ROXhSqLh(k)BDa)Jh8E4myyuhqermNwvJr)mpIyOAmJfWsTYx5U236(S35U0JG8LZD8H)G3Al25lA7UYD6S7t)FlcP4Iv1uTSTOmynjyzt96iB4lxri8fBXQyduDnSI4hlwfjBRAAiwvUbIqPdLjQ2yIkc4jPdyxY0X2svbFEyFxPmvQj2C8IR7m90LSSrgY4skMZBelyq92Ayj(CuHmrHcbzzPoJbwrYQbO1sa21rgkGPZhOvT)yRAmfPVGuOyzRKQXuZMDRzWu2PPW6SdkSsQ5tpiLCZI0)dfqMg5OfD2L7HgsttI)fj6Po)SxIxst1q1o6qlChnD01XAjfwpprAGrA2nk1ugS0lcSYvsaymOj68ulQPjBWE6gZkRXJLLgcKfncrHkIkdQio74XEySbbkNxYPzSu5dPirWZGnWeuieNmrMqecGxTOMdXoJZ5Cf47jogPD9XWCoe8gS(s4pfl7yJLA2azHtD4emdvbNF4vaZIRJjwyYSysqUfZ2tOISZt11f(TQRKjXDPOSz4cJ)Bunqip2WsDUI0u25zktiz8DdmXuvgMMOoloZjPqQmbKJTPeGCOpW0RZoi1jN8otaow4eHnHN00pP5aVnsRAkyMTytqQuABjfiLBbWsyXQtmoeZoARAF(N3QwabRTQowcWIIktmKaBn5W5q92FOei(m5mLhpPsshGMdvq)vdmRnT6ujUDlz5yOaXCbYGz0r5djSjwHXry)uH1FBGBly7iIUjHwqrEwM)6pXwPqPkS2z1GUWnKxGnZOSrMiPvrjr1ucqsEKs93Q(GiaPJ(hMb4bysuCy7GDCspdhjFGhCA3dB6Im7E0KWMEnJKOolp4aH6iFDsP1pWCjgykyneSoejBXG85yRs20uJw9QemTnsliBlEHWs(GaAzBGzhlnn47QRzAQWsOJTy66THFty0to0gDeAQRHGlDzBs0Z4)jydLy0DzWA5cl5ouC4fi4rt9XgsnT5CystZ5X0WdKYczmXyvWNoVsk93gz12KDiGLyZTGO0UpXb7GP8m2niyiYxtjP6BOotdj6U5eBHLDc52CSWsMqs7mYkSRVMBvxMYbQxvzvBwAB5eLUzUKafWjPgizgfMgbqMpLkvGDhkxRRITybMcfrUhYwDAQVlNsFYAy0C4E3vdV8i1jO5yzNnXVbuGbwh)0XC(m98LD6E38tUfItNpc97pRg2YYa(nCYOaf4gf6nTLWFAtntlEjWOw56UtHS5HdsZhrL5taJ8I37VSctWkYY6X1lY2ovSYYLn4IxkmDVGgDInkE3PzBHkJXuazrFeEehsUTpLrfDt4m8QivttHSc51UuXmcr0rzAMpvrbMGMya7qZo7XzoTGv89tJtB5xLDO4JgCoUtDohkhxQckfgR3f)3zpTXYLhySeZnwrCyUovX8krqmv7Bm0msH91q7blAQmTtWAVkIRnrlnrCsHtgC910i98jxb1jdav3kZIUqQq7fAcuznXWDorYYyTW7CMjVQ407IzO6MhsO4mJc78kFUG(8uDYR)M8fuQ885uLHUEwqI4y1iRh4)FLtfkUEACevMw0(DRMQWKdC(AVBmXAEmUj7jjXOcyfzfkUkBVT0ERQ4TWusXvxlujfkRu5oPRAKoEPCFkiA5q)JUiPGrWfDt9eGIFklLloDj7nyvW6MSNdxQlX21ncBM66GXkLUDcst9Zs94flxCwgizDZ5GvZ0t3T6lK4PUzPHyoVYdtn1SHI9SSAExNk5vaz3bNs7wuszV6eSpunf3LxQiNu2E6ogYA7D9eJcT9bA70kAo2nGkgvDV51D)QDzJj(R]] )
+spec:RegisterPack( "狂怒(黑科研)", 202512312, [[Hekili:nN1wVnXXx8pl5fKtRQBSdPPub5H(qLkpKxms9TD9KDhhVn7f3zNfx)xOvbqucekcOLeulOcfvU1hOsuHOa9pFyA21HVf9mZEBMz312jcKQcjXzoN5C(nN5CDqRL2P06yIOyTvBVq7LA1EXwnBDSLA1AzTo0rdWADgGm2aTo8bxKd8ZXBFU4nVrJ3(QRp(HxF8D)X5zCmY2dzYKKVxaXa4sRZAbw20V0vBnvX3c4Aa2qBv4d9TmnXj8G9n068vicXYJ8zHD)IaYOWUFuyxM((P)mERBT3RVv0v2z8L2k8KXp7pIUZdI395JF8lhFP)kARFNTmJ7eMIV02Xp7MaF39frV58r))Nm(QpfKz0U3E)7T54R8Zrx8vHDxjBb(hJ3D73E)RgVZJt(RDEC8D2m8Krp8nXBE2OTUy83)RGa27vxi62p6T3EZ9FWzJVXn3)(N7JJU62rB98Hy0PXaEs4eaB8o7MSxW6q86zzZTjNgt8T8CLSfdrexl31916eV11IU8Ve90xhDHFBVx(DlV3lEs8L3C)Z)3rBT7(37r)ZMNl8KADST8P(8lnCpSRV1PX6(uKly0pfZKcec8X6E96PVUHj3iJmOmL2znq7yYgys2g6GDrRzJn1(Cnk8ftIOaBAUGkiNlddKTTEYFOZqscE0tCnSCTyYz12kB2GyrXeleyaqWVGLB633lW2u3pW1etc7EKWU5KWoyY6yxJrPuluEYFRJioEeMEwKPNmIdcCCW2YNPvpATiPpgzt73CGbnS7Xd7U4sI2j4eXOdxl6d84lcYAPm7cTGvB4N(mEjufn)jZSMxqqCiqZSlhtMiwEwfXrxGBbxlOxVMyxceS2myqHutwYuNGbZkMGYoqF60VMWFl2iGI1h0h5JlKijWTwNG0TWuWXQvbCOQ6pkb6jPIsoYGUATWuugIsTXhynjUlUAudmuuJAq5mRPsrZmL1w0bVpM4zzaKjwBOe7UAlPqbua1thqoK4UumopgTIaCpaN(ybx7mFa2NSdGF1iSRjMFiPeKflNLUjeZncoIC3VfxaCdNpS7zotyxkccHPnPwoyDalMwCXqspRIlxr6IPdLuXReg0EbrLi76MLT4aPM5eZkjkUKdjSzklZDonFBKJ(aOaMioYY0XO5bfa0fcqutp9UhsRz75zs7BrahTmfvgCcCLLP79lSgc6YEOLR5eavopvLoD6qkxNjoTPftY0NCjhbhsE5)g8)TeVJIuFEXApn9zHwCN9pGZzRMaVFyyxBOrhOWfNY88vwSkxHKYAvKHF6NQ5YbKd6R9sXdKz3mGVdESiZI3OAGNgQoHZ0X5N75fHnRtoruRw3yMqDUTwuAtdmNGdMA4HGDG0q(CiVmNldppBtVHUnf8NlytKHCFljYZLwdLVD)asAD0clbJvk8TGXqTg30nghW7fXJj4NjLItTtPQQdoDanzZ2kNqi(L3NRE2g0P9jyWP22CQw3dHuiyJnSX((UW3ccknAtKttmI2xFOLF)k5RYRvjksQsHMGWtPWBWYiGqWUScpWjl5aXwx5WurHQkSejKl2Avjdzmwzdit)(vTPBUSQ4KWqwRfeDeH1fUdpUiYzKG8o9yqwNL)ScqZ4POpM3ByUDcMBKEHXkYoWBiMLwezokpLysRlqh2y9EqotU3aN48va9CHu0D1bc)s3WSwLeR70qiDOGPkbMQuYrIcqtCDC9gM0xxwxfv0AxrlQCBh0PPLHfLhI0wy4dUbHWN0xzcYjosx57JLtUpyYfqimYHJf2NNmVfNqPUb(MaCawWivBpVLXL6nZHaxRCiWLHnpEScav)eNvLUsC6GILRQhSsZziLvI54mT0HIdAkMWBYtRwvbXmPW6PnVnM8PntDeLhqP(znvYMYWz13gv2kRKZBrhS1p55mRUsTOwRZtbkKAznPs8mn9wlrofpkQtVjpp6eJ1lU4SdG65kDy0heeWh4BdvD8g2K54iCXQqEYzaAutNxLCml6liJuPBJwjZqEePoyvbB2ULkSNFkNxWuw6fVoizqMtUoyMwpu1glc8sCoQpnbfzdgJMwodiqQFH8)nji3n4ECcbYs1PeFHkbzx27CcViNOlmTcl4)bQVKBNZZpl30vTfEMs7Evpb77PIrh0dXkVJoehMkxQ(icdV1O2j7K6LrzWjPGu1x1T(kFtDY3etqDdyje8w3WM1vnMxFSU3vNToarhFL06lpPn1F0ai0AagIWrggy7S3LDwlBwZenLUQk9StLQExFTsvHjvzQMkVt4DyRpvtnfqN6BTwQhO6RyuFVpLMoPqnQVHKj2XJbEQupbfUCm6eKT1)JPzoJkD4PswRQPlQWIv0SFHDxQvGYXZu2)ZtydphGXzOtH0NRwUpGQEO96TwiFFR1Dbh6KtoOAhKRz(zLBRscGhPNHEoNmLkrvDRkWsL8KZ9Qalrn)UdsIBwl5l2ZW3hsP1j6hUE01UhFnT)9p]] )
+spec:RegisterPack( "防御(黑科研)", 20251226, [[Hekili:TJ12UTTrt4NLEtGDccHKTvou40l6DnxeuafGEhjxrUsI1uCv3DPnCraroGgBN40MGG2e8Nu04IK02u0MIMI00CQpm)Ms2VfD2LuKlP4kRyxGMlcGLHe3zN9BMDMVzgAw38SMnDrCS5zMR2CnQp3ChZOwT6hV(jmBYxTp2SzFKZsOoWxcq9G)p8QxCW)7pMj(M3i(6BnRy5v9jixHAyKqQdiIzZwHE(8pkWSvL6U2CMnrH8UeQzZe9y2SRNRlozdyMJzZpbrPEe67hz)Xuch7W9ibr2hnYE3B)7dUY9hS(T3(L3oEZVz4gRhD6bp53I)2ho4wpD4p98HB8xXR)ZIhlKorObBC1bp5Rb5U3ZI)7lf)6hn8lFmO5H351d3yZHBEN41ErK9hezhF)RT9lwt(1DV7A7CTTg8KVx(Rbp(cdVWVmyJBosYDVZFU7DV82p78IhC6ZwVwK9cB)INg)GBLP3b37Ld2CRD(Hhg)v3q9K2DTRn8v)QztFpgNjDBEbD8XW3oJ8YahGA5JDn)qZMoupoM6Heo02TnA5tiU(HmUry)i7dfz7ILpN1fXfYf0XI3LswXWLSsa4ILonq)Lw2Kd3ht(KCXTXbmVLXwmokWbxsJLx2SzidBrA32QJJRWmGtyETNafIMmCcPuCahCMNkYMH5CaEmJplehItbkM1L47kTZs7iYobigDXuINdacQ3sydwFCai)rISxgbheCWgI4qxlwyGlMA5qyC5YZOirpKxah(KkuK9HZ0UlEzeyF8mnp7ODd)5qaWbofW57HfNHpQNbfluhlYEXi75KYNRnv5gPVCpAblPk35cADNayqD6qjr2N7CzHeCkaeHJ0nSxVvLXlZkDLvI70WPXVy0HD1Gl5sqOPZscC2qGZslk2Nk4bXoMQyu8Y4abdtbroUwlgXyEDcWGI7sc5goKE9qbUcRv(aPTKMyiwp)wbSOfYxT8(kjyo(klOaDNyArxli5Zh)MHm19OfvQcjq0j1IOkthscx0LhOMRNMfioJ610Eiz5WjrGwU4Eej2SsfxAEqW67LfKI6BrXUHjXyIyqbIMjBzHgOiFVpp)gQiVxfcOMboVmMFwvtPS8sBspRRcu5COmOfe8dxStc08UPKn(O(LGRgDugY54vvxsKoxXKliLBf0YLZBQRN5DYKwhsE3iHAAgPvitgCKAhZmjYmr0zrcKJQNj9ijYA1bozjjjq0v6QsnQBbv7UevzrBVa9tUskifxwadf6ZRQMBwspY33k5hwIs1jfSTsAcc4w5zLrZ2rxeDmwS5RGpSfI1TKyfSqWjbNnf32hN(KcY2q79BxmYN31OVdpjAQHcBbgaVyDrSFFI8HJ4HNkDvlxx(Gxvw53DY80LuXc1Yz4WbYyLW(5An5rImJo4amfncI6zALQaUk9C8sAly(AJIIb2iRwKGqMb3dtRxRp0eP1c9DuCiIMPOYgBhVA7jvVoeldhzpw5Gn9KHz0Q4EyiMiWz19GxvphKqEOrlWL0ZdZKMzDLsNHbAdsreCoRrfr4tAVP9KMrNmvjFfcIHg8jwjuEJL(1NIHAQqbSj30l0utkZtQtWLWnw2RJNVOPZiBGXrjQmBHj3FBroQfZ4OgRBGuQQjuX(y1MYWj9mYhKwzup(QArrFlJ73wukyWLA)qpRuwvh4wFjFmJfaFkK63ctzy6sqPo9ZtuQJXCnn1TnQFYMrSg7nsNMjF(pNWQQcr8e(GjpKjHXuAc9DtBwCAthFm0TLslmVfohzcg1oa5iXk0z502DrfvIMx9EFu7OJNSQD8UX3CrH0NkTpN6Tq75tFNV79(3R5Q3xZtVxj66NVEc9MCqk58V10ZtQFN9zTPd64ZJ1M0bA02EOpLqTElza33nq4ykPCTr5aDvuCK0xE9R0LzkHV4B(HyjrKE2NdjkXxtEnjU65I6YCOcFpSf0DSRNun00EUvFCffn3BOuoon99EQgKMvVs5WKm5jvJAiVKgvOpz7ikeuzWenYpQueizDJgYBnFWBcJ3KejkFY8Q2Kiim7vovvH6PWQuvXOGYIPzceoXmTcMsP2zQWkxu6jMv1quF1zv1C9(0o08Q5Mm8oLeEAKrLGOHQfu(n8vrT(9Jr8g6Hl0AJk8gBsz(4VDIu851UAew1DL8T(x5O5fUrtSplSpd2FTmZvhD1HNYSLQgizVDYj6Bfc11ckCcJfGOUYPqYnX2uSO2vE5FEcp2kiQGccgkAW6xp(kFx8JFz8x8GTF(LBS9ZE0GRC(DU0RIx)w7S1p()p)fJoT8vn5iy9GrYjT9eyqQhZ)j]] )
 
-spec:RegisterPack( "武器(黑科研)", 20251226, [[Hekili:LAvZUTTrq4NLEPWkaHquXY1bi2hYTKdQhypVKRwosKrl5YS7sPyGaIIEQ9sBdqoKEla1Woxspy0dfXipnTXY(TOZU8hrrljB0EWYsCM5BM5B(JexY3r8cPAGmAq)bdDhm4roUUdpC)djE6tYaIxgLnJof)sknb)8QpE2x(TpS3nx(MLN)MLV)T9mACcxqdniPe5sgQfXBCEmx)SuY4UWJkLbmYixIxuCyiuQcOyeVLV)px(2lU6x(1LN(PBU8Dx)hN(p)1NE6365D1p(UYN(3F)pu88VC65387)81F(SoAoeTVrnIhpwPv20dMqZ5A8RJCR)qt8Gu6yoesEkXJjJ1GmMAc7jtCgdsfiNbsFLMMYaN8SIGVUiitksY0(WRY4cvSiL4rzA7)LaBghuQu8pe7rd2SFQvFmvR5qf6329TL6ekwKAG8rBgYCf4lMmXFkl0YPnUGleHsBHBf8MF7WYLsivxe8KIGH9nqV)DXkHGjW8v5PHiPuPILskL4GuIadeQmriTrSv4EvsRSRukMwSzLoVi41VUbI1uscj04uvPA9kbBVPsrEMFcKyQpfbhBraLOPYPG2HdZbErWrOQp0fTPxj8Dn7jhvB3yHs1R3kkRDeyOLH7UiIKyyBs6R0XSzXPtnMEWUnvTaGmuvSglJNbQ2Wy0zoGKmKedLPPRbYVPfK14iMdYmXcq22lOUhUB3RJkZugNMDFC9J3GRrost5vjqh372F3(NXb6CtJjnR8b3UnEB9ShJvpfO1i5PCEzoKdgAuhjbvKGx2tUT0W9oN(xfIWRawoU2Yy2DnmZP46lTqMCF4s3Tmh3GwNDpTXKjWuehUCwJ8xnSG(iIQ0qrWdkcgy5IgtAVHALfiB2FZR2mH6w2lS7eVACoH(cr1SKVecZT2uViDtJ8LBn22cHQTgMzxBOTLztZDezCtx1oAWQtIiqkIzn9X)h77SX0bBymrXPjRpDGcZWIHibxZtU)NKU9nHTCnP66tdwJBn3jssOPH2fprIC9A9Rkv80uiSuItxvlxyAlSN4x7qRMnB7RL210DEbB8oIH2U5)T)VfBzjGoh)2458wXANJcD6HWUbXI1v3wUXL02rQwVc0cQm10kzx5KRJWdoE4RuD9pDH1eY)(]] )
-
-spec:RegisterPack( "防御(黑科研)", 20251226, [[Hekili:DRv3UToUr4NLGfqRDCI8FXP7EGDa6pafjxKUO(GDVZs0s02Qrw0RiLnsHHEo6T9vOpa9TzVOVfDifLmLePK9XP7UDbo5aBXHZ8ndN)4iVy4IpVyUpIHx86ObJMmC0OX2dh8W4bpUyo79D4fZ3H8EdTg(qeAl8))N)X)6N(3)t(JFpKG85BNssI9GL2Wy7OFQF)dhoyFGCydg5B7r22)aHf(w)1jb(4(EHikft7FafhhqI7VlMWWESasuFgk6T7HVI4F7Epcj0NCiIEpAzqyalatVF3EqkltcczphTyPcUhpC4OhaGSd7T41Hasc89XzKGPElM)5nb0u3DCjgWEp1L)TLik2p1LeL6Y2GtDLio1vau7fZddOmQq)cIwhIHp9QWAHJqldX(l(dlM7bSdhhG4OA1k7LHeIFycLzNSl11k11hlEoDdIXPlATdBtm5GnxXwmhj0BG)vwEbdukUKsOyhYQvoR98fQv(g8XRWr0G9yhky04M(kaPkbsbEc5Geg3Ke2GJjbEWUJdERe7JbxbBVK4yCel19PzPUumJbqNA)Jj4eSujW0nWXNWguzhPUzYWUKiSHJUiG(EPU7rGGayAZpO9DOjr(4yhpcLjwUJcfBrbrm4pjrPU3wWDF8EeO7Sco3nF3W)Y9TGdMamxgHOT2Xyo7ahJPPUJe0FIBQ0LZVkMZhm6AaceTEDmj194XcxcwmimUXYpz723f(lDfMlTyt6ov34BcFQoxILaxtV344CchNvwKVVkQZJQKfJ3JJ4PakrYVZOgdH4bRJWaJ3qsy8CaBrr(CTv8aHUidm4RFYYdA0dNwT6(Qq4j8vLqo6(MZfDlHGVq8LHm19yevQeXr03AerAD5ZCxm5RRMmq6PZLXWbgfsrCAMhOJpElrGnhj5c1dCwVPWjfTZjg7NK5JX9b5iQtXYCoeJcd(7NoHkN3tdbQrzJf(8DvvLQ0l0jZzDvGkJb1PCaNF4GTjqZ2itOeI2vbUg4rviFcVQ8sG0rLdUGqUdO9vJBgo2O(0CIjlXzJaQYisNeQW5qQhDAkHf37SCcK7nNTSxgToRbjlsecfiQCuDYRJjQiHscz6QrweKIcdDY(IdV0AwbwNSUkGCHSIYEf7ydkUwwNXAYFbLY3OlDCbz7WGSJXRcXYNuI2jnvjuutpw0auLQGGoh4fKvtB8G8JhimZzjjkHAdTSepCaVbhNh251u(vUSbwVLE2zylslG3IbBuK37nNxOHSHa5qFc4i8wOflHYOO9XjrgpZqeSU0ANZwLDujCD2fJH83qYYMBWckGk9YLi2NWS3hSoiK3GtQl4Dp4KWlwO1EPmF(weNmTioPwfjz4sdvnECGoh4ZPW0fv28Xbnxo0C7jFPLdvLy1sDnhrHJP443G8M17ETibi4u8wiMsJG)G0Bn3DYjs1fa9X2fDEC(zI0V5lZ37QYT8TTLeLLf828fAiuQsdp)M5MnEHyrj5)xCLMmERud9x1xwj3IuQlgnvgp3YgJ116ZfCvI6B(ccLkDnNR)YxL6s88BaR993217A7ADMd0nFxUgUuW1uY5J6MAn0F)xATPR9QAznYRfs))71O(n41oexBqtzmYoXbLs)GYSW8pfMGf5fmNmWIx0DGWSYpQy8kOmOM7wSdJ44hiytSSxw1hNxE7IGsvpk5eVuDNkkIOimro3Sseteg18sYzBhfdob2u(nAZRpauo0EIWkhcMq4sdzEoINmwvN4onfdIqxtRTRvfqUeVY9MKyDl6VrKqTXqKs6uLoq0OUtfMKUQAK6Kv01p81QqggHtZ4CMaNgOrneFIQQuDsqAQtFvAZfAZl1kIkoRD108EbQd0Gv6HQUtpXOGBD6zsf1bhsH9pOqVnL552ZmqsK3be)E4smC4Q82hoGI55rG7G8d)()6Rp)6F(tPUPUFM)Ufc2UJedP(wrat8xd9E)1qIo8pMeeZdWPKTanOegzlGi4bqp7qwwQD6lIDVIegsoaSMtumcm1hWXWZteVaJG8xGrMQbX2b8rLVKxImJUiIq0jrLO23NtSpIH4VjKpL(Iq3LrKkvSGfE5zb(5sBsz5WXiyutyBiGjFEYoCmC9ekVIkaU)cCC(DfVGNu3Fi7L(aM6N)(U8B(twfWpO)QVQynWMPSJx4R8ZXRvktsVs2J3UKhgWpv5ko)PFx(aksFjt1P2fZSO3S(fJA4UGvZetPWs2CCPjumdQNONbf3c8oLMBNnKZo1cNtZVKH2zqyvVvOPZECGEjwLfCr1sNGxe)vBNsdVvx(Y4BLjhu3Gz6w565Nkr6PO61nRlrZ3k16MldnT5hiNjWtJhyDJPjby48wmdGC)5)u2SAliLtqLzZEhpT7mE3vLOsYMtprz(RLECL5TQU2hQwc8Ry2PQpSi9oNTgNvQ6oQmTYmdaKOw4(6PEx3Ng26(YgVzU9(zUz097rXk(yCtlp3HeAzBtP5U7eLRM1XupQwq)PDpESENPTiIsv7LcP5(pT0175tD6m5EJLj7EBhOpZEYEm72T34wqLAH7CqPcuRBAPFXJh7OVRflJGC6KUTGQk9zPhyAB(WSuNnr7A5z(M0cKQ6bRftxGLixUJUGdir)x3r2nt03wPamnNJYIwv6362gDFU7uRBqvtzu0CzmvooZIXe5GkpJXIKYQZS0QP5vQHPxtEFnSR0V1HMlZ)0SgM(OvjkL2wn)qk6P9irCY1RJPjsER(ZQU960PPbemDu38Dw76)D1EEDAsDCLVJy(ChpAkvxxldZmRSXyMjmygcCA0SQCihAw5JQVPhYEQPPMbeOr4xBtvsHQBEy6fO(IOQouhpAC626yx1PsX5BRJtZQZn6hJ2PC(AhGMvRdpB64U68pvhDlhHfI30VWGtaPYVTaRM35jyO1fvoe82oyAk006gH8Rn1oRoMcwMwkx096Zi0RygD3cPW6MNH(pkE7hNWl09KP0Zek16lnhDgB)ysqNXRSxBZhDAz1xg0VujDZ0pv3Y6hps)mnn6oUkX1YmwHh1xqjvFnZ7fK4x3RtXOZDZ7QPIjNtrKsAw5kisVPFbksKj5FUQqKhbEL5ZRpQPp(S65q9xvjmftqCX)9]] )
-
-spec:RegisterPack( "复仇(黑科研)", 20251226, [[Hekili:nwvtRTnpC8pl7YogSDsxwHTEyN2UKlENLTS8)elISKrsoHaftzJYshpDhhDqHDzWGDyJDzmYw55dZss7(wmj1LU0MqSbJriRFV8)nzKp65OWuSgq9c8c2ZpiODlV9B3nOdkupPaqHfyYq8aZcoo38EXhoD(pELD7jmbo1cxjkLeZNqHjLuM(zCuYT50VBl)oTnRmNTaiOEMfz00u46tckck8Q))DZ)(Nw(6JU6Lxm)NNT44Pxo7J)(4tV8IpV49ZMp7npfgsz0LF9Kf)3BV8KPlM(T5xC(Vo6fOqgvPvU4a6JlzAZYE(REPrHahNWGu0tqHyIMk4gBmgGckFqKslPdbfkKiPAqsXxFMrqeWHCkOQIpOk23qtVGAOmJcS0OeSkBD2sk73VLXyaxzzvPXCc0QSWYy7TZyPcIgNrzqebR0gx6synGshsr)(rdiPom34TcGXIKqFgC9ogX70yX9wxCPPxOfPukbUUk(rvX75TPUcoBsezmXwEx5HeMqKArBfFVDNl1zL8uqgry4IMuAEqJJL1sksyeWTn2319nitB0SBJAhumC(gmUQvHjidnSD4HvX3oTEGlTAe5H7wK7AT69EQySR6VFJCVZH1tAzrv89RIXdgifwY99AC9WR2YBJAUimapY1z5V(K)QpNlKAm7Vd7RBjlGAMRjI8Cmp1DzrMOuVUHVNMsgAJdlpnFAENb9JnbTlDUrlr7TmPTYLzGuqjRIqT1dfsW49e8n3hUTO7FtL1mJx)fG7kr56BU7bAjHCmLRCse45CTb1iqQSeU5ppgJLCdAL9xn4sDMqIcxo9SLN)fZJdm6pp]] )
 
 spec:RegisterPackSelector( "arms", "武器(黑科研)", "|T132292:0|t 武器",
     "如果你在|T132292:0|t武器天赋中投入的点数多于其他天赋，将会为你自动选择该优先级。",
@@ -2346,3 +2507,4 @@ spec:RegisterPackSelector( "revenge", "复仇(黑科研)", "|T132353:0|t 复仇"
     function( tab1, tab2, tab3 )
         return tab1 > max( tab2, tab3 ) and talent.improved_revenge.enabled == true and talent.bladestorm.enabled == false and talent.shockwave.enabled == false
     end )
+
