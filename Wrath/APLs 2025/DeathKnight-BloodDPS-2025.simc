@@ -56,7 +56,7 @@ actions.burst+=/empower_rune_weapon,if=runes_available=0&runic_power<30
 ## === 疾病维护 ===
 actions.single+=/icy_touch,if=!dot.frost_fever.ticking
 actions.single+=/plague_strike,if=!dot.blood_plague.ticking
-## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by 哑吡 20260101
 actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
 
 ## === 符能溢出保护 ===

@@ -900,7 +900,7 @@ all:RegisterAbilities( {
 
     -- Phase 1
 
-    -- 补充缺失的ICC饰品 by Kiro
+    -- 补充缺失的ICC饰品 by 哑吡
     dislodged_foreign_object = {
         cast = 0,
         cooldown = 45,

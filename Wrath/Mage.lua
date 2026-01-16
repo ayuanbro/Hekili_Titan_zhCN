@@ -95,6 +95,7 @@ spec:RegisterTalents( {
     spell_power            = {  1826, 1, 35578, 35581 },
     student_of_the_mind    = {  1845, 1, 44397, 44398, 44399 },
     summon_water_elemental = {  1741, 1, 31687 },
+    frozen_orb             = { 23709, 1, 1284421 },
     torment_the_weak       = {  2222, 1, 29447, 55339, 55340 },
     winters_chill          = {    68, 1, 11180, 28592, 28593 },
     world_in_flames        = {    31, 1, 11108, 12349, 12350 },
@@ -510,7 +511,7 @@ spec:RegisterAuras( {
         duration = 12,
         tick_time = 3,
         max_stack = 1,
-        copy = { 44457, 55359 }, --移除重复的55360，by Kiro 20251230
+        copy = { 44457, 55359 }, --移除重复的55360，by 哑吡 20251230
     },
     -- Resistance to all magic schools increased by $s1 and allows $s2% of your mana regeneration to continue while casting.  Duration of all harmful Magic effects reduced by $s3%.
     mage_armor = {
@@ -1630,7 +1631,7 @@ spec:RegisterAbilities( {
         handler = function()
             applyDebuff( "target", "living_bomb" )
         end,
-        copy = { 44457, 55359 }, --移除重复的55360，by Kiro 20251230
+        copy = { 44457, 55359 }, --移除重复的55360，by 哑吡 20251230
     },
 
     -- Increases your resistance to all magic by $s1 and allows $s2% of your mana regeneration to continue while casting.  Only one type of Armor spell can be active on the Mage at any time.  Lasts $d.
@@ -1914,6 +1915,10 @@ spec:RegisterAbilities( {
 
         startsCombat = false,
 
+        usable = function()
+            return not pet.water_elemental.active, "water elemental already active"
+        end,
+
         handler = function()
             summonPet( "water_elemental", spec.auras.water_elemental.duration )
             applyBuff( "water_elemental" )
@@ -1937,6 +1942,29 @@ spec:RegisterAbilities( {
 
         handler = function()
             applyDebuff( "target", "frost_nova" )
+        end,
+    },
+
+    -- 寒冰宝珠 - 向前发射一颗寒冰宝珠，不断射出冰箭撕碎该区域
+    -- 需要5点冷锋天赋 (TalentID: 23709)
+    -- SpellID: 1284421
+    frozen_orb = {
+        id = 1284421,
+        cast = 0,
+        cooldown = 60,
+        gcd = "spell",
+
+        spend = 0.03,
+        spendType = "mana",
+
+        talent = "frozen_orb",
+        startsCombat = true,
+        texture = 629077,
+
+        toggle = "cooldowns",
+
+        handler = function()
+            -- 寒冰宝珠可以触发冰指
         end,
     },
 
@@ -2038,7 +2066,7 @@ spec:RegisterPackSelector( "fire", "火焰(黑科研)", "|T135810:0|t 火焰",
         return tab2 > max( tab1, tab3 )
     end )
 
-spec:RegisterPackSelector( "frost", "Frost Wowhead", "|T135846:0|t 冰霜",
+spec:RegisterPackSelector( "frost", "冰法(泰坦重铸)", "|T135846:0|t 冰霜",
     "如果你在|T135846:0|t冰霜天赋中投入的点数多于其他天赋，将会为你自动选择该优先级。",
     function( tab1, tab2, tab3 )
         return tab3 > max( tab1, tab2 )
@@ -2050,6 +2078,10 @@ spec:RegisterPack( "火焰(黑科研)", 20250820, [[Hekili:DEvtVnory4FlCH2kKSAs6
 
 spec:RegisterPack( "冰霜 Wowhead", 20230930, [[Hekili:fJ1FpsTnq0plOkT3Du2S)4G7a0DivkQTGApv1qf9VsI3Kj76Eo2bBNBzpDkF27yNnjoztwOuHQqcYAp(nppEM5ztWIG3h4Nq0qWnlNV885V485ElE6Y5p95b(6D5qGFoj(wYA8dojd)7Fsku6YOpi2UbijMP3Xe4himkrHmgnzJwNRE5SzB3U1BBLDEXISzBfA2TZwxqtGzXmIsbQzzi0Zsnyoljxnvk0envWNgleSeXwUAkzfLr1uqnn)oe8vfuM(T8Gvdt7lrAKdXb3G8FdnjbQSeuXb()g6RxwgvTdENllPX7MEhq5QwEo1YqACf5MA45uddrsCuww(oFixdzRazzKHByisksPmK7FxzuxoGd8nJgi29ys57WrXH)DjG4VIGeGeBaq5Lxp03F9mImMWHWvskJrj8y4j00RLeAYKvfPPEhmTNX1hfkkxdmgeRni9OphuDMRzPhXlXc(FxiHWmcNeUgYmEP(7W4ne5AqD1YHxBMGPbEirMjKM1z9DbN(XcOAWJ4xvrwMGhUftdLHadYaUMWS7XCq7zwYDWK1SD5B8a0goHvzShWjRyqYWWMkIlu4Mznn2G1APOiFsfyHjcTNZ8xpFyiY3jfRWehBaFLqPQp6FdKskyTh82OxbgJLyvdJ5oUDaLgWDeJINeXjx3ouyDkxfS)yDcOlazuPuidPMC2oapEy7ljwHiG1jH26e3b3NWKl2I57oJNYW(wHXKC3bZfMVEsHccfPPHRXn3IUbfwsOItYn0YyvZavzNnmOkJToA4mUeYi4)(QlMBlf)tfugr47kJ0sk)wqRWV2GLGrejWpb)xHEdi3sn2z6GrtPqINlNm0GI1ZQwaFda5MMjaCp(lTOmcRfW4l(JDyZ4YitoaAaLVgpHrFKw36jQQUa9fndtiWiNOqXq6TLQ3GKAVDRWYdCzY9)mLkXL8ACWomlbPryQLfM41PjGniHTSUh4Ef5p8q1VRObgXdTDZ8uAuB56fNn50kS8sRDsOXXEuEykJUEJ(HhCnO7CN15WUE(MA5dCkwmHPByoNNdTBpbDgS(m8QymkgQPzWJpY(4aA0SpA4YkS1hVfC0E3fTIrV)EImXy((YDGdzyZ8xTCYJYe3HUTBok3K9AtnhCnAZjS2ZCIs5lMp5qi2xZaFkNjuMcIVoyQ2P19BQMV7YwoVZofW4PTd9NRo0mrtB9owv3K3lpwF1LDGhUteBfg7yZ5ZhmrjW)o8SehT9Meb(BjsoUhub(F4h(JBE7n)mkzxg9(nyYpnlxiXAIutrXjjv9tpPmscFSaddjyfLWu)rk0ImSbwITudtyuyjZVInslJwS8LMwMC0X25pzF(4FDsvnCZVR79HJF6IpDMNPl(BT(3SSLOtS7hSmNQ0g8d8r3Urid8)f4w8Mab(2zS3XRIP4N3yVZx1sd8DB)h4V3HbVoqJXdJDTJ0SKwzad(wPb3bB0gmyCURVCve65RN2ZxXsSvNKsc8Fuz0rKfCy1GYkgSFMlhA6q3Jax4AKRwsp7U01UgTLEg9CJroPRMyEZIQY57TIxm6(VJ6tz0KYObuGSJpUkuz0RkJUyU7P(Ean(EX8Eo3CDzjnVY0VsLRwF1OBz91IrsQC67oeb(FuPZ9W40YO(IBLrp8W(ZKregIUgR5lJoZEiDADv7OIDvaoUGhIKns2V8SLLJj8zjWHIFnxXQts0acHLrxHgulgwg94JUVDktAA2A495hN3hks2dOMqMfTXBC0viZwcS0UfXokvAuTaxR9AH8z)7HSNgPDS((WvV26Nl(24N(I6wFD5O(AVC(bOV0PDrRaVfSJ2ERV4EVgDlgVtxTuTnn7sh3lHCmNLQ2yX9axBKQ63cBeup3b1MRjybOJOOZTdCjV28w(9VYQriDGEzh8U2ED0o4)HGw2AECCBt(HFG8qAZD0l)sa5G57(s7d2mnt3OQpA029D32O(YofbDER(X1(h(14oxOW517nk9JfvAFtUDV)F8sfJx8AFWU1f7lJ79ODREGBXv7unxWy4Ob(qENRru)g)G2)e8pd]] )
 
+-- 泰坦重铸服冰法APL - 国服特别版
+spec:RegisterPack( "冰法(黑科研)", 20260116, [[Hekili:fF1wZTnru4Fl8cdmmrXxtdzaEGhyg8mKxeplPvYRTxqsRz1k3Pz6OjxAsCUn5wtkZu3czgAtVaexAljL0m8Jblz7)fCwPeFlokjqh4fBR98TFNJox(21kjv(Af58iowzYujsnwIKjhtkv6ezsMvrMFRYyf5YiJVfve(HnYc(0FH6bVCNpi4L19FWJBV4AT3(Opua6wMuuEbzouxMbaurw3LyY)sBf9Z7HuztKzmaBzSHYKJRixIKppocj2Xqr(RapoHN2xWOoCpTr80a32UwnWZ(hvTXB)E)v3T5sv9Y5F)tcQTwVbd8yZLEJF1NlSRbi(PN261RaCLC8rtmA20EAbv31tlvcXtjHNo8fa3cC73((7eS7Ite6SM)6VmAq9x5p)CnF1pc)6OGz2QXBwbwcGwF9(GE3FlO2bE5adRTtJt2U5Xl0A5zNWlxsjpTwV(WGLwXF6Tc2PE6M7VL)bBfX(iT3PM)CRpshN4LlLuiFbRUyR9FS)6BgCVFx8QoF1Wy84psy7HpZlxAbV3ztyPMhVDe0Mp8NHpHmuZzEoqUxUmrC5VWHT2B6w3zP2ZVM)gvB)O6(BptZQlaG9YLfW04pFqWQZe5v)xmleLb1MgYfqc2V6tBE3NOiBsC4oIklIIHVMmSLbzWjuBfzlcJrzQeRWweSns3eNx5Zv4q1UxCeJBPwbtSDgauAbixhSkTqb1Ig5f03ztLPrF33oY0lTIDs4yRbPnRau3vKnyakgbPi)EEALXCPBcnKmvSj2cBZrMsccRG7sSJRLf1wDaycQh7cPMJyffut4Li2jt0LScI2yvBAfKGGBedbMGBKa4tHTvPmDPZG1lvNAtq14x)yXGAls2QguZ8ck(44Yuw0ke7ID3SUjzQPqSWncKEr7u3TqbPcWoXmhHVcF)LyyGME7iWQMiBqQqqwY4jtNHi2apy8u4bjkK9cegwvNAYdzl1fYw0BKN277PDTJsyzhENjG3nvWlosVsHxEmU8PPLott)ZzRVssM3LvKSXnMRJHPdlKnsDOd8JnS9o8IlWHuzd4eJpXt7g900ZWLH6cXPuOBIFiSpss3dj4kudu4pJDY7Fthw00yFPXWmyFjeUOSxa5AYpNASb11gcd4yvtZHPg3ta3rOtG1HJbXnqPh0gGeCplc6eGqb9M2X3EvcGYl1nTLDGQRWoKhoRapOmEmNI8)IsEyHdcgIHAEKiOuj2gqDZbl5w2t7232t7S8IuNt2GcRfmt4eLbg2rF)xj(hg(I(kDeJrWmPWcyFDCNAPtp316i4iPF0LCgCmA6r1ivSn2IGHe2N9PHzmhoJyW7Z)gitt1Ohufxej66iQr3fvCHKHj3FL2SdpAwQmdBqT0rxIYoi3LV7qnIzGGzfDgX0KigEhifFo7XR1dTYxf(pNDcmTBAIn4d39Dmh)WBO0BrSLQrjXTgIAGt13vg(gxqm)mCxHthCTjFNlwfXSOdR7lC94NUlYOIrn4f(0ML8uy4GA46Ogoy6Pb9m9EhRUM6mBFPcPWcva5sbOZ(ZjGY1nrmBqSc6NdQUH)Y)G)bV1F(h14pwitJJEwWYt3AUt8REVw79K)A6z9Yj6GOfiMH)LhKlVe8Mj7V9M(BSxOhu(7d]] )
+
+spec:RegisterPack( "火法(黑科研)", 202601031, [[Hekili:TEvxVnXrx4FlCrRikch)rCsa12l6fvQU9LBmsC3UE8SJTNMD3XD2XoeUyvcrKpmLgcHqrIu1s5JaV0kIcGi0ee)yA2DT)x0ZSRD8UB8UjivfPyV75CEoZCMNZZCSsoLROuwdjikxoF28tLnx2czYnD2jlKtPSy(MeLYnr4zr1HVyImG)7T4lDF9wNV3bB4TZgE)(9gt6X86mKMejlwlog8sPC1wuDX3AQuno8GtnjyLlpJs5gunnsGlelSs5)hKNlzx5kx5Q2v(gkNyx5c2vC78aVh)8G06S)QhD4dC(P77T2Q2LCE4hC3(2UVExNF9z9w5292CF4rV1EVZQVuAVY5Vkt89FNDLczkKP4yG)p5fDF7TGeKBMjYorXcHWwACNEpCl37Vcy39nh4055E3yFNdF)e92EBWHj8w(Eo79c3opX7E7bEV76h7TZY75SYbUV(pSlbgU9wh9Hn9oy5UDUXLSlLlJDLUV9DURDlNfUR7w7wWBN7ga4f6T12olT(fcYIDP8GNU79i3TFLZJFz3NTO3Ih6T0oEh8giL2LkiTU9AbwZx8Z6(XvkKfWkWl7stc2HDG7T(tN1F359wzj4TJ5U0nDw(TWkmiJJhKk4JF2B1LTlvmiMXH9sK4g3BP)YPZd7(X9DwFJXchUmUXhSGNsU125zGp9E6UoBUy4IMDLVYUYuW6Z5WfcafyjCwnQUp3OnHBrzMH5eZH4MuZ6wkLDx9ooD(nNxDOZnF6r)9YtE0()F3ol0DPp4S6V09rp)Fw4g2LukJAjAW4kLD2CdN78iLY6ulHLKbIye4Jl7ZRryHmnLnOCoJRsn85XetuvDIMYxRiGvqy)O45vBtOMwXCQG0PHVPmMtfeofjz51QLbGLIv1qs4vPMyobzrY0Q5qGXmJQTS8)oa3KHZznDOTsfJAglNfLo1YIOYQvtTowtULooOMSGpJeXuHHvgjSinIVvMo2wzG)602q5xTkSqHL78yDIQaXRtGIQmXgORPg9TLleUoCo7kckEwaczsM5eBqlbNoB8A)ftSScWzWKlOHWuvNE9RJ4AYaZLnXidwEzMJkAqnb)cDeykRLQyMEag5oJyKFigACuDMPLAv4ew0WhL8NruYgENGSeQZHAt8rizYvmeSR85NSSG4yeSXixRPoZQp)k3Kjczq4(i5tDRbpbnJYctnoZseH1sXevDKjoyDwm9MGQCe1eaHqUojduFWIquaj01abDGFPl8rBQerRU(8nBK54qYmWP0qloRoct60beEBvKUUIeSYwIJ1pscX(uD)Yy)djbf6IfmvnkXx8lmTjCV1ajNKlKnycvODHGMnOmo8WAOksKJPMZZz(CQZGuvei8r(C9bFKPnuBDs7MK5AJe2ew2)NsUsMB9jY5Nonn4QGOMQbYePos14zslwoPPoXKA1WhGinOWZzAkl)FHDLPZEMvmJexHqQnK2mmAWnpPiCgsziIUt(SrBuup(mlff04QurvssUb40BvpzVFYm(p9EFnsnulDXjgGaZAzcGcdUcEoIbigXfQ((AjiiDzldirduGqVeUhcUiInNz6nTnaxfngEWwmg)tAx2n2NcgF4Iug8j5ooOSPr87uOgWqBTjAQwygh3iKKb0pQP2azbxJX1z4zdTV9Dn92WtndXHpmTmwjjFXaJG(RVWByU)W1sYxqK6eCd1EhThCIbimzfmUBy6s4X9ImnusJyErL4JmnIzcdAF)KgkmxeECstfMslPm02WagMedkrUt)sOglVLKtXIi5hdTrQbpOkhhpyOC1GF2OCS8r1TEMc2xVri)jeezPfDk3qlzpdp56pHuvovxNk1GY432fFcQH2t)o6(K)td)tyNcci66eSy0P)yZPRh4FFtDIHkUHSBWkOfimZZ8hAbQJd87mCdDlt6p2IOI4gmES1MbOXsmdmLUMrDoRF3sF(IgtKPgd3Ys1VZXUcqBcFtYqthlvKGgFeM6G)u(3d]] )
 
 spec:RegisterPackSelector( "arcane_pvp", nil, "|T135932:0|t 奥术PVP",
     "PVP专用奥术天赋优先级，适用于战场和竞技场。",

@@ -78,7 +78,7 @@
     ## === 第一优先级：疾病维护 ===
     actions.single+=/plague_strike,if=!dot.blood_plague.ticking
     actions.single+=/icy_touch,if=!dot.frost_fever.ticking
-    ## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by Kiro 20260101
+    ## 疾病雕文优化：有雕文时用传染刷新疾病，节省符文 by 哑吡 20260101
     actions.single+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
     ## 没有疾病雕文时用冰触和瘟疫打击刷新
     actions.single+=/plague_strike,if=!glyph.disease.enabled&disease_refresh_priority&dot.blood_plague.remains<3

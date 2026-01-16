@@ -1,6 +1,6 @@
-## Rogue: Assassination PVP - 刺杀盗贼 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
-## 核心策略: 控制�?> 爆发输出 > 生存
+﻿## Rogue: Assassination PVP - 刺杀盗贼 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 控制�?> 爆发输出 > 生存
 ## Requirements: 5.1, 5.3
 
 ## ============================================================================
@@ -25,13 +25,13 @@ actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer&target_dr_stun<3
 ## 潜行起手
 actions+=/run_action_list,name=stealth,if=buff.stealth.up
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=envenom_for_buff,value=debuff.deadly_poison.up&combo_points.current>=4&!buff.envenom.up
@@ -43,10 +43,10 @@ actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.h
 actions.init+=/variable,name=pvp_cc_healer,value=target_is_healer&target_dr_stun<3&combo_points.current>=4
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
-## 紧急防�?- 血量极低时
+## 紧急防�?- 血量极低时
 actions.pvp_defensive+=/cloak_of_shadows,if=health.pct<25&enemy_burst_active
 actions.pvp_defensive+=/evasion,if=health.pct<30&!buff.cloak_of_shadows.up
 actions.pvp_defensive+=/vanish,if=health.pct<20&!buff.evasion.up&!buff.cloak_of_shadows.up
@@ -58,31 +58,31 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 ## 优先打断治疗
 actions.pvp_interrupt+=/kick,if=target_is_healer&target.casting
 ## 打断高优先级施法
 actions.pvp_interrupt+=/kick,if=target_cast_priority>=80
-## 打断一般施�?
+## 打断一般施�?
 actions.pvp_interrupt+=/kick,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
-## 肾击治疗 - 检�?DR
+## 肾击治疗 - 检�?DR
 actions.pvp_cc+=/kidney_shot,if=target_is_healer&target_dr_stun<3&combo_points.current>=4
-## 肾击低血量目�?- 配合击杀
+## 肾击低血量目�?- 配合击杀
 actions.pvp_cc+=/kidney_shot,if=target.health.pct<30&target_dr_stun<3&combo_points.current>=4
-## 致盲非目标治�?
+## 致盲非目标治�?
 actions.pvp_cc+=/blind,if=!target_is_healer&target_dr_disorient<3
 ## 凿击打断施法
 actions.pvp_cc+=/gouge,if=target.casting&target_dr_incapacitate<3&!target_is_healer
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -106,7 +106,7 @@ actions.pvp_st+=/envenom,if=variable.envenom_for_snd
 actions.pvp_st+=/rupture,if=!debuff.bleed.up&!buff.hunger_for_blood.up&talent.hunger_for_blood.enabled
 ## 毁伤攒星
 actions.pvp_st+=/mutilate,if=combo_points.current<4|energy.current>90
-## 后备技�?
+## 后备技�?
 actions.pvp_st+=/sinister_strike
 
 ## ============================================================================
@@ -119,7 +119,7 @@ actions.stealth+=/garrote,if=!debuff.bleed.up&!buff.hunger_for_blood.up&talent.h
 actions.stealth+=/ambush
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

@@ -1,6 +1,6 @@
 ## Rogue: Assassination - 刺杀盗贼 (51/18/2)
 ## 泰坦重铸时光服 - PVE输出最大化版本
-## 核心循环: 切割 > 血之饥渴 > 毁伤 > 毁伤攒星
+## 核心循环: 切割 > 血之饥渴 > 死亡印记 > 毁伤 > 毁伤攒星
 ## 天赋: 刺杀51点(毒药/爆发核心) 战斗18点(暴击/命中/急速) 敏锐2点(无情打击回能)
 ## 雕文: 毁伤/血之饥渴/嫁祸诀窍
 
@@ -32,10 +32,14 @@ actions.init+=/variable,name=envenom_refresh,value=buff.envenom.remains<1
 actions.init+=/variable,name=snd_refresh,value=buff.slice_and_dice.remains<3
 actions.init+=/variable,name=hfb_refresh,value=!buff.hunger_for_blood.up|buff.hunger_for_blood.remains<10
 actions.init+=/variable,name=dp_stacks,value=debuff.deadly_poison.stack
+## 是否在死亡印记期间
+actions.init+=/variable,name=in_marked_for_death,value=debuff.marked_for_death.up
 
 ## ==================== 潜行起手 ====================
 ## 绞喉建立DOT和沉默
 actions.stealth+=/garrote,if=!debuff.garrote.up
+## 5星时优先打死亡印记
+actions.stealth+=/marked_for_death,if=combo_points.current>=5&!debuff.marked_for_death.up
 ## 毁伤攒星(刺杀贼主要攒星技能)
 actions.stealth+=/mutilate
 
@@ -52,29 +56,39 @@ actions.st+=/tricks_of_the_trade,if=group&cooldown.tricks_of_the_trade.ready
 ## 需要目标有流血效果才能激活
 actions.st+=/hunger_for_blood,if=talent.hunger_for_blood.enabled&(!buff.hunger_for_blood.up|buff.hunger_for_blood.remains<10)&(debuff.garrote.up|debuff.rupture.up)
 
-## === 冷血 - 配合5星毁伤使用 ===
+## === 冷血 - 配合5星死亡印记或毁伤使用 ===
 actions.st+=/cold_blood,use_off_gcd=1,if=talent.cold_blood.enabled&combo_points.current>=4&debuff.deadly_poison.stack>=4
 
 ## === 切割维护 ===
-## 无切割时立即开启
-actions.st+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1
-## 切割即将消失时刷新(2星以上)
-actions.st+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2
+## 无切割时立即开启，尽量不在印记期间打
+actions.st+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1&!debuff.marked_for_death.up
+## 切割即将消失时刷新(2星以上)，尽量不在印记期间打
+actions.st+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2&!debuff.marked_for_death.up
 
 ## === 破甲 (团队需要时) ===
-actions.st+=/expose_armor,if=settings.maintain_expose&combo_points.current>=4&!debuff.major_armor_reduction.up
+actions.st+=/expose_armor,if=settings.maintain_expose&combo_points.current>=4&!debuff.major_armor_reduction.up&!debuff.marked_for_death.up
+
+## === 死亡印记 - 泰坦服新终结技 ===
+## 5星时打死亡印记，储存伤害后释放
+actions.st+=/marked_for_death,if=combo_points.current>=5&!debuff.marked_for_death.up&buff.slice_and_dice.up&debuff.deadly_poison.stack>=4
+## 4星时如果能量高也可以打
+actions.st+=/marked_for_death,if=combo_points.current>=4&!debuff.marked_for_death.up&buff.slice_and_dice.up&debuff.deadly_poison.stack>=4&energy.current>80
 
 ## === 割裂 - 维护流血(为血之饥渴提供条件) ===
-## 无绞喉且无割裂时，用割裂维持流血
-actions.st+=/rupture,if=combo_points.current>=4&!debuff.garrote.up&!debuff.rupture.up
+## 无绞喉且无割裂时，用割裂维持流血，尽量不在印记期间打
+actions.st+=/rupture,if=combo_points.current>=4&!debuff.garrote.up&!debuff.rupture.up&!debuff.marked_for_death.up
+
+## === 转嫁 - 快速上毒 ===
+## 目标没有致命毒药时使用转嫁快速上毒
+actions.st+=/shiv,if=!debuff.deadly_poison.up&combo_points.current<5
 
 ## === 毁伤 - 核心终结技 ===
-## 5星毁伤(致命毒药4-5层时)
-actions.st+=/envenom,if=combo_points.current=5&debuff.deadly_poison.stack>=4&buff.slice_and_dice.up
-## 4星毁伤(致命毒药满层且能量高)
-actions.st+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack=5&energy.current>80&buff.slice_and_dice.up
-## 毁伤buff即将消失时刷新(保持毒药增益)
-actions.st+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=4&buff.envenom.remains<1&buff.slice_and_dice.up
+## 5星毁伤(致命毒药4-5层时)，不在印记期间打
+actions.st+=/envenom,if=combo_points.current=5&debuff.deadly_poison.stack>=4&buff.slice_and_dice.up&!debuff.marked_for_death.up
+## 4星毁伤(致命毒药满层且能量高)，不在印记期间打
+actions.st+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack=5&energy.current>80&buff.slice_and_dice.up&!debuff.marked_for_death.up
+## 毁伤buff即将消失时刷新(保持毒药增益)，不在印记期间打
+actions.st+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=4&buff.envenom.remains<1&buff.slice_and_dice.up&!debuff.marked_for_death.up
 
 ## === 毁伤攒星 - 刺杀贼核心攒星技能 ===
 actions.st+=/mutilate,if=combo_points.current<4
@@ -88,8 +102,8 @@ actions.st+=/mutilate
 actions.cleave+=/hunger_for_blood,if=talent.hunger_for_blood.enabled&(!buff.hunger_for_blood.up|buff.hunger_for_blood.remains<10)&(debuff.garrote.up|debuff.rupture.up)
 
 ## 切割维护
-actions.cleave+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1
-actions.cleave+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2
+actions.cleave+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1&!debuff.marked_for_death.up
+actions.cleave+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2&!debuff.marked_for_death.up
 
 ## 嫁祸诀窍
 actions.cleave+=/tricks_of_the_trade,if=group&cooldown.tricks_of_the_trade.ready
@@ -97,11 +111,17 @@ actions.cleave+=/tricks_of_the_trade,if=group&cooldown.tricks_of_the_trade.ready
 ## 冷血配合终结技
 actions.cleave+=/cold_blood,use_off_gcd=1,if=talent.cold_blood.enabled&combo_points.current>=4&debuff.deadly_poison.stack>=4
 
+## 死亡印记
+actions.cleave+=/marked_for_death,if=combo_points.current>=5&!debuff.marked_for_death.up&buff.slice_and_dice.up&debuff.deadly_poison.stack>=4
+
 ## 割裂主目标(维持流血)
-actions.cleave+=/rupture,if=combo_points.current>=4&!debuff.garrote.up&!debuff.rupture.up
+actions.cleave+=/rupture,if=combo_points.current>=4&!debuff.garrote.up&!debuff.rupture.up&!debuff.marked_for_death.up
+
+## 转嫁快速上毒
+actions.cleave+=/shiv,if=!debuff.deadly_poison.up&combo_points.current<5
 
 ## 毁伤
-actions.cleave+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=4&buff.slice_and_dice.up
+actions.cleave+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=4&buff.slice_and_dice.up&!debuff.marked_for_death.up
 
 ## 毁伤攒星
 actions.cleave+=/mutilate,if=combo_points.current<4
@@ -112,8 +132,8 @@ actions.cleave+=/mutilate
 actions.aoe+=/hunger_for_blood,if=talent.hunger_for_blood.enabled&(!buff.hunger_for_blood.up|buff.hunger_for_blood.remains<10)&(debuff.garrote.up|debuff.rupture.up)
 
 ## 切割维护
-actions.aoe+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1
-actions.aoe+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2
+actions.aoe+=/slice_and_dice,if=!buff.slice_and_dice.up&combo_points.current>=1&!debuff.marked_for_death.up
+actions.aoe+=/slice_and_dice,if=buff.slice_and_dice.remains<3&combo_points.current>=2&!debuff.marked_for_death.up
 
 ## 嫁祸诀窍
 actions.aoe+=/tricks_of_the_trade,if=group&cooldown.tricks_of_the_trade.ready
@@ -121,14 +141,17 @@ actions.aoe+=/tricks_of_the_trade,if=group&cooldown.tricks_of_the_trade.ready
 ## 冷血配合刀扇或终结技
 actions.aoe+=/cold_blood,use_off_gcd=1,if=talent.cold_blood.enabled&combo_points.current>=4
 
+## 死亡印记
+actions.aoe+=/marked_for_death,if=combo_points.current>=5&!debuff.marked_for_death.up&buff.slice_and_dice.up
+
 ## 刀扇 - AOE主要攒星技能(刺杀贼刀扇也能触发毒药)
 actions.aoe+=/fan_of_knives,if=combo_points.current<5
 
 ## 毁伤 - AOE场景消耗星
-actions.aoe+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=3
+actions.aoe+=/envenom,if=combo_points.current>=4&debuff.deadly_poison.stack>=3&!debuff.marked_for_death.up
 
 ## 割裂 - 仅在目标存活时间长时使用
-actions.aoe+=/rupture,if=combo_points.current>=4&!debuff.rupture.up&!debuff.garrote.up&target.time_to_die>12
+actions.aoe+=/rupture,if=combo_points.current>=4&!debuff.rupture.up&!debuff.garrote.up&target.time_to_die>12&!debuff.marked_for_death.up
 
 ## 后备
 actions.aoe+=/fan_of_knives

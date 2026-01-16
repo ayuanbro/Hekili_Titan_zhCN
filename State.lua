@@ -1360,12 +1360,20 @@ do
         local timeout = FORECAST_DURATION * state.haste -- roundDown( FORECAST_DURATION * state.haste, 2 )
 
         if state.class.file == "DEATHKNIGHT" then
-            timeout = max( timeout, 0.01 + 2 * ( 1 / state.blood_runes.regen ) )
+            -- WotLK死亡骑士使用分离的符文系统，regen为0，使用cooldown代替
+            local runeCooldown = 10
+            if rawget( state, "blood_runes" ) and state.blood_runes.cooldown then
+                runeCooldown = state.blood_runes.cooldown
+            end
+            timeout = max( timeout, 0.01 + 2 * runeCooldown )
         end
 
         timeout = timeout + state.gcd.remains
 
         local r = state[ resource ]
+
+        -- 确保r是表而不是数字
+        if type( r ) ~= "table" then return end
 
         -- We account for haste here so that we don't compute lots of extraneous future resource gains in Bloodlust/high haste situations.
         remains[ resource ] = timeout
@@ -1520,7 +1528,14 @@ end
 local resourceChange = function( amount, resource, overcap )
     if amount == 0 then return false end
 
+    -- 修复: 确保resource是字符串而非数字(PowerType ID) BY 哑吡
+    if type( resource ) == "number" then
+        resource = ns.GetResourceKey( resource )
+    end
+    if not resource then return false end
+
     local r = state[ resource ]
+    if not r or type( r ) ~= "table" then return false end
     local pre = r.current
 
     if amount < 0 and r.spend then r.spend( -amount, resource, overcap )
@@ -1828,6 +1843,7 @@ do
             is_mounted = 1,
         moving = 1,
         raid = 1,
+        raid_has_warlock = 1,
         solo = 1,
         tanking = 1,
 
@@ -2003,6 +2019,24 @@ do
             elseif k == "mounted" or k == "is_mounted" then t[k] = IsMounted()
             elseif k == "moving" then t[k] = ( GetUnitSpeed("player") > 0 )
             elseif k == "raid" then t[k] = IsInRaid() and t.group_members > 5
+            elseif k == "raid_has_warlock" then
+                -- 检测团队/小队中是否有术士
+                local hasWarlock = false
+                local numMembers = GetNumGroupMembers()
+                if numMembers > 0 then
+                    local prefix = IsInRaid() and "raid" or "party"
+                    for i = 1, numMembers do
+                        local unit = prefix .. i
+                        if UnitExists(unit) then
+                            local _, classFile = UnitClass(unit)
+                            if classFile == "WARLOCK" then
+                                hasWarlock = true
+                                break
+                            end
+                        end
+                    end
+                end
+                t[k] = hasWarlock
             elseif k == "solo" then t[k] = t.group_members == 0
             elseif k == "tanking" then t[k] = t.role.tank and t.aggro
 
@@ -5507,8 +5541,28 @@ do
 
         i = 1
         while ( true ) do
-            local name, _, count, _, duration, expires, caster, _, _, spellID, _, _, _, _, timeMod, v1, v2, v3 = UnitDebuff( unit, i )
+            -- WotLK API: name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable, shouldConsolidate, spellId
+            -- Retail API: name, icon, count, debuffType, duration, expirationTime, caster, isStealable, nameplateShowPersonal, spellID, ...
+            local name, rankOrIcon, iconOrCount, countOrDebuffType, debuffTypeOrDuration, durationOrExpires, expiresOrCaster, casterOrStealable, _, spellIDOrConsolidate, spellIDRetail, _, _, _, timeMod, v1, v2, v3 = UnitDebuff( unit, i )
             if not name then break end
+
+            -- 兼容WotLK和Retail的参数差异
+            local spellID, caster, duration, expires, count
+            if type( rankOrIcon ) == "string" and rankOrIcon:match( "^Rank" ) then
+                -- WotLK格式: name, rank, icon, count, debuffType, duration, expirationTime, caster, ...
+                count = countOrDebuffType or 0
+                duration = durationOrExpires or 0
+                expires = expiresOrCaster or 0
+                caster = casterOrStealable
+                spellID = spellIDOrConsolidate
+            else
+                -- Retail格式: name, icon, count, debuffType, duration, expirationTime, caster, ...
+                count = iconOrCount or 0
+                duration = debuffTypeOrDuration or 0
+                expires = durationOrExpires or 0
+                caster = expiresOrCaster
+                spellID = spellIDOrConsolidate or spellIDRetail
+            end
 
             if caster and ( UnitIsUnit( "pet", caster ) or UnitIsUnit( "player", caster ) ) then
                 local key = class.auras[ spellID ] and class.auras[ spellID ].key
@@ -7244,9 +7298,22 @@ function state:TimeToReady( action, pool )
     if spend then
         if type( spend ) == "number" then
             resource = ability.spendType or class.primaryResource
+            -- 修复: 如果spendType是函数，需要调用它 BY 哑吡
+            if type( resource ) == "function" then
+                resource = resource() or class.primaryResource
+            end
         elseif type( spend ) == "function" then
             spend, resource = spend()
             resource = resource or ability.spendType or class.primaryResource
+            -- 修复: 如果spendType是函数，需要调用它 BY 哑吡
+            if type( resource ) == "function" then
+                resource = resource() or class.primaryResource
+            end
+        end
+
+        -- 修复: 确保resource是字符串而非数字(PowerType ID) BY 哑吡
+        if type( resource ) == "number" then
+            resource = ns.GetResourceKey( resource ) or class.primaryResource
         end
 
         -- spend = ns.callHook( 'TimeToReady_spend', spend )
@@ -7275,7 +7342,7 @@ function state:TimeToReady( action, pool )
 
     -- Okay, so we don't have enough of the resource.
     z = resource and self[ resource ]
-    z = z and z[ "time_to_" .. spend ]
+    if z and type( z ) == "table" then z = z[ "time_to_" .. spend ] else z = nil end
 
     for i = 2, 3 do
         local addlSpend, addlResource = ability[ "spend" .. i ]
@@ -7295,7 +7362,7 @@ function state:TimeToReady( action, pool )
             end
 
             if z and addlSpend and addlResource and self[ addlResource ] then
-                z = max( z, self[ addlResource ][ "time_to_" .. addlSpend ] )
+                z = max( z, self[ addlResource ][ "time_to_" .. addlSpend ] or 0 )
             end
         end
     end

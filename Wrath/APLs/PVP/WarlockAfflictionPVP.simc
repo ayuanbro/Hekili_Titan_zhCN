@@ -1,5 +1,5 @@
-## Warlock: Affliction PVP - 痛苦术士 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Warlock: Affliction PVP - 痛苦术士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 持续压制 > 控制 > 生存
 ## Requirements: 5.1, 5.3
 
@@ -23,20 +23,20 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
 actions.init+=/variable,name=dots_up,value=debuff.corruption.up&debuff.curse_of_agony.up&debuff.unstable_affliction.up
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/demonic_circle_teleport,if=health.pct<30&enemy_burst_active
@@ -46,7 +46,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/spell_lock,if=target_is_healer&target.casting
@@ -54,7 +54,7 @@ actions.pvp_interrupt+=/spell_lock,if=target_cast_priority>=80
 actions.pvp_interrupt+=/spell_lock,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/fear,if=target_is_healer&target_dr_fear<3
@@ -63,7 +63,7 @@ actions.pvp_cc+=/howl_of_terror,if=active_enemies>=2&target_dr_fear<3
 actions.pvp_cc+=/curse_of_exhaustion,if=!target.debuff.curse_of_exhaustion.up
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -79,7 +79,7 @@ actions.pvp_st+=/curse_of_agony,if=!debuff.curse_of_agony.up|debuff.curse_of_ago
 actions.pvp_st+=/haunt,if=variable.pvp_burst_window
 ## 鬼影缠身
 actions.pvp_st+=/haunt,if=!debuff.haunt.up
-## 暗影�?
+## 暗影�?
 actions.pvp_st+=/shadow_bolt,if=variable.dots_up
 ## 生命吸取填充
 actions.pvp_st+=/drain_life,if=health.pct<80
@@ -87,7 +87,7 @@ actions.pvp_st+=/drain_life,if=health.pct<80
 actions.pvp_st+=/drain_soul,if=target.health.pct<25
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

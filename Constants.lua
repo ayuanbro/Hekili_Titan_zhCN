@@ -77,6 +77,20 @@ for k, powerType in pairs( ResourceInfo ) do
     ResourceByID[ powerType ] = k
 end
 
+-- 修复: 添加硬编码的PowerType ID映射，防止泰坦服Enum值不同 BY 哑吡
+local HardcodedResourceByID = {
+    [0] = "mana",
+    [1] = "rage",
+    [2] = "focus",
+    [3] = "energy",
+    [4] = "combo_points",
+    [5] = "runes",
+    [6] = "runic_power",
+    [7] = "soul_shards",
+    [8] = "astral_power",
+    [9] = "holy_power",
+}
+
 
 function ns.GetResourceInfo()
     return ResourceInfo
@@ -89,7 +103,8 @@ end
 
 
 function ns.GetResourceKey( id )
-    return ResourceByID[ id ]
+    -- 修复: 先查标准映射，再查硬编码备用映射 BY 哑吡
+    return ResourceByID[ id ] or HardcodedResourceByID[ id ]
 end
 
 

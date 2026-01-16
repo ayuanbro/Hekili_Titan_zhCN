@@ -1,5 +1,5 @@
-## Mage: Arcane PVP - 奥术法师 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Mage: Arcane PVP - 奥术法师 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 爆发 > 控制 > 生存
 ## Requirements: 5.1, 5.3
 
@@ -23,13 +23,13 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
@@ -37,7 +37,7 @@ actions.init+=/variable,name=ab_stacks,value=buff.arcane_blast.stack
 actions.init+=/variable,name=missile_barrage,value=buff.missile_barrage.up
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/ice_block,if=health.pct<20&enemy_burst_active
@@ -49,7 +49,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/counterspell,if=target_is_healer&target.casting
@@ -57,7 +57,7 @@ actions.pvp_interrupt+=/counterspell,if=target_cast_priority>=80
 actions.pvp_interrupt+=/counterspell,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/polymorph,if=target_is_healer&target_dr_incapacitate<3
@@ -65,7 +65,7 @@ actions.pvp_cc+=/deep_freeze,if=target_dr_stun<3&debuff.fingers_of_frost.up
 actions.pvp_cc+=/frost_nova,if=target.distance<10&target_dr_root<3
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -75,9 +75,9 @@ actions.pvp_st+=/counterspell,use_off_gcd=1
 actions.pvp_st+=/arcane_power,if=variable.pvp_burst_window
 actions.pvp_st+=/icy_veins,if=variable.pvp_burst_window
 actions.pvp_st+=/presence_of_mind,if=variable.pvp_burst_window
-## 飞弹弹幕消�?
+## 飞弹弹幕消�?
 actions.pvp_st+=/arcane_missiles,if=variable.missile_barrage
-## 奥术冲击 - 高层�?
+## 奥术冲击 - 高层�?
 actions.pvp_st+=/arcane_blast,if=variable.ab_stacks<4|mana.pct>40
 ## 奥术弹幕 - 清层
 actions.pvp_st+=/arcane_barrage,if=variable.ab_stacks>=4&mana.pct<40
@@ -85,7 +85,7 @@ actions.pvp_st+=/arcane_barrage,if=variable.ab_stacks>=4&mana.pct<40
 actions.pvp_st+=/arcane_missiles
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

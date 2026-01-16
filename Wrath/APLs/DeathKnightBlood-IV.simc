@@ -30,7 +30,7 @@ actions+=/unholy_frenzy
 actions+=/run_action_list,name=aoe,strict=1,if=active_enemies>1
 
 ## ==================== 单体循环 ====================
-## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+## 疾病雕文优化：有雕文时用传染刷新疾病 by 哑吡 20260101
 actions+=/pestilence,if=glyph.disease.enabled&dot.frost_fever.ticking&dot.blood_plague.ticking&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
 
 ## 疾病上debuff - 冰霜热病

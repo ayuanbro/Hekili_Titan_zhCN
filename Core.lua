@@ -1826,8 +1826,15 @@ function Hekili.Update()
                 Hekili:Yield( "After events for " .. dispName )
 
                 if not action then
-                    if class.file == "DEATHKNIGHT" and rawget( state, "rune" ) then
-                        state:SetConstraint( 0, max( 0.01 + state.rune.cooldown * 2, 10 ) )
+                    if class.file == "DEATHKNIGHT" then
+                        -- WotLK使用分离的符文系统(blood_runes, frost_runes, unholy_runes)
+                        local runeCooldown = 10
+                        if rawget( state, "rune" ) then
+                            runeCooldown = state.rune.cooldown or 10
+                        elseif rawget( state, "blood_runes" ) then
+                            runeCooldown = state.blood_runes.cooldown or 10
+                        end
+                        state:SetConstraint( 0, max( 0.01 + runeCooldown * 2, 10 ) )
                     else
                         state:SetConstraint( 0, 10 )
                     end
@@ -2024,10 +2031,67 @@ function Hekili.Update()
                     end
 
                 else
-                    for n = i, numRecs do
-                        action = action or ''
-                        checkstr = checkstr and ( checkstr .. ':' .. action ) or action
-                        slot[n] = nil
+                    -- 当没有找到推荐时，第一个slot使用auto_attack作为后备技能
+                    if i == 1 and class.abilities.auto_attack and state:IsKnown( "auto_attack" ) then
+                        local fallbackAction = "auto_attack"
+                        local fallbackAbility = class.abilities[ fallbackAction ]
+
+                        if fallbackAbility then
+                            action = fallbackAction
+                            wait = 0
+
+                            slot.time = state.offset + wait
+                            slot.exact_time = state.now + state.offset + wait
+                            slot.delay = state.offset + wait
+                            slot.since = 0
+                            slot.resources = slot.resources or {}
+                            slot.depth = 0
+
+                            slot.script = nil
+                            slot.hook = nil
+
+                            slot.listName = "fallback"
+                            slot.action = 0
+                            slot.actionName = fallbackAction
+                            slot.actionID = fallbackAbility.id
+
+                            slot.caption = nil
+                            slot.texture = type( fallbackAbility.texture ) == "function" and fallbackAbility.texture() or fallbackAbility.texture
+                            slot.indicator = nil
+
+                            slot.wait = wait
+                            slot.resource = nil
+
+                            for k, v in pairs( class.resources ) do
+                                slot.resources[ k ] = state[ k ].current
+                            end
+
+                            checkstr = checkstr and ( checkstr .. ':' .. fallbackAction ) or fallbackAction
+
+                            if debug then
+                                Hekili:Debug( "No recommendation found, using fallback action: %s", fallbackAction )
+                            end
+
+                            -- 清空后续slot
+                            for n = 2, numRecs do
+                                Queue[ n ] = Queue[ n ] or {}
+                                Queue[ n ].actionName = nil
+                                Queue[ n ].action = nil
+                                Queue[ n ].actionID = nil
+                            end
+                        else
+                            for n = i, numRecs do
+                                action = action or ''
+                                checkstr = checkstr and ( checkstr .. ':' .. action ) or action
+                                slot[n] = nil
+                            end
+                        end
+                    else
+                        for n = i, numRecs do
+                            action = action or ''
+                            checkstr = checkstr and ( checkstr .. ':' .. action ) or action
+                            slot[n] = nil
+                        end
                     end
 
                     state.delay = 0

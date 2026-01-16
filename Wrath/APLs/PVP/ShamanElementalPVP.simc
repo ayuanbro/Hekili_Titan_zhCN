@@ -1,5 +1,5 @@
-## Shaman: Elemental PVP - 元素萨满 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Shaman: Elemental PVP - 元素萨满 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 爆发 > 控制 > 生存
 ## Requirements: 5.1, 5.3
 
@@ -23,19 +23,19 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/shamanistic_rage,if=health.pct<40&enemy_burst_active
@@ -46,7 +46,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/wind_shear,if=target_is_healer&target.casting
@@ -54,7 +54,7 @@ actions.pvp_interrupt+=/wind_shear,if=target_cast_priority>=80
 actions.pvp_interrupt+=/wind_shear,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/hex,if=target_is_healer&target_dr_incapacitate<3
@@ -63,7 +63,7 @@ actions.pvp_cc+=/earthbind_totem,if=!totem.earth.active
 actions.pvp_cc+=/frost_shock,if=!target.debuff.frost_shock.up
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -77,13 +77,13 @@ actions.pvp_st+=/elemental_mastery,if=variable.pvp_burst_window
 actions.pvp_st+=/flame_shock,if=!debuff.flame_shock.up|debuff.flame_shock.remains<3
 ## 熔岩爆裂
 actions.pvp_st+=/lava_burst,if=debuff.flame_shock.up
-## 闪电�?
+## 闪电�?
 actions.pvp_st+=/lightning_bolt
-## 冰霜震击 - 减�?
+## 冰霜震击 - 减�?
 actions.pvp_st+=/frost_shock,if=!target.debuff.frost_shock.up
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

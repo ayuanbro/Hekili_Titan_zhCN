@@ -1,5 +1,5 @@
-## Warrior: Arms PVP - 武器�?PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Warrior: Arms PVP - 武器�?PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 压制控制 > 致死打击压制 > 生存
 ## Requirements: 5.1, 5.3
 
@@ -28,18 +28,18 @@ actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 actions+=/run_action_list,name=pvp_cc,if=in_pvp
 ## 斩杀阶段
 actions+=/run_action_list,name=pvp_execute,if=in_pvp&variable.execute_phase
-## PVP 主循�?
+## PVP 主循�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=battle_stance,if=buff.battle_stance.up
 actions+=/run_action_list,name=berserker_stance,if=buff.berserker_stance.up
 actions+=/run_action_list,name=defensive_stance,if=buff.defensive_stance.up
-## 后备技�?
+## 后备技�?
 actions+=/heroic_strike
 actions+=/auto_attack
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=time_to_die,value=(debuff.training_dummy.up&300)|target.time_to_die
@@ -54,10 +54,10 @@ actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.h
 actions.init+=/variable,name=pvp_pressure_healer,value=target_is_healer&target.health.pct<70
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
-## 紧急防�?- 血量极低时
+## 紧急防�?- 血量极低时
 actions.pvp_defensive+=/last_stand,if=health.pct<25
 actions.pvp_defensive+=/shield_wall,if=health.pct<20&buff.defensive_stance.up
 actions.pvp_defensive+=/enraged_regeneration,if=health.pct<35&buff.enrage.up
@@ -68,11 +68,11 @@ actions.pvp_defensive+=/defensive_stance,if=enemy_burst_active&health.pct<40&!bu
 ## 治疗药水
 actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
-## 恢复战斗姿�?
+## 恢复战斗姿�?
 actions.pvp_defensive+=/battle_stance,if=buff.defensive_stance.up&health.pct>60&!enemy_burst_active
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 ## 优先打断治疗
@@ -81,26 +81,26 @@ actions.pvp_interrupt+=/pummel,if=target_is_healer&target.casting
 actions.pvp_interrupt+=/spell_reflection,if=target.casting&cooldown.pummel.remains>0
 ## 打断高优先级施法
 actions.pvp_interrupt+=/pummel,if=target_cast_priority>=80
-## 打断一般施�?
+## 打断一般施�?
 actions.pvp_interrupt+=/pummel,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 ## 拦截眩晕治疗
 actions.pvp_cc+=/intercept,if=target_is_healer&target_dr_stun<3&target.outside8
 ## 冲锋眩晕
 actions.pvp_cc+=/charge,if=target_dr_stun<3&target.outside8&buff.battle_stance.up
-## 缴械施法�?
+## 缴械施法�?
 actions.pvp_cc+=/disarm,if=target.casting&!target_is_healer
 ## 断筋防止逃跑
 actions.pvp_cc+=/hamstring,if=!debuff.hamstring.up&target_is_player
-## 恐惧怒吼 - 多目标控�?
+## 恐惧怒吼 - 多目标控�?
 actions.pvp_cc+=/intimidating_shout,if=active_enemies>1&target_dr_fear<3
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/charge,if=target.outside8&buff.battle_stance.up
@@ -118,15 +118,15 @@ actions.pvp_st+=/berserker_stance,if=variable.pvp_burst_window&cooldown.reckless
 actions.pvp_st+=/recklessness,if=buff.berserker_stance.up&variable.pvp_burst_window
 actions.pvp_st+=/bladestorm,if=buff.recklessness.up
 actions.pvp_st+=/battle_stance,if=buff.berserker_stance.up&!buff.recklessness.up
-## 横扫攻击 - 多目�?
+## 横扫攻击 - 多目�?
 actions.pvp_st+=/sweeping_strikes,use_off_gcd=1,if=active_enemies>1
 ## 致死打击 - 核心技能，维持减疗
 actions.pvp_st+=/mortal_strike
-## 剑刃风暴 - 单目标填�?
+## 剑刃风暴 - 单目标填�?
 actions.pvp_st+=/bladestorm,if=variable.bladestorm_ready&!variable.pvp_burst_window
 ## 猛击填充
 actions.pvp_st+=/slam,if=!moving&rage.current>=30
-## 后备技�?
+## 后备技�?
 actions.pvp_st+=/heroic_strike
 
 ## ============================================================================
@@ -147,11 +147,11 @@ actions.pvp_execute+=/overpower,if=buff.taste_for_blood.up&buff.battle_stance.up
 actions.pvp_execute+=/execute
 ## 致死打击填充
 actions.pvp_execute+=/mortal_strike,if=rage.current<50
-## 后备技�?
+## 后备技�?
 actions.pvp_execute+=/heroic_strike
 
 ## ============================================================================
-## PVE 战斗姿�?(回退)
+## PVE 战斗姿�?(回退)
 ## ============================================================================
 
 actions.battle_stance+=/charge,if=target.outside8
@@ -178,7 +178,7 @@ actions.battle_stance+=/slam,if=!moving&rage.current>=30
 actions.battle_stance+=/heroic_strike
 
 ## ============================================================================
-## PVE 狂暴姿�?(回退)
+## PVE 狂暴姿�?(回退)
 ## ============================================================================
 
 actions.berserker_stance+=/recklessness,if=cooldown.bladestorm.remains<1.5|debuff.shattering_throw.up
@@ -186,7 +186,7 @@ actions.berserker_stance+=/bladestorm,if=buff.recklessness.up
 actions.berserker_stance+=/battle_stance
 
 ## ============================================================================
-## PVE 防御姿�?(回退)
+## PVE 防御姿�?(回退)
 ## ============================================================================
 
 actions.defensive_stance+=/battle_stance

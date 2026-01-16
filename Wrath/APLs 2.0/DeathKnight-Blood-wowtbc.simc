@@ -53,7 +53,7 @@ actions+=/icy_touch,if=frost_rune_wasting
 actions+=/blood_strike,if=blood_rune_wasting
 
 ## 疫病维护
-## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+## 疾病雕文优化：有雕文时用传染刷新疾病 by 哑吡 20260101
 actions+=/pestilence,if=glyph.disease.enabled&has_diseases&(dot.frost_fever.remains<4|dot.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
 
 ## 冰触 - 最高威胁技能

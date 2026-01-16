@@ -1,5 +1,5 @@
-## Warlock: Destruction PVP - 毁灭术士 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Warlock: Destruction PVP - 毁灭术士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 爆发 > 控制 > 持续压制
 ## Requirements: 5.1, 5.3
 
@@ -23,20 +23,20 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
 actions.init+=/variable,name=backdraft,value=buff.backdraft.up
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/demonic_circle_teleport,if=health.pct<30&enemy_burst_active
@@ -47,7 +47,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 ## 毁灭术没有打断，使用控制代替
@@ -55,7 +55,7 @@ actions.pvp_interrupt+=/shadowfury,if=target_is_healer&target.casting&target_dr_
 actions.pvp_interrupt+=/death_coil,if=target_is_healer&target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/fear,if=target_is_healer&target_dr_fear<3
@@ -64,7 +64,7 @@ actions.pvp_cc+=/death_coil,if=target_is_healer&target_dr_fear>=3
 actions.pvp_cc+=/curse_of_exhaustion,if=!target.debuff.curse_of_exhaustion.up
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -76,19 +76,19 @@ actions.pvp_st+=/immolate,if=!debuff.immolate.up|debuff.immolate.remains<3
 actions.pvp_st+=/corruption,if=!debuff.corruption.up|debuff.corruption.remains<3
 ## 爆发窗口
 actions.pvp_st+=/conflagrate,if=variable.pvp_burst_window&debuff.immolate.up
-## 混乱�?
+## 混乱�?
 actions.pvp_st+=/chaos_bolt,if=variable.pvp_burst_window
 ## 燃烧
 actions.pvp_st+=/conflagrate,if=debuff.immolate.up
-## 后燃消�?
+## 后燃消�?
 actions.pvp_st+=/incinerate,if=variable.backdraft
-## 混乱�?
+## 混乱�?
 actions.pvp_st+=/chaos_bolt
 ## 焚烧
 actions.pvp_st+=/incinerate
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

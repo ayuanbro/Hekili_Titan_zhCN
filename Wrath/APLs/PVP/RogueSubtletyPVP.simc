@@ -1,6 +1,6 @@
-## Rogue: Subtlety PVP - 敏锐盗贼 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
-## 核心策略: 控制�?> 爆发 > 生存
+﻿## Rogue: Subtlety PVP - 敏锐盗贼 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
+## 核心策略: 控制�?> 爆发 > 生存
 ## Requirements: 5.1, 5.3
 
 ## ============================================================================
@@ -25,13 +25,13 @@ actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer&target_dr_stun<3
 ## 潜行起手
 actions+=/run_action_list,name=stealth,if=buff.stealth.up|buff.shadow_dance.up
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
@@ -39,7 +39,7 @@ actions.init+=/variable,name=need_snd,value=!buff.slice_and_dice.up|buff.slice_a
 actions.init+=/variable,name=shadow_dance_ready,value=cooldown.shadow_dance.remains<1
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/cloak_of_shadows,if=health.pct<25&enemy_burst_active
@@ -50,7 +50,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/kick,if=target_is_healer&target.casting
@@ -58,7 +58,7 @@ actions.pvp_interrupt+=/kick,if=target_cast_priority>=80
 actions.pvp_interrupt+=/kick,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/kidney_shot,if=target_is_healer&target_dr_stun<3&combo_points.current>=4
@@ -77,7 +77,7 @@ actions.stealth+=/garrote,if=in_pvp&target_is_healer&target_dr_stun>=3
 actions.stealth+=/ambush
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -97,7 +97,7 @@ actions.pvp_st+=/hemorrhage,if=!debuff.hemorrhage.up|debuff.hemorrhage.remains<3
 actions.pvp_st+=/backstab
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

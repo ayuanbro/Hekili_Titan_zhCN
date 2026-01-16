@@ -3430,35 +3430,90 @@ all:RegisterAbilities( {
         }
     },
 
+    
+    -- 通用热力工程炸药 - 工程学制造的炸药，用于AOE伤害
+    -- 物品ID: 42641，技能ID: 56488
+    -- 圆圆bro添加热力工程炸药的支持代码
     global_thermal_sapper_charge = {
-        id = 56488,
+        name = "|cff00ccff[通用热力工程炸药]|r",
         cast = 0,
-        cooldown = 300,
+        cooldown = 300, -- 固定5分钟冷却
         gcd = "off",
 
-        item = 56488,
+        item = 42641,
         bagItem = true,
+        isItem = true,
 
-        startsCombat = true,
-        texture = 135826,
+        startsCombat = false,
+
         toggle = "cooldowns",
 
         usable = function ()
-            if GetItemCount( 56488 ) == 0 then return false, "requires charge in bag"
-            elseif not IsUsableItem( 56488 ) then return false, "on cooldown or unusable" end
+            local hasExplosive = GetItemCount( 42641 ) > 0
+            if not hasExplosive then return false, "需要背包中有通用热力工程炸药" end
+            -- 检查自身冷却和萨隆邪铁炸弹的冷却
+            local start1, duration1 = GetItemCooldown( 42641 )
+            local start2, duration2 = GetItemCooldown( 41119 )
+            if start1 + duration1 > query_time or start2 + duration2 > query_time then 
+                return false, "通用热力工程炸药CD中" 
+            end
             return true
         end,
 
         readyTime = function ()
-            local start, duration = GetItemCooldown( 56488 )
-            return max( 0, start + duration - query_time )
+            -- 取两个物品冷却中的最大值
+            local start1, duration1 = GetItemCooldown( 42641 )
+            local start2, duration2 = GetItemCooldown( 41119 )
+            local cd1 = max( 0, start1 + duration1 - query_time )
+            local cd2 = max( 0, start2 + duration2 - query_time )
+            return max( cd1, cd2 , 0)
         end,
 
         handler = function ()
-            if class.file == "MAGE" then
-                -- Assume we're proccing Incanter's Absorption.
-                if talent.incanters_absorption.enabled and buff.fire_ward.up then applyBuff( "incanters_absorption" ) end
+            -- 炸药效果由游戏处理
+        end,
+    },
+
+    -- 萨隆邪铁炸弹 - 工程学制造的炸弹，用于AOE伤害
+    -- 物品ID: 41119，与通用热力工程炸药共享冷却
+    -- 圆圆bro添加的萨隆邪铁炸弹支持
+    saronite_bomb = {
+        name = "|cff00ccff[萨隆邪铁炸弹]|r",
+        cast = 0,
+        cooldown = 60, -- 固定1分钟冷却
+        gcd = "off",
+
+        item = 41119,
+        bagItem = true,
+        isItem = true,
+
+        startsCombat = false,
+
+        toggle = "cooldowns",
+
+        usable = function ()
+            local hasBomb = GetItemCount( 41119 ) > 0
+            if not hasBomb then return false, "需要背包中有萨隆邪铁炸弹" end
+            -- 检查自身冷却和通用热力工程炸药的冷却
+            local start1, duration1 = GetItemCooldown( 41119 )
+            local start2, duration2 = GetItemCooldown( 42641 )
+            if start1 + duration1 > query_time or start2 + duration2 > query_time then 
+                return false, "萨隆邪铁炸弹CD中" 
             end
+            return true
+        end,
+
+        readyTime = function ()
+            -- 取两个物品冷却中的最大值
+            local start1, duration1 = GetItemCooldown( 41119 )
+            local start2, duration2 = GetItemCooldown( 42641 )
+            local cd1 = max( 0, start1 + duration1 - query_time )
+            local cd2 = max( 0, start2 + duration2 - query_time )
+            return max( cd1, cd2 , 0 )
+        end,
+
+        handler = function ()
+            -- 炸弹效果由游戏处理
         end,
     },
 

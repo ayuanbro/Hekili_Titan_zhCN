@@ -1620,6 +1620,8 @@ spec:RegisterAbilities( {
             removeBuff( "juggernaut" )
             applyDebuff( "target", "mortal_strike" )
         end,
+
+        copy = { 21551, 21552, 21553, 25248, 27580, 30330, 47485, 47486 },
     },
 
 

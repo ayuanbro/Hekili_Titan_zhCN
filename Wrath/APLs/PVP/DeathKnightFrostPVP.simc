@@ -1,4 +1,4 @@
-## Death Knight: Frost PVP - 冰霜死亡骑士 PVP �?
+﻿## Death Knight: Frost PVP - 冰霜死亡骑士 PVP �?
 ## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 爆发压制 > 控制 > 生存
 ## Requirements: 5.1, 5.3
@@ -74,7 +74,7 @@ actions.pvp_st+=/mind_freeze,use_off_gcd=1
 ## 疾病维护
 actions.pvp_st+=/icy_touch,if=!debuff.frost_fever.up
 actions.pvp_st+=/plague_strike,if=!debuff.blood_plague.up
-## 疾病雕文优化：有雕文时用传染刷新疾病 by Kiro 20260101
+## 疾病雕文优化：有雕文时用传染刷新疾病 by 哑吡 20260101
 actions.pvp_st+=/pestilence,if=glyph.disease.enabled&debuff.frost_fever.up&debuff.blood_plague.up&(debuff.frost_fever.remains<4|debuff.blood_plague.remains<4)&(blood_runes.current>=1|death_runes>=1)
 ## 爆发窗口
 actions.pvp_st+=/empower_rune_weapon,if=variable.pvp_burst_window&frost_runes.current<1&unholy_runes.current<1

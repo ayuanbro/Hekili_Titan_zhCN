@@ -243,7 +243,7 @@ spec:RegisterAuras( {
         duration = function() return glyph.garrote.enabled and 21 or 18 end,
         tick_time = 3,
         max_stack = 1,
-        copy = { 703, 8631, 8632, 8633, 8818, 11289, 11290, 26839, 26884, 48675, 48676 },
+        copy = { 703, 8631, 8632, 8633, 8818, 11289, 11290, 26839, 26884, 48675, 48676, 1284409 },-- 圆圆bro添加锁喉新ID
     },
     -- Silenced.
     garrote_silence = {
@@ -438,6 +438,13 @@ spec:RegisterAuras( {
         max_stack = 1,
         shared = "target"
     },
+    -- 修复: 添加deep_wounds别名，指向deep_wound（解决APL中使用复数形式的问题）
+    deep_wounds = {
+        id = 43104,
+        duration = 12,
+        max_stack = 1,
+        shared = "target"
+    },
     bleed = {
         alias = { "lacerate", "pounce_bleed", "rip", "rake", "deep_wound", "rend", "garrote", "rupture" },
         aliasType = "debuff",
@@ -447,6 +454,12 @@ spec:RegisterAuras( {
     lions_heart = {
         id = 20599,
         duration = 15,
+        max_stack = 1,
+    },
+    -- 死亡印记 (泰坦时光服) - 标记目标，储存伤害
+    marked_for_death = {
+        id = 1284398,
+        duration = 6,
         max_stack = 1,
     },
 } )
@@ -979,7 +992,7 @@ spec:RegisterAbilities( {
             gain( talent.initiative.rank == 3 and 2 or 1, "combo_points" )
         end,
 
-        copy = { 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676 },
+        copy = { 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676, 1284409 },--圆圆bro添加锁喉新ID
     },
 
 
@@ -1514,6 +1527,47 @@ spec:RegisterAbilities( {
             applyBuff( "lions_heart" )
         end,
     },
+
+    -- 菊花茶 - 泰坦重铸服盗贼技能，瞬间恢复100能量
+    thistle_tea = {
+        id = 9512,
+        cast = 0,
+        cooldown = 300,
+        gcd = "off",
+
+        startsCombat = false,
+        texture = 132819,
+
+        toggle = "cooldowns",
+
+        handler = function()
+            gain( 100, "energy" )
+        end,
+    },
+
+    -- 死亡印记 (泰坦时光服新技能)
+    -- 终结技，标记目标6秒，储存期间造成的伤害，结束时释放
+    -- 1点5%, 2点10%, 3点15%, 4点20%, 5点25%
+    marked_for_death = {
+        id = 1284398,
+        name = "死亡印记",
+        cast = 0,
+        cooldown = 6,
+        gcd = "totem",
+
+        spend = function() return combo_points.current end,
+        spendType = "combo_points",
+
+        startsCombat = true,
+        texture = 236364,
+
+        usable = function() return combo_points.current > 0, "requires combo_points" end,
+
+        handler = function ()
+            applyDebuff( "target", "marked_for_death", 6 )
+            spend( combo_points.current, "combo_points" )
+        end,
+    },
 } )
 
 spec:RegisterSetting("rogue_description", nil, {
@@ -1577,6 +1631,8 @@ spec:RegisterPack( "刺杀(黑科研)", 20251205, [[Hekili:TEvxRrsrx4FmlKpWnZxzt
 spec:RegisterPack( "战斗(黑科研)", 20250901, [[Hekili:9IvqtTTru4)nDGdXJLnoLmdLd9uAoWfNBDIeRLwmASSKNvsKYfpMM6ed1jyADiPeMjKjqdH2yttzOeJDZpMOvY(u(l03UkGLPilhN0EWES1(2V337BF7UVNefeVPyAfKfwCUeXtKk(1IletivQectlM2A5cyX0fqY5qzHFOJYdF7w5XUB(Oj6D6gEVydVDQpjZIL1mqkmKmnSjYGvIPZyRQz9n6Izga(PtehmQawwCUPetVOQIc23eSPSy6UV9xCo5a31k19oDCA)yA5kETErVY33Rtd6tB506bxhNtvt19pwLwDtVvRqRCStNTFxPVV4nkEdFgrx7jaP8E5XURw6DLQ175pO3to4DL2WDN34E)g01B68MAsxhrWfNpzmHZXWNCXtXaQ7H3X9Hh506UE7CKx9x37ER5w)VPv2L2yR33UkD9dOnFtgdtt)bypQwv3hDmDTDOL3ZFo02LOL)tyOEN(4Un2L93AnbEkMwt10YKR54fq2AwWpNt4SVSetJ1rz0WkIFTyABtS0TxuvdljJmTu1ZYmkns2s1qhwnuTigszmmy4XT1yHfKYkRWTsMOAHjQiUFyqyHizXwsQMsWIOfSAmo(0Sarv36J0BfN)lkoFg7fwiwqkhtX426mIKKjgN5GCQY5cYhlwAYnhGH99LSr(mgsfmakzgt2MqW6wfN)RkoFkUlX6ys2L7pWSWithNpKp9IPG50IyxWYMGJzxiqKQQdluyIKPfrnhxXsfqXoZSfHDieiDgRiHKLXAycYFGbcHRgAi8bIyPMh0mdjfvqTMb4zY(UaRVew3ipdNV8Jghb)4nCLkGFws1uMXFEWo94Q6xU0sW5rQ6MWIqX5VA)ectnvzSesxbyS8Gwnvym7AFEzMDHqPtWHqkaAinvDSeX2CXbYvgKFcXhxcYDugnKcwAbny0LpJbmhTewcsOZRI9LhHrsefcLKcHss2(YisAgjFhrIq0PkZaPk95)hgMt(eFcKFQOjp44KrBfeIjcp)GF62Ls(KrTjEi6X0xIUH)UcgWXXisEdYaSBOSpujAMrwJgkDdCs6aiWLGWpsFIiC7vImRzso38xz(SGgOKXhj9y6HOQNVJDeU55FRxP(KorzCxchjeMAOep8l(IcxHHIB4xeYqWc(i5VTWpnyISed7cqPi5Za3wZxng4kbn8synUSnXveMKVQBqG)CHPntFDfQ(BYjh5nJ8BIh2EUbVUlag8On87I)FpAJ6eXrrnI(K)XfOWv)urCIxYHi)duWrMGYpxX6ptOsr5CMqHXswlcLHrGlY5vAhEbbdH(JzDjNFb4fR(LLJfOAVGLzWjz4fe8FijhLLVzhPdZMnSQ(VqCdTpc8iRe0jd2F1j8IjIaQlevCWc)Y9q35NAynDaTAaeLnx05DkE54pI5IbB2QGXL0Rs4rGPHMr)jNfrigw(Cey5sWzgSNhOl)BJi6GudLc4(QD9BI3DZ75C6XETBrpCdOj6EL2YR((927q6pVI3w)GB9MUvxb6sMEARUnA42CDNtoO)Rb4oD6TDPU)6k0QLD)XF)9T3c6vNDf(3605TamER(saMBXAhVAzATFZ50tD68q3x)m3Tx1)j0T3)C0Co5vGh9Dnmf3kB2Tu5Za0)Xc3I(tv)WVtWWT7B)f3D(l6kBrp8UUpy)U3Vged0w19nP7Zlt39EU7SEqO5VAc3k1OR9uAZ20Y7506Ujo)vCqR8OUpBFUnS1zdwRZSxDcY2Ar4WN0(V8cNt2V7rT5YS4)a]] )
 spec:RegisterPack( "战斗(黑科研)", 20251227, [[Hekili:TRvBtnrww4FlutvuHACYReh3Tiu1oV8H1p4S1MP2pMKMKgilH0P6UJZAvuPcQqsqJGccSdOaZIJOUcOIisa5hZMB3D(0(xyo37Tt637oXbCRAl1sQq337555EVNZZ5CpXeHs8JjINHrKnX1chmC0qHd)1(dfms0bJKiU4nkWMiEbM0tWmg8H8mtc)mk(j3ihhtg8mf4kYNgEAI4JumBoX)C(eJyN5gm6vGXwGnDIRnyI4JNntgw6izfsNi(FLBSIS)XsP(wUjhHrSuQVQukPQRkT8kYRTIYbNukLVWbdenuGGdu6QsVzF0J(1wvQ3AXJKw5q0m1KwVozk)L)23R8HfrvowA9YOTFk6UllxRQ06)ByoBEe6SBH(WZLV3EamOQvq1EDPuddFS2Rv(x3u9Jl1657q(yRB(CPPpuAPgOknkDv02pt5T3HmVJLEu5WbLV579HF)TNpAaPv2u6wZejGsLdq3)0ibKF9hqvMnCauTNkT3dcfaDYXaruQVNYSZpya0SVtzRYWt3FAu99HjOC2cHGfvPuA)LUYJgcJcAMDADRDuPpHgWGBT2dLwUcWhGmsv3vET1KF5BdGQwwQwLaOxmT8toszVYYpVEI45YkikGpMsNJL56SWNUg58MnpZi5yZK4BG3WNvKLpltI49vk1ifhDu)c5YMMnjt(mjZaFWFXcLs1FPuPHZgUKf4YMxuWF6I88S5HtQHJvkvOeXzslMLlpCcByQjebNahHZoS4zNKjBEHsPgQuQiEaBy3GnIJWkYKdmH)rYXKHn5O5alEd)QdKay7DbddOybnW0)cmud6fumzasZKlBE2K8ffg3aAS5z5h7gAlmyDhni5n2FuOrdtwfZKOEXKjYMdMWyjfkWZY6fpIeTR4HbBIzXL9IfP5YLj5i544YyGcoFspOgAAZnr8IcSj5gD0KJLod2TgG(RDeAxmobCFKd(mSKvlFXcIf5PE(tnLLhR3jfM9aAStDeyQCLpAQydjS(0oCauRUSgbyVEwH0S8y5xGd)HEKdyNpDbvzZdQhS8jfe5ZobXGHcITOtdqhuIWFbT9rzkMt0orNohNm5YLK(ljXAvufRK0enG5fDxczCwMCIJ7Vq62ES6Iszb7GFp23Sah5HT1f0CDtpHrw7sWmSsXGXMXpWz9h55DCbOof3dnXt(6SjHaWjZYkyXH3n7ZW5raND2omXDY8BgcEtKUdv1uj2eU1nZwqSt0rx5hrDI7i6vuKljJOiJ5doaeq)jnP(HooCDaq9CWOHdRFiQEiMTjEh(Z5m)CoZpNZ0HKeJYKhSxYjYdQjcF059oVsGPLe1(K5Wlez4hJv0Vy2jztcAjzYYsYHgkSTzXnMWZ4I1OAsOqDTKMOMIKxAlQRHXy455en6dP(mlkzmtoc212kIUdgbhZrDTlaYUnnS3EqRcOwDWiSZ0J7mn8ZbkmP5TZiUnPEkV9)hlO4IeWqgf7)ui40UoAhkI2XisxQUoIHQR)y1XUqYr7So3fAoANvefyffHJyb)yKeH)LK9FuGtGTRo20oCMK5VZXNKHFs4N8SzksyIbFEQzPdrtJShuPbuJEXCPRqoRV197aAeXEmCU6mpwU9M7VBxSlKZLQ516SNjXvSvAc)IOospNvJ9IEoMgYoQ7i(oRb3n10y3fFVCVKDNCXvBY2YvGeMQzORZaKcEl(t5kYIVYSZo9KHRElk1barOJYZsZ7y2T0BW8uOspIcWi0HMzhqVrZ5KB954XUEcqNpC0XHZKzxoFV5GRf5qEPXKZgzWif5HRXwyCgbwY5mG0pXWNhl6MiUu1fqZTbAVtqZ8KMhp7x38ONlnxzLBDkQ6kkBTZ)P8nlD1e47VooOAghT49rlSf(oRCJMftWV4lkLQx6coE8FmDcNmVFxDdhBHpbDehdtp1vC8e66oJx6Q0jeZM)qWcvRoqA02vCymxL6Jj4Vtxh(YybuRQ3(xslq2(3bYiPNqaF3cXXHkS5HllFPSJgBmEoW50vQ2QXQk7UnAUDAE66EqvahZTB7syh7yy5kvpJx3qE5vGJgP9pG4i1807bNoTQmp4F180ZKxAh9MZMESHPTwx5gcIWPgU2Isl)s9ZfxdV67oDDLTUR8ChkvEAL3(oPA3r)4m1ljkJv3OXGzOTCud(N(HVN6Cdrmd(LYRTR0MvgWtBYWr2ZXpxRXydhBqvp(9Nx5P3wANTaJJde)QiDRDPTlZothUFJpzOyrubR(dBE6IQRbVSVG6zhAH7bURunh9tYuYk9Vsx30C3ldv9rONEhiQfn)QGZGxXeyhkW8TLFP80ukRlrKKJzFcVHg0dJPlBKQHCjz2qr8WAgtTOAqJ5Rap5(7ZP0hUBDDPn0ZvR2zQPSnfKhAvKOh14ghoxWZU5jRIMPQCJhJwUgQXXYV4oF3p8J)3tUR8Tpe8CAEY8G4U0spqA1n0woQXwWksTzdyV4(S0tc7MaTleE4vv)H0GOorRFdNGawONOSpGRlhIyKCTNHwCA0dURQKLoI0rX9s6UQySq4vGJB)wBZXqrcAYODAyHr7AAuy1nZdOZwbSY1NkcRZIoPmA9JHfY3(DONCku)aA)xHfBjd3OPDlxr)Pbx4mC)uE)2mkiCGjZnmWd5QZIM)(und5D3sEHzvrepcLB(HMhnNYmhlFWMOzFno5pMQWqbjaiXqZJVx0G46oaUVWEGRuNInOdrAPdLxBotS302oM5U3GM(nfhgny)oCzE1fM(u)09ws9nOxUkA9DAE0sD4FNuAa1Bn9zOzQRY7J)fOYjlhO6ck1XABBMJzodAh2Z5(T76idflC71cT4iYQO1m1rlunkeFk3acJxeo0mLqMsuTMKy1X3Xw7ylpGCF97ZYDUMAQ(S8S(DqfpYag96jheYnoqAUTPv3UE5wVyvvLPJFQoFpOgs6OHdjqQcv)nuVmFHGna8Vn)EdyAHBCZLOu1dB6dJJqjB5uVfaI9Nv6WQOTFf2fV67KwEFFHbWB24jquH3G7A(ihOqyJbNBEG8sqD5(qR9lTwDJwRxw5xNgiZa2PkOVPmKYICOBqoEs3Nh9)X4jj5Ec6pjjk2qgfDNHyFv6aPNWMySQZcMS2XPyr73NvpTPMYPcguVbWGDa1h2hI8jYEwpbU(neDDkX4wa9(r4f)HvvkVIYzpgKiHRNyzlapqFQBz78g0U)SnesRbgUSH0TbEdFz9Bge4PsBQU1ebUENb4DLUMcxXKi4Wxr9QaQ5CwFJwRCa1XGU)bC1N1uo0X9XXvhYZBDny4Gv)TDvliYM4ntvv7engkQ(IZD3gEuSKJxaXLQKmO42bC6nsoFKm7cB(7sjev7(OQ3Q57FLs1htc2cREHo0zZaPeSHa6)QM1L0ZUV7A1k6n9Tw3gA9fhzdoxKvYybSlMYp6SjBOZiwa)CQItAXm06y6udJnWDUwbJMFejr0rnOEp2aBxKsOxti1gAsMcRi2DQyDTI7LBdOvfmF6dJAEYpRS7ZAEY2ODFdQ6Ss3xF1mAXXDVaNxZ1DHn77wt3kQHLeal089TRpAPgTkVbAUnLQUGgZy4oNL7CYGNVAD4TgqMtFIdkWxWACuq(uiWrr6)fQBuKVaK2ODBwQ6Y2OXrb9IrGJaBN4HJAqcgWb)2F6A4)llUfDBqeRTx56hl9p3Jw9w76Bp7fqGxNs5G7u38O60GuQ27aMzqxj)zu)M2t6gZa3KxTkGxUQ0bnG6PHIeB9WZS2LAvS6cXDBUwR1(bnCiTOvtL0zZ2Qf9clFXIIjs8B)]] )
 spec:RegisterPack( "刺杀(黑科研)", 20251227, [[Hekili:TR1wVnrsw4FlOrkkwd4eBhdbucsZODEy5bMvRhTpA7o2Ds8It3wD3MzrkYYb2GTdKjbc5YUjCjSjegyzcdtacXjWpM1v12pT)f2tvvB33QUBNBlcPzgnit1vDoFvD(QVZPo7MmsYFizIScAIjVA0(Jgps0OxiCK(JD(ydMmH2nkiMmrbHmxtym4hscta)zCYi3iVSqwYkvLlQKbgnzIrkMlV2Fuk5i8mx84xeMBbXmjV6ajtmEUSzfzZuuntYe)z5XkkEPsP)gvvbv1CscA5KLkL(CLsJQUh(HL1xD5M7SFP09gpsFrgSVOHkDf8V9A0dFwRkZ2AHDXl)o001WRnlDj)P)Y318JlGQShETYOn2cD3L0RvfV2)gwZt2f9PBH(4l0)PTVeX2vq1EtP0xUu6MRxUXhUtRn3eV7o0bWBpvJ93WYpXp4(4vECPRG24NB(27CP2ilEe9B(HEXBF)MZUDF6vVnAU7X8siyHvxbV0YrgKoJ)5oOk17dDVdAS7R6dxEZwLFmzkloxRhmFu6mw(j4BnnUgG86OvFuZBDaSlBT6I4LQCP2GOpR4Sp0lNsFZDBUDz9xmBYe5ZPQPsIizYlkCDr4xxLgAfLegjVy2KFl8fLCAIk5eGaRqErjTWJxuAmrLuJkRKAK8YYzdBm5sP7boSlL(mLspsXrh198kwOu6jN0RVQioHqoj1sPhQu6i9xkDO22lRiDbJjOOiRj2XkgdRuSGwrf2WHsMqidHfaKfhMpPgqT8CN1gYQ5ZLrmLGu2uzHFqTjGHmYtmICQcY5K0udNPOIcCkab5HbCA6q7lL4UyE6oE(Y62pwaUnQFUDaRUDeRUDmf5o7i58zL)rPWAk5YCn1uYJMsBCXuAkczjiri7nm9aNPqCt8GOjzaxWHG49UAa63ncRzbqK)gK5PklfwvdutmMLjYm9qYefvfbioAQXYKLqHbaEEpbyqq4mC5C2(GjRZeogJr89foY(oWTpDw8jRMqru66IsYtqGYGhsOmKTJ4jkQLlprxgS0fjwY1hSyBn4FbT5rfkMxJNssN4Mq(8Py)LuebiMmukwIICs508)Y64Ic51gpCHmm0glUPLhreSd575Kgd2z0bBFtS9CUgqNTJA7xzS5lvnQZeZggWS1qTKNBaJL4)DeYIVUykrjXjYjQ6Iz7N9fKf9NEZZ2rP0gNFzi4lX6oVAKFGd3UBwTQwhQO)ei7KmHIAYPe0iSFx8SckIecSGjtRJKOraWUHJADkgud7ZiM)cNbPiQXcn)Eg0Fpd6NTmONw5gHtulQSJkir2mxtcetupDt3f7ejNgVu7wz9(LZxtqzmrTWA5MacDYahrKwFFKOCt8Bt(Y(5KDXMi9hSyOMPwMVQk8WUPTngZLgOp(0F35T0uxeqhGj9W7uLCTTF3A0UzV0THJH7SmY4asNW5bEm)wuq1e8zue4l2CfERXCKL36ogw3kc6TQ1PsYmVfTovtMDrpDRQOMguNSAyIN0G)lL4FRGSQyxffm1CMq4VcHDbLjG)urmBrksS)AeQzztXu77yQFFuFAweVf247CW3X7oI3H9Pzr8UCQGoh8dlDamuNVYy3WYYlLEW(p0G07IWooG0XbMHdTllDOHQ3VJ7W(w3iERl7DfsEFO7HtoFxLpM(IyozKLlqVdBAHRlaae(k5x5lkAiSW9OLozJhNzmb4Y7OkIQJZRo)U0v(PHz1JQWmS4nNmSG92jsspRiA8rhXkICsKcgrEZ1T6MSfsrhtLgzb79Jcksen4KjWvNhnZJrBVpA6nBS3TVqJDFbEMYnV1bOQl3C9N)FkFZsxjj5fXJdIOjqlCp08RtEfS8O5iW4R(QsPpcneNSSJstXPR7eOX4e78)3MJt8yx3G8sxHTGH58pu0GQnlQYTrBuXJ5CfgHrnCN2v81d3Nrr98)iRSx(FJtnKNn3OdZki1xO2Q(kn)LnqZ88ghSwaqf8JZg0Dwc7DyIoKrK)n11xAzi(GF9owxhN2VrWNzd7gkwCdluBb8sVY6AjLGB8TdwR563vFM3HlpvZ3(ECT7yDEoAZedAgNOeNzRJDmd(nF)3XyPa1FGVwF1Fb)KkHc0McY0dxY4M9m7YdpGbP91Z1CR)o(5RdghmB0ZfRBTlRtA8mD0ESpYqdhZWzZUyJdwWypeK9vncsO5)jGxY0qSUO25zSoMLgT5ppcv9HOTUdieGMBLwvMliwpHYaMVTAjdGoY3CwQc6W8YvnuKamLLejwnd)8qdflaRzjjGH1oJxzzMCsFZWme8Kk)9vNmbgEYNAL8xdIEzX4AIhrdYQ1R)i0s1q13t)L35p89)a6(3f)MAGQGjmnU4ai1O0Acf9mUR2MDh1IkEVmDBi1sJDR38ztXgLr8cXZ(MmqFPAZUi7kvN7UFRSQkjdq7SbCxh1Ino4t6p4561(z0ctbBvhkvau6i0EwlVlC4iKTSxH8E8oebQctoP7wAmuS(D4ZonNWUBDmlIuOZj05KcoySMGIoK9L7xwIEcULf28L1mJ613bpZg0cdG6bA9YvAS)kOPRQV3wgOGMADTYafGf4WRvd)2PatGxSk(rRHRnlWiWFQmEN6oGSZJBcEdO)h907X4YzOE61fXEYjD9aYq2p3V97H9cD)3A6zrZxnoHMtViW4B8cgMTGWntZZ(G0dV3yaKm)PG2blTAS2HSoHhOKi2xGc9aLa0S)gA)YO532bQTlGsfc4)ompqAeJuquxrCYRVn(DvrB8RK6lR(E8sVU3OWHxJ6B2y3zcfOZ9vu3die12XH(t2r)bqXP9Iw9PTw5XmwkaMq8Izw7xbTKcpAuINHPZeqRrShPQ9MM)RBsPvSWf7otVn2DpR3(WZnFJpUk(HR3OEhuBerzA7n29bKOl1AWo7)U)Dbkj7VsS7DNIzxh7vdYozBg0UX8QsNHS0oqRBP2L7FU2psqVEv96laPeSaCZBp92SYoqz8Ss(h4CXr)6nPHghrfwTbEH0HJ7)TJE4tGzyza(ybxFDalWblOBbv7asEhsq5)DwaY27wWLhSFFHjdIKzW)ovJp9qsCMID0tFK(QUUBDSWBNtrxLP5jQDrkmE4N5JsHYgyCeRLnW7wz7Qg8c7dzuzolwH37PK3TcQC13sV(RmyKhslYj(yT2ApmxaL145dh8PEgoPH74B27j(cijQTusUH)jqoNUWMhRuj2BnGlVDcv4fRodwjgMcNUD3NHslyPtGY8zC2ETMyjehiEsNDX514oo6KrxZtbm7nTYL3duizaFwK)Yf87DXruQqq(lxDcg2pbfj8YGNckemxDkipGQwgxRcU6sC0jyo9evKWmcrClnjoWpD)QFZocWMzJp8yy0MB9msVCPvNeYjoT9)xj8oHSdHadeGwBp8)yBOAOMLx22nuMTpMIdXSR(rDAJ6tJw75g9N4vRaVOfk1O1Y70AXpb)W45GoGXHqm08wbp9r3DA4YrmzGoknHZXRZpA5)nP0sM8)9]] )
+
+spec:RegisterPack( "敏锐(黑科研)", 20260115, [[Hekili:fRvBVPnww4FlJgnRAL2GaYKmDh1DK2kTJ0Kp0rAz2VcyGBcEdbJSnDALgHOVfmjHqsBNK0usBsNM2Ko5120ecV0(Jz9128P(xypxFTbdyBG8s3wfcyFVNZZ5CEoN7bNtqFb)LGbIXiIcEt)E9pQxF(g1JxVFRF)JemG4DsHcgift0jzMaEtsMPGxv(9InEYcxPr1fvFZIQR)KRswXDsWXeJijbU08rHvfmqK0Sje)PKbJ0H4b5kKcfn4n9gmqC2yXq0LGeIgmW)IBI0OVpt4aPJiMajENmHhktyQcvF2YAhvlZykV)a8AVwz5Jv3UIA(tXs)PAEj911erY1wbp3sKlpMC9sAzFiir8lQixz(MlrrAfLLw(xytj0ixb80pnZyWYvkTdSstyMzSmJ93T5FaGwVm(t3xPufS0XA7FKYkZNjSTRCmTpCIs(zbH6ZRYkVG(P)k5tQV5r4PFOQ00QBwgUWWKpxydTc7RuDrTnMdlLdN)DdPvFh8FE3Hu2TQCLnWfoqBVdaufU1)vwDzC9dv2DZgV8bAhmlEVIdjxRiox1Hgb0N19PFbqMA)X9gQXtUlEP8DiP53uDTSw2mS2gVDlhfhvgd1UqOxuj)JXL2Ig1WV6n4Ys34F)J)OA1hRSgi1cQR(aLszXlmVC5SGzBvXTln1DZlx5jGIvFWXWYXsvaabol6hTIgCTS9XwH340UvVx52fWvaJW3q(LlploxfTnYEvcBOfP57Zmgq4WhuVrUIA7TTwU3Ip5q5Yf0E9DbtNkwWohLgM12ytAa9Z1Mt7tpvz9tKRTkSn56RJlUV29Rdkd2mOjDhVoy1vGY(fv2zdd0NVGY73s5bfvlnlaRMrE8JMd4ianszL9XtFcUWrupnOlIBEZ6G8B8Wc4fKAUfTtEbDlYv3exCgGfIlUi1(buz4uApc2i3CGpcqOYABIF5ZXZSUFVFJCTxH3796ivDNDGWPC53QCSe(vhsav9d1KEEJ7xN6La5rJiT55bsq9pP(KToBGf)67P88su3dfl0xvE3gkV7J49MJiwPfLRUd(GdBKnVYSBBYZgYC3DaCG4GLoWpj)eIr49RPL7isy6Gfbuclech0fcIUX9(d5tLard1GWsvjHgcTBAQ0lTfv0KaOURWibyH5bIrtTARpbej1Tqjb6HbO2hSd8ERsOy7(AaCGYie8DZt8z5ksS18zbNK68B7YwGLbWfkdPU8J0fFJLFhPs2hFi4wXsNOSeH4sTrkHw(0dPri4vWQUXphiaKqaAC4r(gqDaxKgXaMnXGkxqzPDbrqnA88vnnf9i2ZwxUCf8R2w7dZQukVYmzjS)L2wzTSaRcIEuiPxmdOoG2vRUiH6Oh2uKwckMtlYaeYgR9s9LRvCgTzouBUJPaKYquk9cIcSqHBIjyRuRb4Ykp7i8RwLyXqrRCv6wpgSUQsKW3mzPXwDXqxLbFpFbknx(tRPT)DPreal(86DiF(9kF6Snw(Owz)aHcObv3LcviWaWqU8AqTFQ81lwaEsIbPtSa3O6EBOJX1jb9vFGUWEwJv0lVv8TnkLLwDWagq1eZ6qG5s2OUmbMfC6IjbLGdPSk5Zb3)F8Z)tIxy5JXzFkHJu)XKs1pBpL1ZH)0FsjOnxaHM(XLPNoH3DfiVfafnctlVsVLAvGrmlLOtffizkPQzrtImHeGp8wTJovz(8ugVEoRrAsL5i5C6(A9SM8WhLlxfpJrG(Z1Kuw)uLc7rRodaeC14PFpW7)CnJd5u)9Nsig6qWwURbJ0crmyGeScIcKwAytYkc)(M6DkHsYejbkwWBemaxkOtgKyWamrfz5sgmWTy4zj3L8UePHFfLBQiCHsXXMuuWt0088OKIzc)dqleJKj8FboLjt4Vkt4yOiPhFCp8PtjMMh5jDQmH)TFRRlZJMIHnPqMWxhAxit4RQRUq0wYmwtOuOKXytorqrOzRlCWAdm7(Qnr5pKj8OwHi6wScrr8qJGwr5Wdmkn03um8tIIfACo(qXqmIXb4yvBSjd15kiQ7Bhy1zOmbreFiUXdjy0xAhQloJqOUxerJJmWAuKHFcKON4iMeGzLkQinIpsBoZBJIMM4jbfJa1is8lJZKoHT8utvfLjrIq0peIqUPu8MEmwr74nr5zbZILbmYUrKPKJGa5qUpewbgK(fnJUMRzs2OtAvY2eoAPlWvsugkMhaZTKbF6KoAagBXoNEl5s28TqHqjrtXIOS0H7pXZWrC03Cuh8TUJmYo)oRodbWDRtxee5zNe1HF5AwxktArUqmIImD6(aLKIhrYAzAf2BQadVr7c25GRitciD3diWPqXyfzisXJ5kBk12UDxryJaFNGK45SHv2s3qjq90mHeSrrHysglum4nMfyCUSKplMBBB1Dt1zboSUcnsafzNcfcC9Xyru(ElTzxPLoRK1LRviotmUFnumMKGTzSqD9bKr(jUthMMxVUy8xVdJ3IKDpTYbXbv4BjTXzsskInzsirrW9SPEDIHDNTznLr)A2Lv1)QWf536ehkp0mLWvUOB5bUfrAJF0vAIZKXwUOjy455e7bTV9qLXwCN(1lpyley7zQUX5huI2fvJp2WGo7K0ZsBn2sXgywC7btMPIKwiEZtkSvoo3nIoOD62w9G(8mYzGFPN(0mZjTacK)4HMiAmYvC9aak33PDqUoyCtj0XMg2TnnqDsCwQ(ETEw8T3zowpkXLoN6S2TZ84ZIH0hhJ0NwsuoUeGEt65wmqNlXBlHWNxNThNZjmShUBH4NKnrIlmBPjsBZtzfVd7TpdouB19uY)VBgn7EY66Sw5ULvCTEzfWbxPy4T7qpNJ(J6TpX7O9RB3ckiO(V1lut1iu1lv3DS26EerbmvxQRefSGqrsWXfZgL06M9r7a6NU0rjkFxcna37Kx3Ar2NZTLyhCSEkI)lzKDj1oJRNs2RUD8D2B3P3G6RCdx9zcMpV9mz1APABTrNp)rajkcF9EbpePjc)ecD7uCcOELg0Ld4)akKHFk4vEuS06GXIxOFimuftfIoQh0oVUyAeDqGSLwv958Hj9cTUai)2RlNl5pG6Qp6lUVZUAVTzFoxG)IhJobc)E71PmXraBJpoZeO(4aG27JU1w1vLRheC(1weMOtkiYerxx98j(mrCobXe3X4br1NkRdMFhYWAOU9BPdP2EMrU(GWipHlOyg5zf76xAVZ(SUER2SUsplCsThs6UJfoPlb(INKC7KOBl2X36HlbukZyWheP4gAhuGCxld9WVYWNKuanyafPfWZ8c8(1WpCt5kt)DK)6J6)LWWslRTXw)3S3lZybjp4V4q9Ta4hViEHniTfXnol5bf)1FDMW9XGsqw2GnSeKD0)dmbz12o0eKBy74qmadobrgxgdpbrUTn2dNRbOOlPDwhIIof05Fqk6uId4Wu0xBVxdurNcXMHQqFjuQQ1HRGCHl9bSWqjFzhYctFYzAqlmq8x8HTWe0NJbUWmIE5n0fMA4IzWlmjhxIdFHHk(InagnJI9EimmH2amiggB5l7WyygZVmhidtDCPpugTiWx0dMHzK)CpCgMzfxKdOrtWDggsdsVwb)Fp]] )
 
 
 spec:RegisterPackSelector( "assassination", "刺杀(黑科研)", "|T132292:0|t 刺杀",

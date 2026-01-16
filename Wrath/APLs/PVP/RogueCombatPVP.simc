@@ -1,5 +1,5 @@
-## Rogue: Combat PVP - 战斗盗贼 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Rogue: Combat PVP - 战斗盗贼 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 持续压制 > 控制 > 爆发
 ## Requirements: 5.1, 5.3
 
@@ -24,20 +24,20 @@ actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer&target_dr_stun<3
 ## 潜行起手
 actions+=/run_action_list,name=stealth,if=buff.stealth.up
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
 actions.init+=/variable,name=need_snd,value=!buff.slice_and_dice.up|buff.slice_and_dice.remains<3
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/cloak_of_shadows,if=health.pct<25&enemy_burst_active
@@ -48,7 +48,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/kick,if=target_is_healer&target.casting
@@ -56,7 +56,7 @@ actions.pvp_interrupt+=/kick,if=target_cast_priority>=80
 actions.pvp_interrupt+=/kick,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/kidney_shot,if=target_is_healer&target_dr_stun<3&combo_points.current>=4
@@ -73,7 +73,7 @@ actions.stealth+=/garrote,if=in_pvp&target_is_healer
 actions.stealth+=/ambush
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -92,7 +92,7 @@ actions.pvp_st+=/rupture,if=combo_points.current>=4&!debuff.rupture.up
 actions.pvp_st+=/sinister_strike
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

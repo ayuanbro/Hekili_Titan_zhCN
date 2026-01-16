@@ -1,5 +1,5 @@
-## Paladin: Retribution PVP - 惩戒骑士 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Paladin: Retribution PVP - 惩戒骑士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 爆发 > 生存 > 控制
 ## Requirements: 5.1, 5.3
 
@@ -23,20 +23,20 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
 actions.init+=/variable,name=art_of_war,value=buff.art_of_war.up
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/divine_shield,if=health.pct<20&enemy_burst_active
@@ -48,7 +48,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 ## 惩戒骑没有打断，使用控制代替
@@ -56,7 +56,7 @@ actions.pvp_interrupt+=/hammer_of_justice,if=target_is_healer&target.casting&tar
 actions.pvp_interrupt+=/repentance,if=target_is_healer&target.casting&target_dr_incapacitate<3
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/hammer_of_justice,if=target_is_healer&target_dr_stun<3
@@ -64,18 +64,18 @@ actions.pvp_cc+=/repentance,if=target_is_healer&target_dr_incapacitate<3
 actions.pvp_cc+=/turn_evil,if=target.is_undead&target_dr_fear<3
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
 actions.pvp_st+=/use_items,use_off_gcd=1
 ## 爆发窗口
 actions.pvp_st+=/avenging_wrath,if=variable.pvp_burst_window
-## 战争艺术消�?
+## 战争艺术消�?
 actions.pvp_st+=/exorcism,if=variable.art_of_war
 ## 审判
 actions.pvp_st+=/judgement
-## 十字军打�?
+## 十字军打�?
 actions.pvp_st+=/crusader_strike
 ## 神圣风暴
 actions.pvp_st+=/divine_storm,if=holy_power>=3
@@ -83,7 +83,7 @@ actions.pvp_st+=/divine_storm,if=holy_power>=3
 actions.pvp_st+=/consecration,if=target.distance<8
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

@@ -1,5 +1,5 @@
-## Warlock: Demonology PVP - 恶魔术士 PVP �?
-## 泰坦时空特别�?- PVP 优化手法
+﻿## Warlock: Demonology PVP - 恶魔术士 PVP �?
+## 泰坦时空特别�?- PVP 优化手法
 ## 核心策略: 宠物压制 > 爆发 > 控制
 ## Requirements: 5.1, 5.3
 
@@ -23,13 +23,13 @@ actions+=/run_action_list,name=pvp_defensive,if=in_pvp&(enemy_burst_active|healt
 actions+=/run_action_list,name=pvp_interrupt,if=in_pvp&target.casting
 ## PVP 控制优先
 actions+=/run_action_list,name=pvp_cc,if=in_pvp&target_is_healer
-## PVP 单目�?
+## PVP 单目�?
 actions+=/run_action_list,name=pvp_st,if=in_pvp
 ## PVE 回退
 actions+=/run_action_list,name=st
 
 ## ============================================================================
-## 初始化变�?
+## 初始化变�?
 ## ============================================================================
 
 actions.init+=/variable,name=pvp_burst_window,value=!enemy_burst_active&target.health.pct<50&!target_has_defensive
@@ -37,7 +37,7 @@ actions.init+=/variable,name=molten_core,value=buff.molten_core.up
 actions.init+=/variable,name=decimation,value=buff.decimation.up
 
 ## ============================================================================
-## PVP 防守优先�?
+## PVP 防守优先�?
 ## ============================================================================
 
 actions.pvp_defensive+=/demonic_circle_teleport,if=health.pct<30&enemy_burst_active
@@ -48,7 +48,7 @@ actions.pvp_defensive+=/healthstone,if=health.pct<25
 actions.pvp_defensive+=/health_potion,if=health.pct<30
 
 ## ============================================================================
-## PVP 打断优先�?
+## PVP 打断优先�?
 ## ============================================================================
 
 actions.pvp_interrupt+=/axe_toss,if=target_is_healer&target.casting
@@ -56,7 +56,7 @@ actions.pvp_interrupt+=/axe_toss,if=target_cast_priority>=80
 actions.pvp_interrupt+=/axe_toss,if=target.casting
 
 ## ============================================================================
-## PVP 控制优先�?
+## PVP 控制优先�?
 ## ============================================================================
 
 actions.pvp_cc+=/fear,if=target_is_healer&target_dr_fear<3
@@ -65,7 +65,7 @@ actions.pvp_cc+=/axe_toss,if=target_is_healer&target_dr_stun<3
 actions.pvp_cc+=/curse_of_exhaustion,if=!target.debuff.curse_of_exhaustion.up
 
 ## ============================================================================
-## PVP 单目标循�?
+## PVP 单目标循�?
 ## ============================================================================
 
 actions.pvp_st+=/potion,use_off_gcd=1,if=variable.pvp_burst_window
@@ -78,17 +78,17 @@ actions.pvp_st+=/metamorphosis,if=variable.pvp_burst_window
 ## DOT 维护
 actions.pvp_st+=/corruption,if=!debuff.corruption.up|debuff.corruption.remains<3
 actions.pvp_st+=/immolate,if=!debuff.immolate.up|debuff.immolate.remains<3
-## 熔核消�?
+## 熔核消�?
 actions.pvp_st+=/incinerate,if=variable.molten_core
-## 斩杀消�?
+## 斩杀消�?
 actions.pvp_st+=/soul_fire,if=variable.decimation
-## 暗影�?
+## 暗影�?
 actions.pvp_st+=/shadow_bolt
 ## 生命吸取填充
 actions.pvp_st+=/drain_life,if=health.pct<80
 
 ## ============================================================================
-## PVE 单目标循�?(回退)
+## PVE 单目标循�?(回退)
 ## ============================================================================
 
 actions.st+=/potion,use_off_gcd=1

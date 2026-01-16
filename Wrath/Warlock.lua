@@ -2046,7 +2046,7 @@ spec:RegisterAbilities( {
             removeStack( "backdraft" )
         end,
 
-        copy = { 6353, 17924, 27211, 30545, 47824 }, --移除重复的47825，by Kiro 20251230
+        copy = { 6353, 17924, 27211, 30545, 47824 }, --移除重复的47825，by 哑吡 20251230
     },
 
 
