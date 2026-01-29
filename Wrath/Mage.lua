@@ -99,6 +99,7 @@ spec:RegisterTalents( {
     torment_the_weak       = {  2222, 1, 29447, 55339, 55340 },
     winters_chill          = {    68, 1, 11180, 28592, 28593 },
     world_in_flames        = {    31, 1, 11108, 12349, 12350 },
+    lance_mage             = { 23712, 1, 1284602 },--长枪法师
 } )
 
 spec:RegisterAuras( {
