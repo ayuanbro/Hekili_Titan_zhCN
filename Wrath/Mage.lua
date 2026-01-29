@@ -801,19 +801,8 @@ spec:RegisterHook( "reset_precast", function()
     end
 
     -- When Frostbolt consumes FoF, we can still make use of that FoF until the Frostbolt impact.
+    --时光服是寒冰箭施法完成瞬间消耗寒冰指，所以在寒冰指只剩一层时，寒冰箭施法中狂点瞬发技能，可以利用当前这个寒冰指，让双寒冰指可以做到寒冰箭+寒冰箭+(瞬发霜火/冰枪/深度冻结)
 
-    local frostbolt_remains = action.frostbolt.in_flight_remains
-    if frostbolt_remains == 0 and query_time - lastFrostboltCast < 0.2 then
-        frostbolt_remains = max( 0, lastFrostboltCast + ( target.distance / action.frostbolt.velocity ) - query_time )
-    end
-
-    if lastFingersConsumed == lastFrostboltCast and frostbolt_remains > 0 and frostbolt_remains < cooldown.deep_freeze.remains then
-        if buff.fingers_of_frost.up then 
-            addStack( "fingers_of_frost" )
-        else
-            addStack( "fingers_of_frost", frostbolt_remains )
-        end
-    end
 
     if heatingUp then
         applyBuff("heating_up")
@@ -1478,8 +1467,11 @@ spec:RegisterAbilities( {
             if buff.presence_of_mind.up then removeBuff( "presence_of_mind" ) end
         end,
 
-        impact = function()
+        finish = function() --施法成功时消耗寒冰指
             if buff.fingers_of_frost.up then removeStack( "fingers_of_frost" ) end
+        end,
+
+        impact = function()
             applyDebuff( "target", "frostbolt" )
         end,
         copy = { 116, 205, 837, 7322, 8406, 8407, 8408, 10179, 10180, 10181, 25304, 27071, 27072, 38697, 42841, 42842 },
