@@ -2480,18 +2480,14 @@ spec:RegisterAbilities( {
             
             -- 疾病雕文检查：有雕文时可以刷新主目标疾病 by 哑吡 20260101
             if glyph.disease.enabled then
-                -- 有疾病雕文：检查主目标疾病是否需要刷新（剩余时间<6秒）
-                local needRefresh = dot.frost_fever.remains < 6 or dot.blood_plague.remains < 6
+                -- 有疾病雕文：检查主目标疾病是否需要刷新（剩余时间<15秒）
+                local needRefresh = dot.frost_fever.remains < 15 or dot.blood_plague.remains < 15
                 if needRefresh then
                     return true
                 end
             end
             
             -- 使用实时检查：计算缺少疾病的敌人数量
-            if active_enemies == 1 then
-                -- 单目标时，跳过缺少疾病检查，直接返回 true
-                return true
-            end
             local missingCount = countEnemiesMissingDisease()
             if missingCount == 0 then
                 return false, "所有敌人都有疾病"
