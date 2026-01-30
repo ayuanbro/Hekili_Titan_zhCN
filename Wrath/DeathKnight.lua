@@ -993,36 +993,18 @@ local GetRuneType, IsCurrentSpell = _G.GetRuneType, _G.IsCurrentSpell
 
 -- 符文类型常量（兼容不同服务器）
 local RUNE_TYPE_BLOOD = 1
-local RUNE_TYPE_UNHOLY = 2  
+local RUNE_TYPE_UNHOLY = 2
 local RUNE_TYPE_FROST = 3
 local RUNE_TYPE_DEATH = 4
 
 -- 检测死亡符文类型（泰坦服可能使用不同的值）
 local function IsDeathRune( runeIndex )
     local runeType = GetRuneType( runeIndex )
-    -- 死亡符文类型通常是 4，但也检查其他可能的值
-    -- 如果符文类型与其原始类型不同，且不是 0/nil，可能是死亡符文
-    if runeType == RUNE_TYPE_DEATH then
-        return true
+    -- 只检测明确的死亡符文类型，确保 runeType 是有效的
+    if not runeType or runeType == 0 then
+        return false
     end
-    
-    -- 备用检测：检查符文是否被转换
-    -- 鲜血符文(1-2)原始类型应该是1，邪恶(3-4)是2，冰霜(5-6)是3
-    local originalType
-    if runeIndex <= 2 then
-        originalType = RUNE_TYPE_BLOOD
-    elseif runeIndex <= 4 then
-        originalType = RUNE_TYPE_UNHOLY
-    else
-        originalType = RUNE_TYPE_FROST
-    end
-    
-    -- 如果当前类型与原始类型不同，可能是死亡符文
-    if runeType and runeType ~= originalType and runeType ~= 0 then
-        return true
-    end
-    
-    return false
+    return runeType == RUNE_TYPE_DEATH
 end
 
 -- 食尸鬼宠物注册 - 修复亡者复生有宠物仍显示问题 by 哑吡 20251226
@@ -2506,6 +2488,10 @@ spec:RegisterAbilities( {
             end
             
             -- 使用实时检查：计算缺少疾病的敌人数量
+            if active_enemies == 1 then
+                -- 单目标时，跳过缺少疾病检查，直接返回 true
+                return true
+            end
             local missingCount = countEnemiesMissingDisease()
             if missingCount == 0 then
                 return false, "所有敌人都有疾病"
@@ -3127,26 +3113,26 @@ spec:RegisterSetting("pestilence_hp_threshold", 50, {
     width = "full",
 })
 
-spec:RegisterSetting("pestilence_min_targets", 2, {
+spec:RegisterSetting("pestilence_min_targets", 1, {  --邪dk单体也需要施法凋零
     type = "range",
     name = "枯萎凋零最少目标数",
     desc = "设置释放枯萎凋零所需的最少敌人数量。\n\n" ..
            "例如设置为3，则只有当战斗中有3个或更多敌人时才会推荐枯萎凋零。\n\n" ..
-           "默认值为2（至少2个目标才推荐传染）。",
-    min = 2,
+           "默认值为1（至少1个目标才推荐传染）。",
+    min = 1,
     max = 10,
     step = 1,
     width = "full",
 })
 
-spec:RegisterSetting("blood_boil_min_targets", 2, {
+spec:RegisterSetting("blood_boil_min_targets", 1, {  --邪dk单体血沸的伤害比鲜血打击伤害高，所以单体时可以推荐
     type = "range",
     name = "血液沸腾最少目标数",
     desc = "设置释放血液沸腾所需的最少敌人数量。\n\n" ..
            "例如设置为3，则只有当战斗中有3个或更多敌人时才会推荐血液沸腾。\n\n" ..
-           "默认值为2（至少2个目标才推荐血液沸腾）。\n\n" ..
+           "默认值为1（至少1个目标才推荐血液沸腾）。\n\n" ..
            "注意：血液沸腾还需要目标有疾病才会推荐。",
-    min = 2,
+    min = 1, 
     max = 10,
     step = 1,
     width = "full",
