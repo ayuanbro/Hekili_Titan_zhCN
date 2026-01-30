@@ -1411,6 +1411,58 @@ all:RegisterAuras( {
         end,
     },
 
+    
+
+    -- 测试用debuff 5H 金币限制 半小时debuff
+    coin_limit = {
+        id = 1284288,
+        duration = 1800,
+        max_stack = 1,
+    },
+    -- 嘉顿 活体炸弹（冰箱可解）
+    living_bomb = {
+        id = 20475,
+        duration = 8,
+        max_stack = 1,
+    },
+    -- 毒蛇老一 肮脏淤泥（冰箱可解）
+    vile_sludge = {
+        id = 38246,
+        duration = 24,
+        max_stack = 1,
+    },
+
+    -- 冰箱（寒冰屏障）可解除的debuff 
+    ice_block_removable = {
+        generate = function ( t )
+            local ice_removables = {
+                [20475] = 'living_bomb',  -- 嘉顿 - 活体炸弹
+                [38246] = 'vile_sludge',  -- 毒蛇老一 - 肮脏淤泥
+                --[1284288] = 'coin_limit', -- 测试5H - 金币限制debuff
+
+            }
+
+            for id, key in pairs( ice_removables ) do
+                local aura = debuff[ key ]
+                if aura and aura.up then 
+                    t.count = aura.count
+                    t.expires = aura.expires
+                    t.applied = aura.applied
+                    t.caster = aura.caster
+                    return
+                end
+            end
+
+            t.count = 0
+            t.expires = 0
+            t.applied = 0
+            t.caster = 'nobody'
+        end,
+    },
+
+
+
+
     -- Increases Stamina by $w1.
     prayer_of_fortitude = {
         id = 21562,
