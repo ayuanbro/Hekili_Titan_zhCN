@@ -198,7 +198,67 @@ all:RegisterAuras({
 
 })
 
+    -- 时光服触发buff
+    -- 裁缝附魔 亮纹刺绣
+    lightweave = {
+        id = 55637,
+        duration = 15,
+        max_stack = 1
+    },
+    -- 流放者的日晷-就是现在！
+    now_is_the_time = {
+        id = 60064,
+        duration = 10,
+        max_stack = 1
+    },
+
+
+} )
+
 all:RegisterAbilities( {
+     -- 时光服P1 P2
+     --短暂能量护符
+    talisman_of_ephemeral_power = {
+        cast = 0,
+        cooldown = 90,
+        gcd = "off",
+
+        item = 18820,
+        toggle = "cooldowns",
+
+        handler = function()
+            applyBuff( "ephemeral_power" )
+        end,
+
+        auras = {
+            ephemeral_power = {
+                id = 1265532,
+                duration = 15,
+                max_stack = 1
+            }
+        }
+    },     
+    --战争囚徒印记
+    mark_of_the_war_prisoner = { 
+        cast = 0,
+        cooldown = 120,
+        gcd = "off",
+
+        item = 37873,
+        toggle = "cooldowns",
+
+        handler = function()
+            applyBuff( "mark_of_the_war_prisoner" )
+        end,
+
+        auras = {
+            mark_of_the_war_prisoner = {
+                id = 60480,
+                duration = 20,
+                max_stack = 1
+            }
+        }
+    },      
     -- Phase 4
 
     abracadaver = {
