@@ -208,6 +208,36 @@ all:RegisterAuras({
         duration = 10,
         max_stack = 1
     },
+    --痛苦反射攻击强度提高1000点，持续10 秒。
+    reflection_of_torment = {
+        id = 60065,
+        duration = 10,
+        max_stack = 1
+    },    
+    --武器附魔狂暴
+    berserk_weapon_enchant = {
+        id = 59620,
+        duration = 15,
+        max_stack = 1
+    },
+    --伟大
+    greatness = {
+        id = 60299,
+        duration = 15,
+        copy= {60299,60233,60234,60235},
+    },
+    --攻强触发合集 时光服P1P2
+    proc_ap = {
+        alias = { "greatness", "berserk_weapon_enchant", "reflection_of_torment", "heart_of_a_dragon" },
+        aliasMode = "first",
+        aliasType = "buff",        
+    },    
+    --法强触发合集 时光服P1P2
+    proc_sp = {
+        alias = { "lightweave", "lightweave", "ephemeral_power", "mark_of_the_war_prisoner" },
+        aliasMode = "first",
+        aliasType = "buff",        
+    },    
 
 })
 
@@ -254,7 +284,28 @@ all:RegisterAbilities( {
                 max_stack = 1
             }
         }
-    },      
+    },
+    --红龙宝珠
+    sphere_of_red_dragons_blood = { 
+        cast = 0,
+        cooldown = 120,
+        gcd = "off",
+
+        item = 37166,
+        toggle = "cooldowns",
+
+        handler = function()
+            applyBuff( "heart_of_a_dragon" )
+        end,
+
+        auras = {
+            heart_of_a_dragon = {
+                id = 60305,
+                duration = 20,
+                max_stack = 1
+            }
+        }
+    },    
     -- Phase 4
 
     abracadaver = {
