@@ -195,9 +195,6 @@ all:RegisterAuras({
         aliasMode = "latest",
         aliasType = "buff",
     },
-
-})
-
     -- 时光服触发buff
     -- 裁缝附魔 亮纹刺绣
     lightweave = {
@@ -212,8 +209,7 @@ all:RegisterAuras({
         max_stack = 1
     },
 
-
-} )
+})
 
 all:RegisterAbilities( {
      -- 时光服P1 P2
