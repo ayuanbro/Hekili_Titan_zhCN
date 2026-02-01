@@ -1791,6 +1791,7 @@ all:RegisterAuras( {
         duration = function() return glyph.tricks_of_the_trade.enabled and 10 or 6 end,
         max_stack = 1,
         shared = "player"
+        copy = { 57933,59628 },    --时光服添加自身增伤buff 59628    
     },
 
     -- Chance to be critically hit with spells increased by $s1%.
