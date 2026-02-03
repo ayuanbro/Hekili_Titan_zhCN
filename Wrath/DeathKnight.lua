@@ -153,6 +153,16 @@ spec:RegisterResource( Enum.PowerType.RuneBlood, {
         elseif k == "regen" then
             return 0
 
+        elseif k == "time_1" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.BLOOD[1] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
+
+        elseif k == "time_2" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.BLOOD[2] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
+
         else
             local amount = k:match( "time_to_(%d+)" )
             amount = amount and tonumber( amount )
@@ -294,6 +304,16 @@ spec:RegisterResource( Enum.PowerType.RuneFrost, {
         elseif k == "regen" then
             return 0
 
+        elseif k == "time_1" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.FROST[1] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
+
+        elseif k == "time_2" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.FROST[2] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
+
         else
             local amount = k:match( "time_to_(%d+)" )
             amount = amount and tonumber( amount )
@@ -434,6 +454,16 @@ spec:RegisterResource( Enum.PowerType.RuneUnholy, {
 
         elseif k == "regen" then
             return 0
+
+        elseif k == "time_1" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.UNHOLY[1] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
+
+        elseif k == "time_2" then
+            local start, duration, ready = SafeGetRuneCooldown( RUNE_INDEX.UNHOLY[2] )
+            local cooldown = start + duration - GetTime()
+            return math.max( 0, cooldown )
 
         else
             local amount = k:match( "time_to_(%d+)" )
