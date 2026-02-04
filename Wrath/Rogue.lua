@@ -458,10 +458,9 @@ spec:RegisterAuras( {
     },
     -- 转嫁 (泰坦时光服) - 储存连击点数
     redirect = {
-        id = 1282540,
+        id = 1282539,
         duration = 3600,
         max_stack = 5,
-        copy = { 1282538, 1282540 }
     },
 } )
 
